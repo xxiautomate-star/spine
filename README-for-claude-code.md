@@ -73,14 +73,15 @@ Once `@spine/mcp` is published to npm, you will use:
 }
 ```
 
-Restart Claude Code. Six new tools appear in the tool inspector:
+Restart Claude Code. Seven new tools appear in the tool inspector:
 
 - `spine_capture`
 - `spine_capture_bulk`
-- `spine_recall`
-- `spine_context`
+- `spine_recall` — top-5 hybrid (vector + BM25 + temporal decay) reranked by Haiku 4.5
+- `spine_context` — single-query context block, ready to paste into a prompt
+- `spine_context_for_session` — multi-hint bootstrap, called ONCE at session start
 - `spine_timeline`
-- `spine_forget`
+- `spine_forget` — hard delete (no undo)
 
 ## 4. Teach Claude to use them
 
@@ -89,14 +90,35 @@ Add this to your project's `CLAUDE.md` so every session you start gets the rules
 ```md
 You have access to Spine — an append-only, infinite memory layer.
 
-- Call `spine_capture` whenever you learn a stable fact about me, my preferences, my stack,
-  or ongoing work. Never summarise — capture the sentence as I said it.
-- At the start of any new task, call `spine_recall` with a short query describing what you
-  are about to do. Use what comes back as context.
-- Call `spine_context` if you want a ready-to-paste block of the top memories for a query.
-- Call `spine_timeline` to scan recent activity.
-- Never call `spine_forget` unless I explicitly ask you to.
+- **On session start**: call `spine_context_for_session` with 3-5 hints describing what we
+  are about to work on (filenames, topics, queries). Prepend the returned block to your
+  working context. This is the primary proactive-injection hook.
+- **During the session**: call `spine_recall` with a short query whenever you need more
+  context for a specific step. Results are already reranked for relevance.
+- **After learning**: call `spine_capture` whenever you learn a stable fact about me, my
+  preferences, my stack, or ongoing work. Never summarise — capture the sentence as I said it.
+- `spine_context` gives a ready-to-paste block for a single query (token-budgeted).
+- `spine_timeline` scans recent activity chronologically.
+- `spine_forget` is a hard delete — never call it unless I explicitly ask to forget a
+  specific memory.
 ```
+
+### How retrieval actually works
+
+Every `spine_recall` (cloud mode) runs this pipeline server-side:
+
+1. Embed the query with OpenAI `text-embedding-3-small` (1536-dim).
+2. Fetch 30 candidates by cosine similarity (HNSW index over pgvector).
+3. Fetch 30 candidates by BM25 full-text rank (Postgres `tsvector` + GIN index).
+4. Merge with reciprocal rank fusion (k=60), multiply by temporal decay
+   (`exp(-days / (90/ln2))` — half-life 90 days).
+5. Send the top 30 fused candidates to Claude Haiku 4.5 with a cached system prompt.
+6. Return the reranked top N with per-pick relevance scores and one-sentence reasons.
+
+If `ANTHROPIC_API_KEY` is unset, step 5 is skipped and the fused-only ordering is returned.
+The raw pgvector-only path is still available at `POST /api/recall/raw` for debugging.
+
+Open `spine.xxiautomate.com/dashboard/recall` to watch each stage on your own archive.
 
 ## 5. Inspect the archive
 

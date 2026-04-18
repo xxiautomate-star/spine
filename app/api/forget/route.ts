@@ -1,3 +1,8 @@
+// Forget is forget. The memory row is hard-deleted along with its embedding
+// (vector column) and content_tsv (generated stored column). No undelete.
+// This is the only path in the product that removes data — everything else is
+// append-only.
+
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireApiKey } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
@@ -21,14 +26,12 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabase();
   if (!supabase) return NextResponse.json({ error: 'Server not configured.' }, { status: 500 });
 
-  const { data, error } = await supabase
+  const { error, count } = await supabase
     .from('memories')
-    .update({ deleted_at: new Date().toISOString() })
+    .delete({ count: 'exact' })
     .eq('user_id', auth.authed.userId)
-    .eq('id', id)
-    .is('deleted_at', null)
-    .select('id');
+    .eq('id', id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ forgotten: (data ?? []).length > 0 });
+  return NextResponse.json({ forgotten: (count ?? 0) > 0 });
 }

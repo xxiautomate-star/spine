@@ -1,4 +1,4 @@
-import type { Store } from './store/index.js';
+import type { Memory, Store } from './store/index.js';
 
 export const TOOL_DEFS = [
   {
@@ -107,12 +107,50 @@ export const TOOL_DEFS = [
   {
     name: 'spine_forget',
     description:
-      'Soft-delete a single memory by id. Sets deleted_at; the row is never hard-deleted. ' +
-      'Reserved for genuinely sensitive removals — do NOT call this unless the user asks.',
+      'Hard-delete a single memory by id. The row, its embedding, and its full-text index ' +
+      'entry are removed. No undo. Reserved for genuinely sensitive removals — do NOT call ' +
+      'this unless the user explicitly asks to forget a specific memory.',
     inputSchema: {
       type: 'object',
       required: ['id'],
       properties: { id: { type: 'string' } },
+    },
+  },
+  {
+    name: 'spine_context_for_session',
+    description:
+      'Session bootstrap: returns a pre-assembled markdown block of the memories most relevant ' +
+      'to the current conversation. Pass an array of short hints describing what the user is ' +
+      'about to work on (queries, file paths, topics). Each hint runs through hybrid vector + ' +
+      'BM25 retrieval and a Haiku reranker; results are deduplicated and fused into one block ' +
+      'ready to prepend to the system prompt. Call this ONCE at the start of a new session.',
+    inputSchema: {
+      type: 'object',
+      required: ['hints'],
+      properties: {
+        hints: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 8,
+          items: { type: 'string' },
+          description:
+            'Short phrases describing the upcoming work, e.g. ["landing page copy", "Supabase RLS", "launch date"].',
+        },
+        per_hint: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 10,
+          default: 5,
+          description: 'Top memories to keep per hint before deduping.',
+        },
+        token_budget: {
+          type: 'integer',
+          minimum: 200,
+          maximum: 32000,
+          default: 2000,
+          description: 'Approximate token cap for the final assembled block.',
+        },
+      },
     },
   },
 ] as const;
@@ -209,6 +247,72 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
     case 'spine_forget': {
       const forgotten = await store.forget(str(args.id, 'id'));
       return JSON.stringify({ forgotten });
+    }
+
+    case 'spine_context_for_session': {
+      const rawHints = args.hints;
+      if (!Array.isArray(rawHints) || rawHints.length === 0) {
+        throw new Error('hints must be a non-empty array of strings');
+      }
+      const hints = rawHints
+        .filter((h): h is string => typeof h === 'string' && h.trim().length > 0)
+        .slice(0, 8);
+      if (hints.length === 0) {
+        throw new Error('hints must contain at least one non-empty string');
+      }
+      const perHint = Math.max(1, Math.min(10, num(args.per_hint, 5)));
+      const budget = Math.max(200, Math.min(32000, num(args.token_budget, 2000)));
+      const charBudget = budget * 4;
+
+      const seen = new Map<string, { mem: Memory; hint: string }>();
+      for (const hint of hints) {
+        const results = await store.recall(hint, perHint);
+        for (const m of results) {
+          if (!seen.has(m.id)) seen.set(m.id, { mem: m, hint });
+        }
+      }
+
+      const merged = [...seen.values()];
+
+      const picked: { mem: Memory; hint: string }[] = [];
+      let used = 0;
+      for (const entry of merged) {
+        const est = entry.mem.content.length + 80;
+        if (used + est > charBudget && picked.length > 0) break;
+        picked.push(entry);
+        used += est;
+      }
+
+      if (picked.length === 0) {
+        return JSON.stringify({
+          context:
+            '# Spine: 0 relevant memories\n' +
+            '_hints: ' +
+            hints.join(', ') +
+            '_\n\n' +
+            '(no matching memories yet — capture some and try again)',
+          memory_count: 0,
+          hints,
+        });
+      }
+
+      const headerBits = [
+        `# Spine: ${picked.length} relevant memories`,
+        `_hints: ${hints.join(', ')}_`,
+      ];
+      const body = picked
+        .map(({ mem, hint }) => {
+          const date = mem.createdAt.slice(0, 10);
+          const src = mem.source ? ` · ${mem.source}` : '';
+          return `- [${date}${src} · hint="${hint}"] ${mem.content}`;
+        })
+        .join('\n');
+
+      return JSON.stringify({
+        context: `${headerBits.join('\n')}\n\n${body}`,
+        memory_count: picked.length,
+        hints,
+      });
     }
 
     default:

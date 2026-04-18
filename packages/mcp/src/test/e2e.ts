@@ -67,7 +67,7 @@ async function main() {
     if (!ok) fail('forget returned false');
     const tl2 = await store.timeline({ limit: 10 });
     if (tl2.length !== 2) fail(`post-forget timeline returned ${tl2.length}, expected 2`);
-    wins.push('soft delete hides memory from timeline');
+    wins.push('hard delete removes memory from timeline');
 
     store.close();
 

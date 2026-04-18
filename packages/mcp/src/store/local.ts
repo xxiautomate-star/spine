@@ -133,11 +133,8 @@ export class LocalStore implements Store {
   }
 
   async forget(id: string): Promise<boolean> {
-    const res = this.db
-      .prepare(
-        'update memories set deleted_at = ? where id = ? and deleted_at is null'
-      )
-      .run(new Date().toISOString(), id);
+    // Forget is forget — hard delete. The row (and its embedding) is gone.
+    const res = this.db.prepare('delete from memories where id = ?').run(id);
     return res.changes > 0;
   }
 

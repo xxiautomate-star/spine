@@ -41,6 +41,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard/memories" className="text-cream/60 hover:text-cream">
             Archive
           </Link>
+          <Link href="/dashboard/recall" className="text-cream/60 hover:text-cream">
+            Recall
+          </Link>
           <Link href="/dashboard/keys" className="text-cream/60 hover:text-cream">
             Keys
           </Link>

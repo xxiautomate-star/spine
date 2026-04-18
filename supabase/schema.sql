@@ -3,7 +3,8 @@
 --   psql "$DATABASE_URL" -f supabase/schema.sql
 --   — or paste into the Supabase SQL editor.
 --
--- Core principle: append-only, infinite memory. No row is ever hard-deleted.
+-- Core principle: append-only, infinite memory. Explicit user-driven forget is a
+-- hard delete; the engine itself never summarises or compresses.
 
 create extension if not exists vector;
 create extension if not exists pgcrypto;
@@ -22,7 +23,7 @@ create table if not exists public.waitlist (
 );
 
 ---------------------------------------------------------------
--- Phase 2: memories (append-only)
+-- Phase 2–4: memories (append-only, vector + BM25)
 ---------------------------------------------------------------
 
 create table if not exists public.memories (
@@ -36,11 +37,17 @@ create table if not exists public.memories (
   deleted_at timestamptz
 );
 
--- HNSW index for cosine similarity on live memories.
--- HNSW is available from pgvector 0.5+; Supabase ships recent pgvector.
+-- Phase 4 migration: generated tsvector + GIN index for BM25.
+alter table public.memories
+  add column if not exists content_tsv tsvector
+  generated always as (to_tsvector('english', coalesce(content, ''))) stored;
+
 create index if not exists memories_embedding_hnsw
   on public.memories
   using hnsw (embedding vector_cosine_ops);
+
+create index if not exists memories_content_tsv_gin
+  on public.memories using gin (content_tsv);
 
 create index if not exists memories_user_created_idx
   on public.memories (user_id, created_at desc);
@@ -77,7 +84,7 @@ create policy api_keys_owner_all on public.api_keys
   with check (user_id = auth.uid());
 
 ---------------------------------------------------------------
--- Phase 2: semantic-search RPC
+-- Phase 2: semantic-search RPC (pure pgvector — used by /api/recall/raw)
 ---------------------------------------------------------------
 
 create or replace function public.spine_match_memories(
@@ -106,9 +113,78 @@ as $$
   from public.memories m
   where m.user_id = p_user
     and m.deleted_at is null
+    and m.embedding is not null
   order by m.embedding <=> p_query_embedding
   limit p_limit;
 $$;
 
 grant execute on function public.spine_match_memories(uuid, vector, int)
+  to authenticated, service_role;
+
+---------------------------------------------------------------
+-- Phase 4: hybrid candidate fetch (vector + BM25 union)
+-- Returns up to 2*p_limit candidates with both signals so we can
+-- fuse + rerank in the app layer.
+---------------------------------------------------------------
+
+create or replace function public.spine_hybrid_candidates(
+  p_user uuid,
+  p_query text,
+  p_query_embedding vector(1536),
+  p_limit int default 30
+)
+returns table (
+  id             uuid,
+  content        text,
+  source         text,
+  tags           text[],
+  created_at     timestamptz,
+  vec_similarity double precision,
+  bm25_rank      double precision
+)
+language sql
+stable
+as $$
+  with vec as (
+    select
+      m.id,
+      1 - (m.embedding <=> p_query_embedding) as sim
+    from public.memories m
+    where m.user_id = p_user
+      and m.deleted_at is null
+      and m.embedding is not null
+    order by m.embedding <=> p_query_embedding
+    limit p_limit
+  ),
+  bm25 as (
+    select
+      m.id,
+      ts_rank(m.content_tsv, websearch_to_tsquery('english', p_query)) as rank
+    from public.memories m
+    where m.user_id = p_user
+      and m.deleted_at is null
+      and m.content_tsv @@ websearch_to_tsquery('english', p_query)
+    order by rank desc
+    limit p_limit
+  ),
+  ids as (
+    select id from vec
+    union
+    select id from bm25
+  )
+  select
+    m.id,
+    m.content,
+    m.source,
+    m.tags,
+    m.created_at,
+    coalesce(vec.sim, 0)::double precision as vec_similarity,
+    coalesce(bm25.rank, 0)::double precision as bm25_rank
+  from public.memories m
+  join ids on ids.id = m.id
+  left join vec  on vec.id  = m.id
+  left join bm25 on bm25.id = m.id;
+$$;
+
+grant execute on function public.spine_hybrid_candidates(uuid, text, vector, int)
   to authenticated, service_role;
