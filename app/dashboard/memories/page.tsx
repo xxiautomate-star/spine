@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { getSupabase } from '@/lib/supabase';
+import { getServerSupabase, getServerUser } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,12 +11,14 @@ type Memory = {
 };
 
 async function fetchMemories(): Promise<Memory[]> {
-  const supabase = getSupabase();
-  if (!supabase) return [];
+  const supabase = await getServerSupabase();
+  const user = await getServerUser();
+  if (!supabase || !user) return [];
   try {
     const { data } = await supabase
       .from('memories')
       .select('id, content, source, tags, created_at')
+      .eq('user_id', user.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(200);
@@ -68,18 +69,8 @@ export default async function MemoriesPage() {
   const groups = groupByDay(memories);
 
   return (
-    <main className="min-h-screen">
-      <header className="fixed top-0 inset-x-0 z-50 px-6 md:px-10 py-5 flex items-center justify-between backdrop-blur-md bg-night/60 border-b border-cream/5">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="block w-2 h-2 rounded-full bg-amber ember" aria-hidden />
-          <span className="font-serif text-xl">Spine</span>
-        </Link>
-        <span className="font-mono text-[11px] uppercase tracking-widest text-cream/40">
-          Archive
-        </span>
-      </header>
-
-      <section className="px-6 md:px-16 pt-36 pb-24">
+    <main>
+      <section className="px-6 md:px-16 pt-24 pb-24">
         <div className="max-w-4xl mx-auto">
           <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-8">
             § 001 &middot; Archive
@@ -109,7 +100,7 @@ export default async function MemoriesPage() {
                 No memories yet.
               </p>
               <p className="text-cream/50 max-w-md mx-auto mb-8">
-                Install the MCP server in Claude Code and start talking. Every turn becomes a memory.
+                Mint a key, point Claude Code at it, and start talking. Every turn becomes a memory.
               </p>
               <pre className="inline-block font-mono text-sm bg-cream/[0.04] border border-cream/10 text-amber px-4 py-3">
                 <span className="text-cream/40 select-none">$ </span>npx @spine/mcp init

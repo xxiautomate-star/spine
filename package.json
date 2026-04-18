@@ -2,19 +2,23 @@
   "name": "spine",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "mcp:build": "npm --workspace @spine/mcp run build",
-    "mcp:test": "npm --workspace @spine/mcp run test:e2e"
+    "mcp:test": "npm --workspace @spine/mcp run test:e2e",
+    "test:dashboard": "node scripts/test-dashboard.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
     "next": "15.1.6",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
-    "@supabase/supabase-js": "^2.47.10"
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.17",
