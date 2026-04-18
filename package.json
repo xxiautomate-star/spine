@@ -2,10 +2,13 @@
   "name": "spine",
   "version": "0.1.0",
   "private": true,
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "mcp:build": "npm --workspace @spine/mcp run build",
+    "mcp:test": "npm --workspace @spine/mcp run test:e2e"
   },
   "dependencies": {
     "next": "15.1.6",

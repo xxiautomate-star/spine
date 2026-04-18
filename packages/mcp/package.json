@@ -1,0 +1,41 @@
+{
+  "name": "@spine/mcp",
+  "version": "0.1.0",
+  "description": "The memory layer for your AI. Append-only, infinite, never summarised. MCP server for Claude Code, Claude Desktop, Cursor, and other MCP clients.",
+  "type": "module",
+  "main": "./dist/cli.js",
+  "bin": {
+    "spine-mcp": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test:e2e": "npm run build && node dist/test/e2e.js",
+    "start": "node dist/cli.js serve"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "memory",
+    "claude",
+    "ai",
+    "spine"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.3.3",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "better-sqlite3": "^11.8.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20.17.17",
+    "typescript": "^5.7.3"
+  }
+}
