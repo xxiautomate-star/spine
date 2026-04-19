@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { requireApiKey } from '@/lib/auth';
 import { embedMany } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
@@ -146,6 +147,12 @@ export async function POST(req: NextRequest) {
   for (const newId of ids) {
     void scanDuplicatesForMemory(supabase, auth.authed.userId, newId);
   }
+
+  // Invalidate cached hygiene summaries so the next /api/hygiene/summary
+  // hit (from the extension or spine_hygiene tool) returns fresh counts.
+  // Global tag — acceptable because the underlying query is four cheap
+  // head counts per user and a capture is a rare event.
+  revalidateTag('hygiene');
 
   return withCors(
     NextResponse.json(Array.isArray(body.bulk) ? { ids } : { id: ids[0] })
