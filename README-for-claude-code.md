@@ -144,6 +144,66 @@ the Spine API. Your local SQLite stays where it is as an offline fallback.
 
 ---
 
+## 7. Capture from ChatGPT and Gemini (browser extension)
+
+Claude Code is the home base, but most of the day-to-day still happens in
+ChatGPT and Gemini. The Spine extension pipes those conversations into the same
+archive and offers relevant memories at the start of every new chat.
+
+### Build the extension
+
+```bash
+npm install
+npm run extension:build
+```
+
+The bundle lands in `packages/extension/dist/`. Everything is plain ESM — no
+runtime deps, no remote code. Production icons live in `packages/extension/icons/`
+and are regenerated with `npm run extension:icons`.
+
+### Load it into Chrome
+
+1. Open `chrome://extensions`.
+2. Enable **Developer mode** (top right toggle).
+3. Click **Load unpacked**, pick `packages/extension/dist/`.
+4. Pin the **Spine** action icon and click it once → **Open settings**.
+5. Paste your API key from `/dashboard/keys`. Save.
+
+### Smoke test the golden path
+
+1. Open `https://chatgpt.com` and start any conversation. Send three short
+   messages, wait for replies.
+2. Within ~30 seconds (the background flush interval), refresh
+   `spine.xxiautomate.com/dashboard/memories` — your turns appear with
+   `source = chatgpt` and tags `["user"]` / `["assistant"]`.
+3. Open `chatgpt.com/` in a new tab (a fresh conversation). A small panel slides
+   in from the bottom-right: *"Spine remembered something."* Click **Insert
+   into prompt** — the relevant memory block is prepended to the composer.
+4. Repeat on `https://gemini.google.com`. Same flow, same panel.
+
+### What it does, and what it never does
+
+- It captures **only** the rendered conversation text on the platforms you
+  toggled on. No background browsing data. No tracking.
+- The API key lives only in your Chrome profile's `chrome.storage.sync`. The
+  background worker is the sole owner; content scripts never see it.
+- Auto-inject is opt-in and consent-gated. The panel never types for you — you
+  click **Insert** or **Dismiss**.
+- Captures are deduped by content hash; the same turn can't be sent twice
+  across DOM mutations or page reloads.
+- Network failures back off exponentially (5s → 5min cap) and the queue
+  persists in `chrome.storage.local` across worker restarts.
+
+### Package for the Chrome Web Store
+
+```bash
+npm run extension:package
+```
+
+Produces `packages/extension/spine-extension-<version>.zip`, ready to upload.
+
+---
+
 ## Why all of this matters
 
 Every Spine design decision honours the same principle: **append-only, infinite, never

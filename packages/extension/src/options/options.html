@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spine — Settings</title>
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">SPINE / SETTINGS</p>
+        <h1>Your AI's memory lives here.</h1>
+        <p class="lede">
+          Paste the API key from your dashboard, choose where Spine should listen,
+          and decide whether it should quietly remind your AI of you at the start
+          of new conversations.
+        </p>
+      </header>
+
+      <section class="card">
+        <div class="row">
+          <label for="apiKey">API key</label>
+          <input
+            id="apiKey"
+            type="password"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="spine_live_..."
+          />
+          <p class="hint">
+            Mint one at
+            <a id="dashLink" href="#" target="_blank" rel="noopener">your dashboard</a>.
+            Stored only in this browser profile.
+          </p>
+        </div>
+
+        <div class="row">
+          <label for="endpoint">API endpoint</label>
+          <input
+            id="endpoint"
+            type="url"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="https://spine.xxiautomate.com"
+          />
+          <p class="hint">Change only if you self-host.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>What to capture</h2>
+        <label class="toggle">
+          <input id="captureChatGPT" type="checkbox" />
+          <span class="track"><span class="thumb"></span></span>
+          <span class="copy">
+            <strong>ChatGPT</strong>
+            <em>chatgpt.com</em>
+          </span>
+        </label>
+        <label class="toggle">
+          <input id="captureGemini" type="checkbox" />
+          <span class="track"><span class="thumb"></span></span>
+          <span class="copy">
+            <strong>Gemini</strong>
+            <em>gemini.google.com</em>
+          </span>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Auto-inject</h2>
+        <label class="toggle">
+          <input id="autoInject" type="checkbox" />
+          <span class="track"><span class="thumb"></span></span>
+          <span class="copy">
+            <strong>Quietly remind your AI of you</strong>
+            <em>
+              At the start of a new conversation, Spine offers the most relevant
+              memories. Click insert. Nothing happens without your consent.
+            </em>
+          </span>
+        </label>
+      </section>
+
+      <footer class="actions">
+        <button id="save" class="primary">Save changes</button>
+        <span id="status" class="status" aria-live="polite"></span>
+      </footer>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

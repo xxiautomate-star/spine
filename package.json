@@ -11,6 +11,9 @@
     "start": "next start",
     "mcp:build": "npm --workspace @spine/mcp run build",
     "mcp:test": "npm --workspace @spine/mcp run test:e2e",
+    "extension:build": "npm --workspace @spine/extension run build",
+    "extension:package": "npm --workspace @spine/extension run package",
+    "extension:icons": "node packages/extension/scripts/make-icons.mjs",
     "test:dashboard": "node scripts/test-dashboard.mjs"
   },
   "dependencies": {
