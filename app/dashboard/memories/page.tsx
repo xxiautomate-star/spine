@@ -1,72 +1,133 @@
+// Server component: renders the archive with filters + pagination. Filters
+// drive URL query params so links are shareable and the Back button does the
+// right thing. The MemoriesClient handles selection + bulk delete + export
+// entirely on top of the server-rendered list.
+
 import { getServerSupabase, getServerUser } from '@/lib/supabase-server';
+import { MemoriesClient, type MemoryRow, type MemoriesFilters } from './MemoriesClient';
 
 export const dynamic = 'force-dynamic';
 
-type Memory = {
-  id: string;
-  content: string;
-  source: string | null;
-  tags: string[] | null;
-  created_at: string;
-};
+const PAGE_SIZE = 50;
 
-async function fetchMemories(): Promise<Memory[]> {
+type SearchParamValue = string | string[] | undefined;
+type SearchParams = Record<string, SearchParamValue>;
+
+function firstParam(value: SearchParamValue): string | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function toIntOrDefault(value: SearchParamValue, fallback: number): number {
+  const raw = firstParam(value);
+  if (raw === null) return fallback;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function parseFilters(raw: SearchParams): MemoriesFilters {
+  return {
+    q: firstParam(raw.q),
+    source: firstParam(raw.source),
+    from: firstParam(raw.from),
+    to: firstParam(raw.to),
+    tag: firstParam(raw.tag),
+    page: toIntOrDefault(raw.page, 1),
+  };
+}
+
+async function fetchPage(filters: MemoriesFilters): Promise<{
+  rows: MemoryRow[];
+  total: number;
+  sources: string[];
+  tags: string[];
+}> {
+  const empty = { rows: [], total: 0, sources: [], tags: [] };
   const supabase = await getServerSupabase();
   const user = await getServerUser();
-  if (!supabase || !user) return [];
-  try {
-    const { data } = await supabase
-      .from('memories')
-      .select('id, content, source, tags, created_at')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(200);
-    return (data ?? []) as Memory[];
-  } catch {
-    return [];
-  }
-}
+  if (!supabase || !user) return empty;
 
-function groupByDay(memories: Memory[]): [string, Memory[]][] {
-  const groups = new Map<string, Memory[]>();
-  for (const m of memories) {
-    const day = m.created_at.slice(0, 10);
-    const arr = groups.get(day) ?? [];
-    arr.push(m);
-    groups.set(day, arr);
-  }
-  return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-}
+  const from = Math.max(0, (filters.page - 1) * PAGE_SIZE);
+  const to = from + PAGE_SIZE - 1;
 
-function formatDay(day: string): string {
-  try {
-    const date = new Date(day + 'T00:00:00Z');
-    return date.toLocaleDateString(undefined, {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+  let query = supabase
+    .from('memories')
+    .select('id, content, source, tags, created_at', { count: 'exact' })
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (filters.source) query = query.eq('source', filters.source);
+  if (filters.from) query = query.gte('created_at', filters.from);
+  if (filters.to) {
+    // Treat as end-of-day when the user passed a plain YYYY-MM-DD.
+    const end = /^\d{4}-\d{2}-\d{2}$/.test(filters.to)
+      ? `${filters.to}T23:59:59.999Z`
+      : filters.to;
+    query = query.lte('created_at', end);
+  }
+  if (filters.tag) query = query.contains('tags', [filters.tag]);
+  if (filters.q) {
+    // Postgres FTS via the generated content_tsv column. Falls back gracefully
+    // if the query is not a well-formed tsquery.
+    query = query.textSearch('content_tsv', filters.q, {
+      type: 'websearch',
+      config: 'english',
     });
-  } catch {
-    return day;
   }
+
+  const [{ data, count, error }, facets] = await Promise.all([
+    query,
+    fetchFacets(supabase, user.id),
+  ]);
+  if (error) return { ...empty, ...facets };
+
+  return {
+    rows: (data ?? []) as MemoryRow[],
+    total: count ?? 0,
+    sources: facets.sources,
+    tags: facets.tags,
+  };
 }
 
-function formatTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso.slice(11, 16);
+async function fetchFacets(
+  supabase: NonNullable<Awaited<ReturnType<typeof getServerSupabase>>>,
+  userId: string
+): Promise<{ sources: string[]; tags: string[] }> {
+  // Lightweight facet sample: look at the 500 most-recent rows to build the
+  // source/tag pickers. Good enough for the dashboard — we never claim this
+  // is exhaustive, just what the user has been capturing lately.
+  const { data } = await supabase
+    .from('memories')
+    .select('source, tags')
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  const sources = new Set<string>();
+  const tags = new Set<string>();
+  for (const row of data ?? []) {
+    const src = (row as { source: string | null }).source;
+    if (src) sources.add(src);
+    const t = (row as { tags: string[] | null }).tags;
+    if (Array.isArray(t)) for (const tag of t) if (tag) tags.add(tag);
   }
+  return {
+    sources: [...sources].sort(),
+    tags: [...tags].sort(),
+  };
 }
 
-export default async function MemoriesPage() {
-  const memories = await fetchMemories();
-  const groups = groupByDay(memories);
+export default async function MemoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const raw = await searchParams;
+  const filters = parseFilters(raw);
+  const { rows, total, sources, tags } = await fetchPage(filters);
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <main>
@@ -83,61 +144,15 @@ export default async function MemoriesPage() {
             sentence stays where you put it.
           </p>
 
-          <form className="mb-20 border-b border-cream/15 pb-3" action="" method="get">
-            <label htmlFor="q" className="sr-only">Search memories</label>
-            <input
-              id="q"
-              name="q"
-              type="search"
-              placeholder="Search your memory — what did I tell it about the launch?"
-              className="w-full bg-transparent focus:outline-none py-2 text-lg placeholder:text-cream/25"
-            />
-          </form>
-
-          {groups.length === 0 ? (
-            <div className="py-20 border border-cream/10 text-center">
-              <p className="font-serif text-3xl md:text-4xl text-cream mb-3">
-                No memories yet.
-              </p>
-              <p className="text-cream/50 max-w-md mx-auto mb-8">
-                Mint a key, point Claude Code at it, and start talking. Every turn becomes a memory.
-              </p>
-              <pre className="inline-block font-mono text-sm bg-cream/[0.04] border border-cream/10 text-amber px-4 py-3">
-                <span className="text-cream/40 select-none">$ </span>npx @spine/mcp init
-              </pre>
-            </div>
-          ) : (
-            <div className="space-y-16">
-              {groups.map(([day, items]) => (
-                <section key={day}>
-                  <p className="font-mono text-[11px] uppercase tracking-widest text-cream/40 mb-6">
-                    {formatDay(day)}
-                  </p>
-                  <ul className="space-y-8">
-                    {items.map((m) => (
-                      <li
-                        key={m.id}
-                        className="border-l-2 border-amber/40 pl-6 py-1"
-                      >
-                        <p className="font-mono text-[11px] uppercase tracking-widest text-cream/40 mb-2">
-                          {formatTime(m.created_at)}
-                          {m.source ? ` · ${m.source}` : ''}
-                        </p>
-                        <p className="font-serif text-lg md:text-xl text-cream/90 leading-relaxed">
-                          {m.content}
-                        </p>
-                        {m.tags && m.tags.length > 0 && (
-                          <p className="mt-3 font-mono text-[11px] text-cream/40">
-                            {m.tags.map((t) => `#${t}`).join(' ')}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          )}
+          <MemoriesClient
+            filters={filters}
+            rows={rows}
+            total={total}
+            pageSize={PAGE_SIZE}
+            pageCount={pageCount}
+            sources={sources}
+            tags={tags}
+          />
         </div>
       </section>
     </main>
