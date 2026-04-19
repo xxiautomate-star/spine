@@ -1,16 +1,16 @@
-import type { CaptureInput, Memory, Store, TimelineOpts } from './index.js';
+import type { CaptureInput, Memory, Store, TimelineOpts, UsageStats } from './index.js';
 
 export class CloudStore implements Store {
   constructor(private readonly apiBase: string, private readonly apiKey: string) {}
 
-  private async req<T>(path: string, body: unknown): Promise<T> {
+  private async req<T>(path: string, body: unknown, method: 'GET' | 'POST' = 'POST'): Promise<T> {
     const res = await fetch(`${this.apiBase}${path}`, {
-      method: 'POST',
+      method,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: method === 'GET' ? undefined : JSON.stringify(body),
     });
     if (!res.ok) {
       const msg = await res.text().catch(() => '');
@@ -43,6 +43,10 @@ export class CloudStore implements Store {
   async forget(id: string): Promise<boolean> {
     const data = await this.req<{ forgotten: boolean }>('/forget', { id });
     return data.forgotten;
+  }
+
+  async usage(): Promise<UsageStats> {
+    return this.req<UsageStats>('/usage', null, 'GET');
   }
 
   close(): void {

@@ -117,6 +117,18 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'spine_usage',
+    description:
+      'Returns the caller\'s current position against their plan: total non-deleted memory ' +
+      'count, plan name, cap (null = unlimited), percent used, and next reset date (null for ' +
+      'local mode or unlimited tiers). Use this to show usage bars or warn the user before ' +
+      'capture fails with a plan_upgrade_required error.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
     name: 'spine_context_for_session',
     description:
       'Session bootstrap: returns a pre-assembled markdown block of the memories most relevant ' +
@@ -247,6 +259,17 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
     case 'spine_forget': {
       const forgotten = await store.forget(str(args.id, 'id'));
       return JSON.stringify({ forgotten });
+    }
+
+    case 'spine_usage': {
+      const stats = await store.usage();
+      return JSON.stringify({
+        count: stats.count,
+        plan: stats.plan,
+        limit: stats.limit,
+        pct_used: stats.pctUsed,
+        next_reset: stats.nextReset,
+      });
     }
 
     case 'spine_context_for_session': {

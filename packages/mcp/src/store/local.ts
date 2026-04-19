@@ -4,7 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { cosine } from '../embed/index.js';
 import { localEmbedder } from '../embed/local.js';
-import type { CaptureInput, Memory, Store, TimelineOpts } from './index.js';
+import type { CaptureInput, Memory, Store, TimelineOpts, UsageStats } from './index.js';
 
 type Row = {
   id: string;
@@ -136,6 +136,19 @@ export class LocalStore implements Store {
     // Forget is forget — hard delete. The row (and its embedding) is gone.
     const res = this.db.prepare('delete from memories where id = ?').run(id);
     return res.changes > 0;
+  }
+
+  async usage(): Promise<UsageStats> {
+    const row = this.db
+      .prepare('select count(*) as c from memories where deleted_at is null')
+      .get() as { c: number };
+    return {
+      count: row.c ?? 0,
+      plan: 'local',
+      limit: null,
+      pctUsed: 0,
+      nextReset: null,
+    };
   }
 
   close(): void {
