@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireApiKey } from '@/lib/auth';
 import { embedText } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
+import { touchRetrieved } from '@/lib/retrieval-touch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,5 +60,6 @@ export async function POST(req: NextRequest) {
     createdAt: r.created_at,
     similarity: r.similarity,
   }));
+  touchRetrieved(auth.authed.userId, memories.map((m) => m.id));
   return NextResponse.json({ memories });
 }

@@ -5,6 +5,7 @@ import { rerank } from '@/lib/rerank';
 import { buildInjectionBlock } from '@/lib/context-block';
 import { embedText } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
+import { touchRetrieved } from '@/lib/retrieval-touch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,16 +18,6 @@ type MatchRow = {
   created_at: string;
   similarity: number;
 };
-
-function touchRetrieved(userId: string, ids: string[]): void {
-  if (ids.length === 0) return;
-  const supabase = getSupabase();
-  if (!supabase) return;
-  // Fire-and-forget: a slow or failing bump must never stall a recall.
-  void supabase
-    .rpc('spine_touch_retrieved', { p_user: userId, p_ids: ids })
-    .then(() => {}, () => {});
-}
 
 async function freeRecall(
   userId: string,

@@ -13,6 +13,7 @@ import { buildInjectionBlock, type BlockMemory } from '@/lib/context-block';
 import { embedText } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
+import { touchRetrieved } from '@/lib/retrieval-touch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -110,6 +111,7 @@ async function assemble(
     }
   }
   const memories = [...seen.values()];
+  touchRetrieved(userId, memories.map((m) => m.id));
   const block = buildInjectionBlock(memories, {
     hint: input.hints.join(' / '),
     tokenBudget: input.tokenBudget,
