@@ -8,10 +8,13 @@
 // 'hygiene' tag and a 60s revalidate window. /api/capture calls
 // revalidateTag('hygiene') after every insert so extension polling sees
 // fresh counts the moment they change. Response carries
-// Cache-Control: private, max-age=60, stale-while-revalidate=300.
+// Cache-Control: private, max-age=60, stale-while-revalidate=300 and a
+// strong ETag so the extension can send If-None-Match and get 304s —
+// zero body bytes when nothing has changed since the last poll.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { unstable_cache } from 'next/cache';
+import { createHash } from 'crypto';
 import { requireApiKey } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
@@ -105,7 +108,21 @@ export async function GET(req: NextRequest) {
     return withCors(NextResponse.json({ error: message }, { status: 500 }));
   }
 
-  const res = NextResponse.json(summary);
+  const body = JSON.stringify(summary);
+  const etag = `"${createHash('sha1').update(body).digest('hex')}"`;
+
+  if (req.headers.get('if-none-match') === etag) {
+    const notModified = new NextResponse(null, { status: 304 });
+    notModified.headers.set('ETag', etag);
+    notModified.headers.set('Cache-Control', CACHE_CONTROL);
+    return withCors(notModified);
+  }
+
+  const res = new NextResponse(body, {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+  res.headers.set('ETag', etag);
   res.headers.set('Cache-Control', CACHE_CONTROL);
   return withCors(res);
 }
