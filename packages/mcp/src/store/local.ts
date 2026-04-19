@@ -4,7 +4,14 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { cosine } from '../embed/index.js';
 import { localEmbedder } from '../embed/local.js';
-import type { CaptureInput, Memory, Store, TimelineOpts, UsageStats } from './index.js';
+import type {
+  CaptureInput,
+  HygieneSummary,
+  Memory,
+  Store,
+  TimelineOpts,
+  UsageStats,
+} from './index.js';
 
 type Row = {
   id: string;
@@ -148,6 +155,19 @@ export class LocalStore implements Store {
       limit: null,
       pctUsed: 0,
       nextReset: null,
+    };
+  }
+
+  async hygiene(): Promise<HygieneSummary> {
+    // Local mode has no clusters, no dedupe cron, no retrieval tracking.
+    // Return a shape-compatible "nothing to do" summary so callers can branch
+    // on plan === 'local' without crashing on missing fields.
+    return {
+      plan: 'local',
+      duplicatesPending: 0,
+      staleCount: 0,
+      clusterCount: 0,
+      largestCluster: null,
     };
   }
 

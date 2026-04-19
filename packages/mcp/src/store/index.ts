@@ -27,6 +27,14 @@ export type UsageStats = {
   nextReset: string | null;
 };
 
+export type HygieneSummary = {
+  plan: string;
+  duplicatesPending: number;
+  staleCount: number;
+  clusterCount: number;
+  largestCluster: { label: string; size: number } | null;
+};
+
 export interface Store {
   capture(input: CaptureInput): Promise<string>;
   captureBulk(inputs: CaptureInput[]): Promise<string[]>;
@@ -34,5 +42,6 @@ export interface Store {
   timeline(opts: TimelineOpts): Promise<Memory[]>;
   forget(id: string): Promise<boolean>;
   usage(): Promise<UsageStats>;
+  hygiene(): Promise<HygieneSummary>;
   close(): void;
 }

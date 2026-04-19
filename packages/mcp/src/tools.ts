@@ -117,6 +117,19 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'spine_hygiene',
+    description:
+      'Returns a semantic-hygiene summary for the caller: how many duplicate ' +
+      'pairs are flagged but unresolved, how many memories have sat untouched for 30+ days, ' +
+      'how many clusters the archive has formed, and the largest cluster (if any). Cloud mode ' +
+      'returns real counts; local mode returns a shape-compatible zeroed summary (no dedupe ' +
+      'cron, no cluster centroids). Use this to surface a "tend your archive" banner to the user.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
     name: 'spine_usage',
     description:
       'Returns the caller\'s current position against their plan: total non-deleted memory ' +
@@ -269,6 +282,17 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
         limit: stats.limit,
         pct_used: stats.pctUsed,
         next_reset: stats.nextReset,
+      });
+    }
+
+    case 'spine_hygiene': {
+      const summary = await store.hygiene();
+      return JSON.stringify({
+        plan: summary.plan,
+        duplicates_pending: summary.duplicatesPending,
+        stale_count: summary.staleCount,
+        cluster_count: summary.clusterCount,
+        largest_cluster: summary.largestCluster,
       });
     }
 

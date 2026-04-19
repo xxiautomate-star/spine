@@ -1,4 +1,11 @@
-import type { CaptureInput, Memory, Store, TimelineOpts, UsageStats } from './index.js';
+import type {
+  CaptureInput,
+  HygieneSummary,
+  Memory,
+  Store,
+  TimelineOpts,
+  UsageStats,
+} from './index.js';
 
 export class CloudStore implements Store {
   constructor(private readonly apiBase: string, private readonly apiKey: string) {}
@@ -47,6 +54,10 @@ export class CloudStore implements Store {
 
   async usage(): Promise<UsageStats> {
     return this.req<UsageStats>('/usage', null, 'GET');
+  }
+
+  async hygiene(): Promise<HygieneSummary> {
+    return this.req<HygieneSummary>('/hygiene/summary', null, 'GET');
   }
 
   close(): void {
