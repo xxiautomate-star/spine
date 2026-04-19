@@ -2,13 +2,19 @@ import { createHash } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { getSupabase } from './supabase';
 
-export type Authed = { userId: string; keyId: string };
+export type Plan = 'free' | 'pro' | 'power';
+
+export type Authed = { userId: string; keyId: string; plan: Plan };
 export type AuthResult =
   | { authed: Authed; error?: never; status?: never }
   | { authed: null; error: string; status: number };
 
 export function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex');
+}
+
+function coercePlan(raw: unknown): Plan {
+  return raw === 'pro' || raw === 'power' ? raw : 'free';
 }
 
 export async function requireApiKey(req: NextRequest): Promise<AuthResult> {
@@ -33,10 +39,25 @@ export async function requireApiKey(req: NextRequest): Promise<AuthResult> {
   if (error || !data) {
     return { authed: null, error: 'Unknown API key.', status: 401 };
   }
+  const userId = data.user_id as string;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('plan')
+    .eq('user_id', userId)
+    .maybeSingle();
+
   void supabase
     .from('api_keys')
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', data.id as string)
     .then(() => {/* best-effort */});
-  return { authed: { userId: data.user_id as string, keyId: data.id as string } };
+
+  return {
+    authed: {
+      userId,
+      keyId: data.id as string,
+      plan: coercePlan(profile?.plan),
+    },
+  };
 }

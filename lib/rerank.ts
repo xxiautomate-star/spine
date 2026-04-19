@@ -46,7 +46,7 @@ export type RerankCandidate = {
   createdAt: string;
 };
 
-function truncate(s: string, max = 280): string {
+function truncate(s: string, max = 120): string {
   if (s.length <= max) return s;
   return s.slice(0, max - 1) + '…';
 }
@@ -65,12 +65,8 @@ export async function rerank(
   const limit = Math.max(1, Math.min(10, opts.limit ?? 5));
 
   const list = candidates
-    .slice(0, 30)
-    .map((c) => {
-      const date = c.createdAt.slice(0, 10);
-      const src = c.source ? ` [${c.source}]` : '';
-      return `- id=${c.id} date=${date}${src} content="${truncate(c.content)}"`;
-    })
+    .slice(0, 15)
+    .map((c) => `- id=${c.id} content="${truncate(c.content, 120)}"`)
     .join('\n');
 
   const userMsg = `Query: ${query}\n\nCandidates:\n${list}\n\nReturn JSON with the top ${limit}.`;

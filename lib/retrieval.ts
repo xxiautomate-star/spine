@@ -18,9 +18,9 @@ export type Candidate = {
 };
 
 export type RankOptions = {
-  /** Number of candidates to pull from each side before fusion. Default 30. */
+  /** Number of candidates to pull from each side before fusion. Default 15. */
   poolLimit?: number;
-  /** Final candidates to return after fusion. Default 30. */
+  /** Final candidates to return after fusion. Default 15. */
   limit?: number;
   /** RRF constant. Default 60. */
   rrfK?: number;
@@ -43,8 +43,8 @@ export async function rankMemories(
   query: string,
   opts: RankOptions = {}
 ): Promise<Candidate[]> {
-  const poolLimit = opts.poolLimit ?? 30;
-  const limit = opts.limit ?? 30;
+  const poolLimit = opts.poolLimit ?? 15;
+  const limit = opts.limit ?? 15;
   const rrfK = opts.rrfK ?? 60;
   const halfLife = opts.decayHalfLifeDays ?? 90;
 

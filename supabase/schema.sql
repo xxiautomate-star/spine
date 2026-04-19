@@ -84,6 +84,39 @@ create policy api_keys_owner_all on public.api_keys
   with check (user_id = auth.uid());
 
 ---------------------------------------------------------------
+-- Phase 4b: profiles (plan tier)
+-- `plan` values: 'free' | 'pro' | 'power'. Default 'free'.
+-- Free plan skips Haiku rerank and returns pure pgvector top 5.
+---------------------------------------------------------------
+
+create table if not exists public.profiles (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  plan       text not null default 'free',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists profiles_owner_read on public.profiles;
+create policy profiles_owner_read on public.profiles
+  for select using (user_id = auth.uid());
+
+-- On every new auth user, auto-insert a free-tier profile row.
+create or replace function public.spine_handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.profiles (user_id) values (new.id) on conflict do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists spine_on_auth_user_created on auth.users;
+create trigger spine_on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.spine_handle_new_user();
+
+---------------------------------------------------------------
 -- Phase 2: semantic-search RPC (pure pgvector — used by /api/recall/raw)
 ---------------------------------------------------------------
 
