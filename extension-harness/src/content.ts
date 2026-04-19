@@ -14,22 +14,18 @@
 // This file stays under /extension-harness/ and the SPINE_EXT_HARNESS
 // flag until Phase 9 greenlights promotion into packages/extension/.
 
+import type { HygieneState, HygieneSummary, StorageAdapter } from './hygiene-storage';
+import { EMPTY_STATE } from './hygiene-storage';
+
 const POLL_DEBOUNCE_MS = 30_000;
 const ENDPOINT_PATH = '/api/hygiene/summary';
-
-type HygieneSummary = {
-  plan: string;
-  duplicatesPending: number;
-  staleCount: number;
-  clusterCount: number;
-  largestCluster: { label: string; size: number } | null;
-};
 
 type PollOutcome = 'fetched' | 'not-modified' | 'debounced' | 'no-key' | 'error';
 
 type PollerConfig = {
   apiBase: string;
   apiKey: string | null;
+  storage: StorageAdapter;
   debounceMs?: number;
   now?: () => number;
   fetchImpl?: typeof fetch;
@@ -37,36 +33,29 @@ type PollerConfig = {
   onError?: (err: unknown) => void;
 };
 
-// In-memory ETag holder. Step 2 replaces this with chrome.storage.local
-// so the value survives content-script reloads and is readable from the
-// background worker.
-type MemoryETagStore = {
-  etag: string | null;
-  summary: HygieneSummary | null;
-};
-
 export function createHygienePoller(config: PollerConfig) {
   const debounceMs = config.debounceMs ?? POLL_DEBOUNCE_MS;
   const now = config.now ?? (() => Date.now());
   const fetchImpl = config.fetchImpl ?? fetch;
 
-  const store: MemoryETagStore = { etag: null, summary: null };
-  let lastFetchedAt = 0;
   let inFlight: Promise<PollOutcome> | null = null;
 
   async function poll(): Promise<PollOutcome> {
     if (!config.apiKey) return 'no-key';
-    const t = now();
-    if (t - lastFetchedAt < debounceMs) return 'debounced';
     if (inFlight) return inFlight;
 
-    lastFetchedAt = t;
+    const current: HygieneState = await config.storage.get().catch(() => ({
+      ...EMPTY_STATE,
+    }));
+    const t = now();
+    if (t - current.lastFetchedAt < debounceMs) return 'debounced';
+
     inFlight = (async (): Promise<PollOutcome> => {
       try {
         const headers: Record<string, string> = {
           Authorization: `Bearer ${config.apiKey}`,
         };
-        if (store.etag) headers['If-None-Match'] = store.etag;
+        if (current.etag) headers['If-None-Match'] = current.etag;
 
         const res = await fetchImpl(`${config.apiBase}${ENDPOINT_PATH}`, {
           method: 'GET',
@@ -74,7 +63,11 @@ export function createHygienePoller(config: PollerConfig) {
           credentials: 'omit',
         });
 
-        if (res.status === 304) return 'not-modified';
+        if (res.status === 304) {
+          // Bump lastFetchedAt so the debounce window covers 304s too.
+          await config.storage.set({ ...current, lastFetchedAt: t });
+          return 'not-modified';
+        }
         if (!res.ok) {
           config.onError?.(new Error(`hygiene summary ${res.status}`));
           return 'error';
@@ -82,8 +75,11 @@ export function createHygienePoller(config: PollerConfig) {
 
         const etag = res.headers.get('ETag');
         const summary = (await res.json()) as HygieneSummary;
-        if (etag) store.etag = etag;
-        store.summary = summary;
+        await config.storage.set({
+          etag: etag ?? current.etag,
+          summary,
+          lastFetchedAt: t,
+        });
         config.onSummary?.(summary);
         return 'fetched';
       } catch (err) {
