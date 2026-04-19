@@ -40,18 +40,22 @@ export function createHygienePoller(config: PollerConfig) {
 
   let inFlight: Promise<PollOutcome> | null = null;
 
-  async function poll(): Promise<PollOutcome> {
-    if (!config.apiKey) return 'no-key';
+  function poll(): Promise<PollOutcome> {
+    if (!config.apiKey) return Promise.resolve('no-key');
+    // Claim the slot synchronously so a second caller in the same
+    // microtask sees inFlight set and receives the same promise — the
+    // await on storage.get() below would otherwise let both calls
+    // race past the null check.
     if (inFlight) return inFlight;
-
-    const current: HygieneState = await config.storage.get().catch(() => ({
-      ...EMPTY_STATE,
-    }));
-    const t = now();
-    if (t - current.lastFetchedAt < debounceMs) return 'debounced';
 
     inFlight = (async (): Promise<PollOutcome> => {
       try {
+        const current: HygieneState = await config.storage.get().catch(() => ({
+          ...EMPTY_STATE,
+        }));
+        const t = now();
+        if (t - current.lastFetchedAt < debounceMs) return 'debounced';
+
         const headers: Record<string, string> = {
           Authorization: `Bearer ${config.apiKey}`,
         };
