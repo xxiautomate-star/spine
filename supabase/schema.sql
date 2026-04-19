@@ -250,3 +250,157 @@ alter table public.stripe_events enable row level security;
 drop policy if exists stripe_events_deny_all on public.stripe_events;
 create policy stripe_events_deny_all on public.stripe_events
   for select using (false);
+
+---------------------------------------------------------------
+-- Phase 8: semantic hygiene
+-- Auto-tagging via cluster centroids, duplicate detection, stale
+-- memory scoring. All user-scoped; service role writes, users read
+-- their own via RLS.
+---------------------------------------------------------------
+
+alter table public.memories
+  add column if not exists cluster_id        uuid,
+  add column if not exists retrieval_count   integer not null default 0,
+  add column if not exists last_retrieved_at timestamptz;
+
+create index if not exists memories_cluster_idx
+  on public.memories (cluster_id);
+
+create index if not exists memories_retrieval_idx
+  on public.memories (user_id, last_retrieved_at);
+
+create table if not exists public.memory_clusters (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  label      text not null,
+  centroid   vector(1536) not null,
+  size       integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists memory_clusters_user_idx
+  on public.memory_clusters (user_id);
+
+alter table public.memory_clusters enable row level security;
+
+drop policy if exists clusters_owner_all on public.memory_clusters;
+create policy clusters_owner_all on public.memory_clusters
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create table if not exists public.memory_duplicates (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  memory_id_a uuid not null references public.memories(id) on delete cascade,
+  memory_id_b uuid not null references public.memories(id) on delete cascade,
+  similarity  double precision not null,
+  detected_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  constraint memory_duplicates_pair unique (memory_id_a, memory_id_b)
+);
+
+create index if not exists memory_duplicates_user_idx
+  on public.memory_duplicates (user_id, detected_at desc)
+  where resolved_at is null;
+
+alter table public.memory_duplicates enable row level security;
+
+drop policy if exists duplicates_owner_all on public.memory_duplicates;
+create policy duplicates_owner_all on public.memory_duplicates
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- RPC: nearest existing cluster for a candidate embedding.
+-- Returns the single closest cluster + its cosine similarity so the app
+-- can decide (threshold 0.78) whether to join or spawn a new cluster.
+create or replace function public.spine_nearest_cluster(
+  p_user uuid,
+  p_embedding vector(1536)
+)
+returns table (
+  id         uuid,
+  label      text,
+  similarity double precision
+)
+language sql stable
+as $$
+  select
+    c.id,
+    c.label,
+    1 - (c.centroid <=> p_embedding) as similarity
+  from public.memory_clusters c
+  where c.user_id = p_user
+  order by c.centroid <=> p_embedding
+  limit 1;
+$$;
+
+grant execute on function public.spine_nearest_cluster(uuid, vector)
+  to authenticated, service_role;
+
+-- RPC: list candidate duplicate pairs above a cosine threshold. Only returns
+-- the upper triangle (m2.id > m1.id) so each pair is reported once.
+create or replace function public.spine_detect_duplicates(
+  p_user      uuid,
+  p_threshold double precision default 0.92,
+  p_limit     int default 200
+)
+returns table (
+  memory_id_a uuid,
+  memory_id_b uuid,
+  similarity  double precision
+)
+language sql stable
+as $$
+  select
+    m1.id as memory_id_a,
+    m2.id as memory_id_b,
+    1 - (m1.embedding <=> m2.embedding) as similarity
+  from public.memories m1
+  join public.memories m2
+    on m2.user_id = m1.user_id
+   and m2.id > m1.id
+  where m1.user_id = p_user
+    and m1.deleted_at is null
+    and m2.deleted_at is null
+    and m1.embedding is not null
+    and m2.embedding is not null
+    and 1 - (m1.embedding <=> m2.embedding) > p_threshold
+  order by 1 - (m1.embedding <=> m2.embedding) desc
+  limit p_limit;
+$$;
+
+grant execute on function public.spine_detect_duplicates(uuid, double precision, int)
+  to authenticated, service_role;
+
+-- RPC: bump retrieval stats for a set of memory ids. Used by /api/recall to
+-- keep last_retrieved_at fresh; drives the stale-memory score.
+create or replace function public.spine_touch_retrieved(
+  p_user uuid,
+  p_ids  uuid[]
+)
+returns void
+language sql
+as $$
+  update public.memories
+  set retrieval_count = retrieval_count + 1,
+      last_retrieved_at = now()
+  where user_id = p_user and id = any(p_ids);
+$$;
+
+grant execute on function public.spine_touch_retrieved(uuid, uuid[])
+  to authenticated, service_role;
+
+-- RPC: atomic cluster size bump on join.
+create or replace function public.spine_increment_cluster_size(
+  p_cluster uuid
+)
+returns void
+language sql
+as $$
+  update public.memory_clusters
+  set size = size + 1,
+      updated_at = now()
+  where id = p_cluster;
+$$;
+
+grant execute on function public.spine_increment_cluster_size(uuid)
+  to authenticated, service_role;

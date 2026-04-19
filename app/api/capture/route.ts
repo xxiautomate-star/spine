@@ -4,6 +4,7 @@ import { embedMany } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
 import { captureCap, isUnlimited, PLAN_LIMITS } from '@/lib/plan-limits';
+import { assignCluster } from '@/lib/clusters';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -97,15 +98,41 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const rows = clean.map((c, i) => ({
-    user_id: auth.authed.userId,
-    content: c.content,
-    source: c.source,
-    tags: c.tags,
-    embedding: vectors[i],
-  }));
+  // Auto-tag via cluster assignment before insert so the cluster_id + cluster
+  // tag land in the same row. Sequential per item (clusters mutate across
+  // items in the same batch — two very similar turns should land in the
+  // same new cluster, not two fresh ones).
+  const augmented: Array<{
+    user_id: string;
+    content: string;
+    source: string | null;
+    tags: string[] | null;
+    embedding: number[];
+    cluster_id: string | null;
+  }> = [];
+  for (let i = 0; i < clean.length; i++) {
+    const c = clean[i];
+    const assignment = await assignCluster(
+      supabase,
+      auth.authed.userId,
+      vectors[i],
+      c.content
+    );
+    const baseTags = c.tags ?? [];
+    const tags = assignment && !baseTags.includes(assignment.label)
+      ? [...baseTags, assignment.label]
+      : baseTags;
+    augmented.push({
+      user_id: auth.authed.userId,
+      content: c.content,
+      source: c.source,
+      tags: tags.length > 0 ? tags : null,
+      embedding: vectors[i],
+      cluster_id: assignment?.clusterId ?? null,
+    });
+  }
 
-  const { data, error } = await supabase.from('memories').insert(rows).select('id');
+  const { data, error } = await supabase.from('memories').insert(augmented).select('id');
   if (error) {
     return withCors(NextResponse.json({ error: error.message }, { status: 500 }));
   }

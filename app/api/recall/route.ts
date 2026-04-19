@@ -18,6 +18,16 @@ type MatchRow = {
   similarity: number;
 };
 
+function touchRetrieved(userId: string, ids: string[]): void {
+  if (ids.length === 0) return;
+  const supabase = getSupabase();
+  if (!supabase) return;
+  // Fire-and-forget: a slow or failing bump must never stall a recall.
+  void supabase
+    .rpc('spine_touch_retrieved', { p_user: userId, p_ids: ids })
+    .then(() => {}, () => {});
+}
+
 async function freeRecall(
   userId: string,
   query: string,
@@ -42,6 +52,8 @@ async function freeRecall(
     createdAt: r.created_at,
     similarity: r.similarity,
   }));
+
+  touchRetrieved(userId, memories.map((m) => m.id));
 
   const block = includeBlock
     ? buildInjectionBlock(
@@ -139,6 +151,8 @@ export async function POST(req: NextRequest) {
         };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    touchRetrieved(auth.authed.userId, memories.map((m) => m.id));
 
     const block = includeBlock
       ? buildInjectionBlock(
