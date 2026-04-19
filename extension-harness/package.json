@@ -1,0 +1,15 @@
+{
+  "name": "@spine/extension-harness",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright harness that loads the Spine extension and drives ChatGPT/Gemini. Scaffold only — tests skip unless SPINE_EXT_HARNESS=1.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "install-browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20.17.17"
+  }
+}
