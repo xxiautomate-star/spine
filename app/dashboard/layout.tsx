@@ -47,6 +47,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard/keys" className="text-cream/60 hover:text-cream">
             Keys
           </Link>
+          <Link href="/dashboard/billing" className="text-cream/60 hover:text-cream">
+            Billing
+          </Link>
           <span className="hidden md:inline text-cream/30">{email}</span>
           <form action="/auth/signout" method="post">
             <button type="submit" className="text-cream/40 hover:text-amber">

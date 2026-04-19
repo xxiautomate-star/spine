@@ -3,6 +3,7 @@ import { requireApiKey } from '@/lib/auth';
 import { embedMany } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
+import { captureCap, isUnlimited, PLAN_LIMITS } from '@/lib/plan-limits';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,6 +66,36 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabase();
   if (!supabase)
     return withCors(NextResponse.json({ error: 'Server not configured.' }, { status: 500 }));
+
+  // Plan cap: count live memories for this user, reject if inserting this
+  // batch would exceed the configured cap. Power plan bypasses entirely.
+  if (!isUnlimited(auth.authed.plan)) {
+    const { count, error: countErr } = await supabase
+      .from('memories')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', auth.authed.userId)
+      .is('deleted_at', null);
+    if (countErr) {
+      return withCors(NextResponse.json({ error: countErr.message }, { status: 500 }));
+    }
+    const current = count ?? 0;
+    const limit = captureCap(auth.authed.plan);
+    if (current + clean.length > limit) {
+      return withCors(
+        NextResponse.json(
+          {
+            error: `Plan cap reached: ${PLAN_LIMITS[auth.authed.plan].name} allows ${limit} memories. Upgrade to add more.`,
+            error_code: 'plan_upgrade_required',
+            plan: auth.authed.plan,
+            count: current,
+            limit,
+            attempted: clean.length,
+          },
+          { status: 402 }
+        )
+      );
+    }
+  }
 
   const rows = clean.map((c, i) => ({
     user_id: auth.authed.userId,

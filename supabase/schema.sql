@@ -96,6 +96,16 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- Phase 6 migration: Stripe fields on profiles.
+alter table public.profiles
+  add column if not exists stripe_customer_id     text unique,
+  add column if not exists stripe_subscription_id text,
+  add column if not exists stripe_price_id        text,
+  add column if not exists plan_updated_at        timestamptz;
+
+create index if not exists profiles_stripe_customer_idx
+  on public.profiles (stripe_customer_id);
+
 alter table public.profiles enable row level security;
 
 drop policy if exists profiles_owner_read on public.profiles;
@@ -221,3 +231,22 @@ $$;
 
 grant execute on function public.spine_hybrid_candidates(uuid, text, vector, int)
   to authenticated, service_role;
+
+---------------------------------------------------------------
+-- Phase 6: Stripe event log (idempotency)
+-- INSERT ON CONFLICT DO NOTHING on event_id; 0 rows inserted
+-- means the event has already been handled.
+---------------------------------------------------------------
+
+create table if not exists public.stripe_events (
+  event_id     text primary key,
+  type         text not null,
+  received_at  timestamptz not null default now(),
+  payload      jsonb
+);
+
+-- Service role only; the app writes via the service key during webhook processing.
+alter table public.stripe_events enable row level security;
+drop policy if exists stripe_events_deny_all on public.stripe_events;
+create policy stripe_events_deny_all on public.stripe_events
+  for select using (false);
