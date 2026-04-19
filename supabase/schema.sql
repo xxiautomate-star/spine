@@ -404,3 +404,42 @@ $$;
 
 grant execute on function public.spine_increment_cluster_size(uuid)
   to authenticated, service_role;
+
+-- RPC: find duplicate candidates for a single memory. Used by /api/capture
+-- to seed memory_duplicates proactively right after insert, so the hygiene
+-- dashboard can show a dupe the moment it's created rather than waiting
+-- for a nightly full-corpus scan.
+create or replace function public.spine_duplicates_for_memory(
+  p_user      uuid,
+  p_memory_id uuid,
+  p_threshold double precision default 0.92,
+  p_limit     int default 20
+)
+returns table (
+  other_id   uuid,
+  similarity double precision
+)
+language sql stable
+as $$
+  with target as (
+    select embedding
+    from public.memories
+    where id = p_memory_id and user_id = p_user and deleted_at is null
+    limit 1
+  )
+  select
+    m.id as other_id,
+    1 - (m.embedding <=> t.embedding) as similarity
+  from public.memories m
+  cross join target t
+  where m.user_id = p_user
+    and m.id <> p_memory_id
+    and m.deleted_at is null
+    and m.embedding is not null
+    and 1 - (m.embedding <=> t.embedding) > p_threshold
+  order by m.embedding <=> t.embedding
+  limit p_limit;
+$$;
+
+grant execute on function public.spine_duplicates_for_memory(uuid, uuid, double precision, int)
+  to authenticated, service_role;

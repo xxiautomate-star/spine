@@ -117,6 +117,57 @@ export async function listUnresolvedDuplicates(
     .filter((x): x is DuplicatePair => x !== null);
 }
 
+/**
+ * Find near-duplicate candidates for a single newly-captured memory and
+ * upsert pairs into memory_duplicates. Canonicalizes each pair so the
+ * smaller UUID lands in memory_id_a — the unique constraint on
+ * (memory_id_a, memory_id_b) treats (a,b) and (b,a) as distinct, so we
+ * need a stable ordering to deduplicate across scans.
+ *
+ * Safe to call fire-and-forget from /api/capture: failures are swallowed
+ * because a scan miss is less important than a successful capture.
+ */
+export async function scanDuplicatesForMemory(
+  admin: SupabaseClient,
+  userId: string,
+  memoryId: string
+): Promise<number> {
+  try {
+    const { data, error } = await admin.rpc('spine_duplicates_for_memory', {
+      p_user: userId,
+      p_memory_id: memoryId,
+      p_threshold: 0.92,
+      p_limit: 20,
+    });
+    if (error || !data) return 0;
+    type Hit = { other_id: string; similarity: number };
+    const hits = data as Hit[];
+    if (hits.length === 0) return 0;
+
+    const rows = hits.map((h) => {
+      const [a, b] = memoryId < h.other_id ? [memoryId, h.other_id] : [h.other_id, memoryId];
+      return {
+        user_id: userId,
+        memory_id_a: a,
+        memory_id_b: b,
+        similarity: h.similarity,
+      };
+    });
+
+    const { error: upErr, count } = await admin
+      .from('memory_duplicates')
+      .upsert(rows, {
+        onConflict: 'memory_id_a,memory_id_b',
+        ignoreDuplicates: true,
+        count: 'exact',
+      });
+    if (upErr) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function listClusters(
   admin: SupabaseClient,
   userId: string,

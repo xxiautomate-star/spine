@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
 import { captureCap, isUnlimited, PLAN_LIMITS } from '@/lib/plan-limits';
 import { assignCluster } from '@/lib/clusters';
+import { scanDuplicatesForMemory } from '@/lib/hygiene';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -137,6 +138,15 @@ export async function POST(req: NextRequest) {
     return withCors(NextResponse.json({ error: error.message }, { status: 500 }));
   }
   const ids = (data ?? []).map((r) => r.id as string);
+
+  // Fire-and-forget dedupe scan for each new memory. Seeds memory_duplicates
+  // proactively so the hygiene dashboard shows a pair the moment it's
+  // created — no nightly cron required. Failures are swallowed inside
+  // scanDuplicatesForMemory; we do not await the chain.
+  for (const newId of ids) {
+    void scanDuplicatesForMemory(supabase, auth.authed.userId, newId);
+  }
+
   return withCors(
     NextResponse.json(Array.isArray(body.bulk) ? { ids } : { id: ids[0] })
   );
