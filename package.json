@@ -14,7 +14,8 @@
     "extension:build": "npm --workspace @spine/extension run build",
     "extension:package": "npm --workspace @spine/extension run package",
     "extension:icons": "node packages/extension/scripts/make-icons.mjs",
-    "test:dashboard": "node scripts/test-dashboard.mjs"
+    "test:dashboard": "node scripts/test-dashboard.mjs",
+    "test:ext:unit": "npm --prefix extension-harness run test:unit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
