@@ -38,6 +38,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <span className="font-serif text-xl">Spine</span>
         </Link>
         <nav className="flex items-center gap-6 font-mono text-[11px] uppercase tracking-widest">
+          <Link href="/timeline" className="text-cream/60 hover:text-cream">
+            Timeline
+          </Link>
           <Link href="/dashboard/memories" className="text-cream/60 hover:text-cream">
             Archive
           </Link>

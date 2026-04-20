@@ -40,3 +40,20 @@ html, body {
 
 details > summary::-webkit-details-marker { display: none; }
 details > summary { list-style: none; }
+
+/* Timeline thread — ambient amber candle pulse on the lamp bloom */
+@keyframes lamp {
+  0%, 100% { opacity: 0.055; }
+  50%       { opacity: 0.08; }
+}
+.lamp-bloom { animation: lamp 8s ease-in-out infinite; }
+
+/* Text: 22% opacity token Tailwind doesn't generate */
+.text-cream\/22  { color: rgba(232, 228, 221, 0.22); }
+.text-cream\/78  { color: rgba(232, 228, 221, 0.78); }
+.text-cream\/38  { color: rgba(232, 228, 221, 0.38); }
+.text-cream\/18  { color: rgba(232, 228, 221, 0.18); }
+.text-cream\/45  { color: rgba(232, 228, 221, 0.45); }
+.text-cream\/55  { color: rgba(232, 228, 221, 0.55); }
+.text-amber\/45  { color: rgba(232, 154, 60, 0.45); }
+.text-amber\/55  { color: rgba(232, 154, 60, 0.55); }
