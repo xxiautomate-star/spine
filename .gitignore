@@ -21,3 +21,6 @@ yarn-error.log*
 
 next-env.d.ts
 .vercel
+
+# Store screenshots (generated — not committed)
+screenshots/store/

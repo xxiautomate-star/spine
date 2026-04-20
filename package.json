@@ -15,7 +15,8 @@
     "extension:package": "npm --workspace @spine/extension run package",
     "extension:icons": "node packages/extension/scripts/make-icons.mjs",
     "test:dashboard": "node scripts/test-dashboard.mjs",
-    "test:ext:unit": "npm --prefix extension-harness run test:unit"
+    "test:ext:unit": "npm --prefix extension-harness run test:unit",
+    "store:screenshots": "node scripts/capture-store-screenshots.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -32,6 +33,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
+    "playwright": "^1.48.0",
     "typescript": "^5.7.3"
   }
 }
