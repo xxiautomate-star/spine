@@ -92,6 +92,10 @@ async function refresh() {
 document.addEventListener('DOMContentLoaded', () => {
   void refresh();
 
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes['spine:hygiene']) void refresh();
+  });
+
   const flush = q<HTMLButtonElement>('flush');
   flush?.addEventListener('click', async () => {
     flush.disabled = true;
