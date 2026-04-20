@@ -14,6 +14,7 @@ async function load() {
   q<HTMLInputElement>('captureChatGPT').checked = s.captureChatGPT;
   q<HTMLInputElement>('captureGemini').checked = s.captureGemini;
   q<HTMLInputElement>('autoInject').checked = s.autoInject;
+  q<HTMLInputElement>('hygienePoll').checked = s.hygienePoll;
   syncDashLink(s.endpoint);
 }
 
@@ -30,8 +31,9 @@ async function save() {
   const captureChatGPT = q<HTMLInputElement>('captureChatGPT').checked;
   const captureGemini = q<HTMLInputElement>('captureGemini').checked;
   const autoInject = q<HTMLInputElement>('autoInject').checked;
+  const hygienePoll = q<HTMLInputElement>('hygienePoll').checked;
 
-  await setSettings({ apiKey, endpoint, captureChatGPT, captureGemini, autoInject });
+  await setSettings({ apiKey, endpoint, captureChatGPT, captureGemini, autoInject, hygienePoll });
   syncDashLink(endpoint);
   flash('Saved.');
 }
