@@ -38,4 +38,12 @@ export type FlushRequest = { type: 'spine.flush' };
 
 export type FlushResponse = { ok: boolean; flushed: number; error?: string };
 
-export type SpineMessage = CaptureRequest | InjectRequest | FlushRequest;
+// Hygiene poll — sent by content-hygiene.ts on tab focus; background
+// debounces, fetches /api/hygiene/summary, and updates the badge.
+export type HygienePollRequest = { type: 'spine.hygiene.poll' };
+
+export type HygienePollResponse = {
+  outcome: 'fetched' | 'not-modified' | 'debounced' | 'no-key' | 'disabled' | 'error';
+};
+
+export type SpineMessage = CaptureRequest | InjectRequest | FlushRequest | HygienePollRequest;

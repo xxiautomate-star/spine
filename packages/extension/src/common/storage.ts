@@ -8,6 +8,10 @@ export type Settings = {
   captureChatGPT: boolean;
   captureGemini: boolean;
   autoInject: boolean;
+  // Hygiene nudge — periodically polls /api/hygiene/summary on tab
+  // focus and paints a badge dot when duplicate or stale memories need
+  // attention. Defaults OFF; user flips it from the options page.
+  hygienePoll: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -16,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   captureChatGPT: true,
   captureGemini: true,
   autoInject: true,
+  hygienePoll: false,
 };
 
 const SETTINGS_KEY = 'spine_settings_v1';
