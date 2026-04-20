@@ -15,6 +15,7 @@ const ENTRIES = {
   background: join(ROOT, 'src/background.ts'),
   'content-chatgpt': join(ROOT, 'src/content-chatgpt.ts'),
   'content-gemini': join(ROOT, 'src/content-gemini.ts'),
+  'content-hygiene': join(ROOT, 'src/content-hygiene.ts'),
   options: join(ROOT, 'src/options/options.ts'),
   popup: join(ROOT, 'src/popup/popup.ts'),
 };

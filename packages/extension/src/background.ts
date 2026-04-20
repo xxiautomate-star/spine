@@ -1,9 +1,12 @@
-// MV3 service worker. Two responsibilities:
+// MV3 service worker. Three responsibilities:
 //   1. Receive captured memories from content scripts, dedupe via the seen
 //      cache, queue them in chrome.storage.local, then flush in batches to
 //      /api/capture with exponential backoff.
 //   2. Proxy /api/recall/inject calls so content scripts never need the API
 //      key directly (key lives only in the worker context here).
+//   3. Hygiene nudge (SPINE_HYGIENE_POLL flag, default OFF): poll
+//      /api/hygiene/summary on tab focus, apply amber badge dot when
+//      duplicate or stale memories need attention.
 
 import {
   appendToQueue,
@@ -21,8 +24,13 @@ import type {
   InjectResponse,
   FlushRequest,
   FlushResponse,
+  HygienePollRequest,
+  HygienePollResponse,
   SpineMessage,
 } from './common/messages.js';
+import { createChromeHygieneStore } from './hygiene-storage.js';
+import { deriveBadge, applyBadge } from './hygiene-badge.js';
+import { createHygienePoller, type PollOutcome } from './hygiene-poller.js';
 
 const FLUSH_ALARM = 'spine-flush';
 const FLUSH_PERIOD_MIN = 0.5; // 30s
@@ -59,9 +67,66 @@ chrome.runtime.onMessage.addListener(
       void handleFlush(msg).then(sendResponse);
       return true;
     }
+    if (msg.type === 'spine.hygiene.poll') {
+      void handleHygienePoll(msg).then(sendResponse);
+      return true;
+    }
     return false;
   }
 );
+
+// ── Hygiene poll ──────────────────────────────────────────────────────────
+
+const hygieneStorage = createChromeHygieneStore();
+let hygienePoller: ReturnType<typeof createHygienePoller> | null = null;
+
+async function getHygienePoller() {
+  if (hygienePoller) return hygienePoller;
+  const settings = await getSettings();
+  hygienePoller = createHygienePoller({
+    apiBase: settings.endpoint.replace(/\/+$/, ''),
+    apiKey: settings.apiKey || null,
+    storage: hygieneStorage,
+    onSummary: (summary) => {
+      void applyBadge(deriveBadge(summary));
+    },
+  });
+  return hygienePoller;
+}
+
+// Repaint badge from persisted state on every worker cold-start.
+void hygieneStorage.get().then((s) => applyBadge(deriveBadge(s.summary)));
+
+// Sync badge + invalidate cached poller when settings change.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes['spine:hygiene']) {
+    const next = changes['spine:hygiene'].newValue as { summary?: unknown } | undefined;
+    void applyBadge(
+      deriveBadge((next?.summary ?? null) as Parameters<typeof deriveBadge>[0])
+    );
+  }
+  if (area === 'sync') hygienePoller = null;
+});
+
+async function handleHygienePoll(
+  _msg: HygienePollRequest
+): Promise<HygienePollResponse> {
+  const settings = await getSettings();
+  if (!settings.hygienePoll) {
+    // Flag is off — clear badge in case it was previously set.
+    await applyBadge(deriveBadge(null));
+    return { outcome: 'disabled' };
+  }
+  const poller = await getHygienePoller();
+  const outcome: PollOutcome = await poller.poll();
+  if (outcome !== 'fetched') {
+    const state = await hygieneStorage.get();
+    await applyBadge(deriveBadge(state.summary));
+  }
+  return { outcome };
+}
+
+// ── Memory capture ────────────────────────────────────────────────────────
 
 async function handleCapture(msg: CaptureRequest): Promise<CaptureResponse> {
   const seen = await readSeen();

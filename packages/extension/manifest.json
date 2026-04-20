@@ -27,6 +27,15 @@
       "matches": ["https://gemini.google.com/*"],
       "js": ["content-gemini.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": ["content-hygiene.js"],
+      "run_at": "document_idle"
     }
   ],
   "options_ui": {
