@@ -1,4 +1,5 @@
 import WaitlistForm from '@/components/WaitlistForm';
+import { TrialCTA } from '@/components/TrialCTA';
 
 type Tier = {
   name: string;
@@ -86,12 +87,20 @@ export default function Home() {
           <span className="block w-2 h-2 rounded-full bg-amber ember" aria-hidden />
           <span className="font-serif text-xl tracking-wide">Spine</span>
         </a>
-        <a
-          href="#waitlist"
-          className="font-mono text-xs uppercase tracking-widest text-cream/70 hover:text-amber transition-colors duration-500"
-        >
-          Request access →
-        </a>
+        <div className="flex items-center gap-5">
+          <a
+            href="/demo"
+            className="font-mono text-xs uppercase tracking-widest text-amber/80 hover:text-amber transition-colors duration-500"
+          >
+            Live demo
+          </a>
+          <a
+            href="#waitlist"
+            className="font-mono text-xs uppercase tracking-widest text-cream/70 hover:text-amber transition-colors duration-500"
+          >
+            Request access →
+          </a>
+        </div>
       </nav>
 
       <section
@@ -131,8 +140,15 @@ export default function Home() {
               <span className="transition-transform duration-500 group-hover:translate-x-1">→</span>
             </a>
             <a
+              href="/demo"
+              className="group inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-cream/60 hover:text-amber transition-colors duration-500"
+            >
+              <span className="block w-1.5 h-1.5 rounded-full bg-amber animate-pulse" aria-hidden />
+              See live archive
+            </a>
+            <a
               href="#how"
-              className="font-mono text-xs uppercase tracking-widest text-cream/60 hover:text-cream transition-colors duration-500"
+              className="font-mono text-xs uppercase tracking-widest text-cream/40 hover:text-cream transition-colors duration-500"
             >
               How it works
             </a>
@@ -143,10 +159,50 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Demo video */}
+      <section className="px-6 md:px-16 py-16 md:py-20 border-t border-cream/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-amber">
+              § 002 &middot; 30-second demo
+            </p>
+            <a
+              href="/demo"
+              className="font-mono text-[11px] uppercase tracking-widest text-cream/40 hover:text-amber transition-colors duration-300"
+            >
+              Browse live archive →
+            </a>
+          </div>
+          <div className="relative rounded-xl overflow-hidden border border-cream/10 bg-cream/[0.02] aspect-video">
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              poster="/demo-poster.jpg"
+              className="w-full h-full object-cover"
+            >
+              <source src="/demo.mp4" type="video/mp4" />
+            </video>
+            {/* Fallback when no video file is present */}
+            <noscript>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="font-serif text-2xl text-cream/40">Demo video loading…</p>
+              </div>
+            </noscript>
+            {/* Overlay gradient at bottom */}
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-night/60 to-transparent pointer-events-none" />
+          </div>
+          <p className="mt-3 font-mono text-[10px] text-cream/25 text-center">
+            Claude Code session · Spine recalls 2 prior memories · context shapes the answer
+          </p>
+        </div>
+      </section>
+
       <section className="px-6 md:px-16 py-28 md:py-40 border-t border-cream/5">
         <div className="max-w-3xl">
           <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-10">
-            § 002 &middot; The problem
+            § 003 &middot; The problem
           </p>
           <div className="font-serif text-2xl md:text-[2rem] leading-[1.4] text-cream/90 space-y-7">
             <p>
@@ -171,7 +227,7 @@ export default function Home() {
       <section id="how" className="px-6 md:px-16 py-28 md:py-40 border-t border-cream/5">
         <div className="max-w-6xl">
           <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-10">
-            § 003 &middot; How it works
+            § 004 &middot; How it works
           </p>
           <h2 className="font-serif text-4xl md:text-6xl leading-[1.05] text-cream max-w-3xl">
             Thirty seconds to a memory that stays.
@@ -219,10 +275,17 @@ export default function Home() {
         </div>
       </section>
 
+      {/* One-click install */}
+      <section className="px-6 md:px-16 py-16 md:py-24 border-t border-cream/5">
+        <div className="max-w-3xl mx-auto">
+          <TrialCTA />
+        </div>
+      </section>
+
       <section className="px-6 md:px-16 py-28 md:py-40 border-t border-cream/5">
         <div className="max-w-6xl">
           <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-10">
-            § 004 &middot; Pricing
+            § 005 &middot; Pricing
           </p>
           <h2 className="font-serif text-4xl md:text-6xl leading-[1.05] text-cream max-w-3xl mb-16">
             Pay for the memory you need.
@@ -279,7 +342,7 @@ export default function Home() {
       <section className="px-6 md:px-16 py-28 md:py-40 border-t border-cream/5">
         <div className="max-w-3xl">
           <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-10">
-            § 005 &middot; Questions
+            § 006 &middot; Questions
           </p>
           <h2 className="font-serif text-4xl md:text-6xl leading-[1.05] text-cream mb-16">
             Things people ask.
@@ -303,7 +366,7 @@ export default function Home() {
       <section id="waitlist" className="px-6 md:px-16 py-28 md:py-40 border-t border-cream/5">
         <div className="max-w-2xl">
           <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-10">
-            § 006 &middot; Request access
+            § 007 &middot; Request access
           </p>
           <h2 className="font-serif text-4xl md:text-6xl leading-[1.05] text-cream mb-6">
             We are opening slowly.
@@ -327,9 +390,15 @@ export default function Home() {
               A memory layer for your AI
             </p>
           </div>
-          <p className="font-mono text-[11px] uppercase tracking-widest text-cream/40">
-            © {new Date().getFullYear()} &middot; Built quietly in Canberra
-          </p>
+          <div className="flex flex-col md:items-end gap-2">
+            <div className="flex gap-6 font-mono text-[11px] uppercase tracking-widest">
+              <a href="/demo" className="text-cream/30 hover:text-amber transition-colors duration-300">Live demo</a>
+              <a href="/privacy" className="text-cream/30 hover:text-amber transition-colors duration-300">Privacy</a>
+            </div>
+            <p className="font-mono text-[11px] uppercase tracking-widest text-cream/30">
+              © {new Date().getFullYear()} &middot; Built quietly in Canberra
+            </p>
+          </div>
         </div>
       </footer>
     </main>
