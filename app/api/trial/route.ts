@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest) {
     mcpServers: {
       spine: {
         command: 'npx',
-        args: ['@spine/mcp'],
+        args: ['-y', 'xxiautomate-spine'],
         env: {
           SPINE_API_KEY: trialKey,
           SPINE_ENDPOINT: endpoint,

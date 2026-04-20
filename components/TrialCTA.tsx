@@ -6,7 +6,7 @@ const MCP_CONFIG = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["@spine/mcp"],
+      "args": ["-y", "xxiautomate-spine"],
       "env": {
         "SPINE_API_KEY": "get yours at spine.xxiautomate.com/dashboard/keys"
       }
@@ -116,7 +116,9 @@ export function TrialCTA() {
                 <span className="text-cream/30">,</span>{'\n'}
                 {'      '}<span className="text-sky-400">"args"</span>
                 <span className="text-cream/30">: [</span>
-                <span className="text-amber">"@spine/mcp"</span>
+                <span className="text-amber">"-y"</span>
+                <span className="text-cream/30">, </span>
+                <span className="text-amber">"xxiautomate-spine"</span>
                 <span className="text-cream/30">],</span>{'\n'}
                 {'      '}<span className="text-sky-400">"env"</span>
                 <span className="text-cream/30">: {'{'}</span>{'\n'}

@@ -4,13 +4,14 @@ import { initCommand } from './commands/init.js';
 import { loginCommand } from './commands/login.js';
 import { serveCommand } from './commands/serve.js';
 
-const USAGE = `@spine/mcp — the memory layer for your AI
+const USAGE = `xxiautomate-spine — the memory layer for your AI
 
 Usage:
-  npx @spine/mcp init                     Interactive setup (writes ~/.spine/config.json)
-  npx @spine/mcp serve                    Start the MCP server on stdio
-  npx @spine/mcp login --key <api_key>    Switch to cloud mode
-  npx @spine/mcp --version                Print version
+  npx xxiautomate-spine                   Start the MCP server on stdio (default)
+  npx xxiautomate-spine init              Interactive setup (writes ~/.spine/config.json)
+  npx xxiautomate-spine serve             Start the MCP server on stdio
+  npx xxiautomate-spine login --key KEY   Switch to cloud mode
+  npx xxiautomate-spine --version         Print version
 
 Docs: https://spine.xxiautomate.com
 `;
@@ -33,6 +34,7 @@ async function main() {
       return;
     }
     case undefined:
+      return serveCommand();
     case '-h':
     case '--help':
       process.stdout.write(USAGE);

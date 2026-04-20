@@ -1,7 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
+
+type ApiMemory = {
+  id: string;
+  content: string;
+  source: string;
+  tags: string[];
+  createdAt: string;
+  similarity: number;
+};
 
 // ── Demo corpus ────────────────────────────────────────────────────────────
 // 25 real-looking memories across 5 sessions. Dates are computed at render
@@ -188,6 +197,25 @@ function computeSim(m: DemoMemory, q: string): number {
 export default function DemoPage() {
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [apiResults, setApiResults] = useState<ApiMemory[] | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) { setApiResults(null); setApiLoading(false); return; }
+    setApiLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/demo/search?q=${encodeURIComponent(q)}&limit=20`);
+        if (res.ok) {
+          const data = (await res.json()) as { memories: ApiMemory[] };
+          setApiResults(data.memories);
+        }
+      } catch { /* fall back to static */ }
+      setApiLoading(false);
+    }, 380);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -303,7 +331,11 @@ export default function DemoPage() {
         {/* Count */}
         <p className="mt-4 font-mono text-[11px] text-cream/30">
           {query
-            ? `${filtered.length} ${filtered.length === 1 ? 'memory' : 'memories'} · ranked by vector relevance`
+            ? apiLoading
+              ? 'searching…'
+              : apiResults
+                ? `${apiResults.length} ${apiResults.length === 1 ? 'memory' : 'memories'} · real pgvector search`
+                : `${filtered.length} ${filtered.length === 1 ? 'memory' : 'memories'} · ranked by similarity`
             : `${MEMORIES.length} total · sorted by recency`}
         </p>
       </header>
@@ -311,15 +343,37 @@ export default function DemoPage() {
       {/* Memory list */}
       <main className="px-6 md:px-16 pb-32 max-w-5xl mx-auto relative">
 
-        {/* Search results (flat, sorted by sim) */}
+        {/* Search results — real API when available, static fallback */}
         {query && (
           <div className="space-y-3">
-            {filtered.length === 0 && (
-              <p className="text-cream/30 font-mono text-sm py-8">No matches found.</p>
+            {apiResults ? (
+              apiResults.length === 0 ? (
+                <p className="text-cream/30 font-mono text-sm py-8">No memories matched your query.</p>
+              ) : (
+                apiResults.map((m) => (
+                  <ApiMemoryCard key={m.id} m={m} query={query} />
+                ))
+              )
+            ) : apiLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="border border-cream/[0.08] rounded-xl p-5 bg-cream/[0.02] animate-pulse">
+                    <div className="h-3 bg-cream/10 rounded w-1/3 mb-3" />
+                    <div className="h-4 bg-cream/10 rounded w-full mb-2" />
+                    <div className="h-4 bg-cream/10 rounded w-4/5" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {filtered.length === 0 && (
+                  <p className="text-cream/30 font-mono text-sm py-8">No matches found.</p>
+                )}
+                {filtered.map((m) => (
+                  <MemoryCard key={m.id} m={m} query={query} />
+                ))}
+              </>
             )}
-            {filtered.map((m) => (
-              <MemoryCard key={m.id} m={m} query={query} />
-            ))}
           </div>
         )}
 
@@ -377,7 +431,55 @@ export default function DemoPage() {
   );
 }
 
-// ── Memory card ────────────────────────────────────────────────────────────
+// ── API Memory card (real Supabase results) ────────────────────────────────
+function ApiMemoryCard({ m, query }: { m: ApiMemory; query: string }) {
+  const simPct = Math.round(m.similarity * 100);
+  const barWidth = `${Math.max(4, Math.round(m.similarity * 100))}%`;
+  const source = m.source ?? 'claude.ai';
+  const colorClass = SOURCE_COLORS[source] ?? SOURCE_COLORS['claude.ai'];
+
+  const d = new Date(m.createdAt);
+  const daysAgo = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  const label = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo} days ago`;
+
+  function highlight(text: string): ReactNode {
+    if (!query) return text;
+    const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(re);
+    return parts.map((p, i) =>
+      re.test(p) ? <mark key={i} className="bg-amber/20 text-amber rounded px-0.5">{p}</mark> : p
+    );
+  }
+
+  return (
+    <div className="group border border-cream/[0.08] hover:border-amber/20 rounded-xl p-5 bg-cream/[0.02] hover:bg-amber/[0.02] transition-all duration-300">
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${colorClass}`}>
+            {source}
+          </span>
+          {(m.tags ?? []).map((t) => (
+            <span key={t} className="font-mono text-[10px] text-cream/30 border border-cream/[0.08] rounded px-1.5 py-0.5">
+              {t}
+            </span>
+          ))}
+        </div>
+        <span className="font-mono text-[10px] text-cream/25 flex-shrink-0">{label}</span>
+      </div>
+      <p className="text-[14px] leading-relaxed text-cream/80 mb-4">{highlight(m.content)}</p>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-[2px] bg-cream/[0.06] rounded-full overflow-hidden">
+          <div className="h-full bg-amber/60 rounded-full transition-all duration-500" style={{ width: barWidth }} />
+        </div>
+        <span className="font-mono text-[10px] text-cream/25 flex-shrink-0">
+          {m.similarity.toFixed(3)} · pgvector
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Static Memory card ─────────────────────────────────────────────────────
 function MemoryCard({
   m,
   query,
