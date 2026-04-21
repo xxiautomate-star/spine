@@ -1,19 +1,20 @@
-// Single source of truth for plan tiers: names, price ids, feature flags, and
-// capture caps. Imported anywhere that needs to enforce or display a limit.
+// Single source of truth for plan tiers — names, LemonSqueezy variant IDs,
+// feature flags, and capture caps. Import everywhere limits are needed.
 
-import type { Plan } from './auth';
+export type Plan = 'free' | 'pro' | 'team';
 
 export type PlanTier = {
   name: string;
-  /** USD, displayed on the billing page. */
   priceMonthly: number;
-  /** Cap on total (non-deleted) memories. Infinity = unlimited. */
   captureCap: number;
-  /** Whether Pro/Power features are on. */
   priorityRerank: boolean;
-  /** Short marketing line. */
+  conflictDetection: boolean;
+  decayRecovery: boolean;
+  requiredContextPins: boolean;
+  sharedWorkspace: boolean;
+  auditLog: boolean;
+  maxSeats: number;
   tagline: string;
-  /** Bullets listed on the billing tile. */
   features: string[];
 };
 
@@ -21,53 +22,76 @@ export const PLAN_LIMITS: Record<Plan, PlanTier> = {
   free: {
     name: 'Free',
     priceMonthly: 0,
-    captureCap: 100,
+    captureCap: 50,
     priorityRerank: false,
-    tagline: 'Enough to feel the shape of it.',
+    conflictDetection: false,
+    decayRecovery: false,
+    requiredContextPins: false,
+    sharedWorkspace: false,
+    auditLog: false,
+    maxSeats: 1,
+    tagline: 'A quiet beginning.',
     features: [
-      '100 memories',
-      'One integration (Claude Code MCP)',
-      'Vector recall, no reranker',
+      '50 memories',
+      'Claude Code MCP + browser extension',
+      'Vector recall',
+      'Export to JSON any time',
     ],
   },
   pro: {
     name: 'Pro',
-    priceMonthly: 29,
-    captureCap: 1000,
-    priorityRerank: true,
-    tagline: 'Your daily archive.',
-    features: [
-      '1,000 memories',
-      'ChatGPT + Gemini browser extension',
-      'Hybrid vector + BM25 retrieval',
-      'Haiku 4.5 reranker',
-    ],
-  },
-  power: {
-    name: 'Power',
-    priceMonthly: 99,
+    priceMonthly: 19,
     captureCap: Number.POSITIVE_INFINITY,
     priorityRerank: true,
-    tagline: 'Unlimited memory, forever.',
+    conflictDetection: true,
+    decayRecovery: true,
+    requiredContextPins: true,
+    sharedWorkspace: false,
+    auditLog: false,
+    maxSeats: 1,
+    tagline: 'The relationship deepens.',
     features: [
       'Unlimited memories',
-      'Priority Haiku reranker',
-      'Team-shared archives (coming soon)',
-      'Automation triggers (coming soon)',
+      'Conflict detection + resolution',
+      'Memory decay recovery',
+      'Required-context pins',
+      'Hybrid vector + BM25 retrieval',
+      'Weekly retention digest',
+    ],
+  },
+  team: {
+    name: 'Team',
+    priceMonthly: 59,
+    captureCap: Number.POSITIVE_INFINITY,
+    priorityRerank: true,
+    conflictDetection: true,
+    decayRecovery: true,
+    requiredContextPins: true,
+    sharedWorkspace: true,
+    auditLog: true,
+    maxSeats: 5,
+    tagline: 'Shared memory. Collective clarity.',
+    features: [
+      'Everything in Pro',
+      'Shared workspace (up to 5 members)',
+      'Team memory policies + enforcement',
+      'Org audit log',
+      'Priority support',
     ],
   },
 };
 
-export function priceIdToPlan(priceId: string | null | undefined): Plan | null {
-  if (!priceId) return null;
-  if (priceId === process.env.STRIPE_PRICE_ID_PRO) return 'pro';
-  if (priceId === process.env.STRIPE_PRICE_ID_POWER) return 'power';
+// LemonSqueezy variant ID mapping (set in env: LS_VARIANT_ID_PRO, LS_VARIANT_ID_TEAM)
+export function variantIdToPlan(variantId: string | null | undefined): Plan | null {
+  if (!variantId) return null;
+  if (variantId === process.env.LS_VARIANT_ID_PRO) return 'pro';
+  if (variantId === process.env.LS_VARIANT_ID_TEAM) return 'team';
   return null;
 }
 
-export function planToPriceId(plan: Plan): string | null {
-  if (plan === 'pro') return process.env.STRIPE_PRICE_ID_PRO ?? null;
-  if (plan === 'power') return process.env.STRIPE_PRICE_ID_POWER ?? null;
+export function planToVariantId(plan: Plan): string | null {
+  if (plan === 'pro') return process.env.LS_VARIANT_ID_PRO ?? null;
+  if (plan === 'team') return process.env.LS_VARIANT_ID_TEAM ?? null;
   return null;
 }
 
@@ -77,4 +101,9 @@ export function captureCap(plan: Plan): number {
 
 export function isUnlimited(plan: Plan): boolean {
   return !Number.isFinite(PLAN_LIMITS[plan].captureCap);
+}
+
+export function planHas(plan: Plan, feature: keyof PlanTier): boolean {
+  const val = PLAN_LIMITS[plan][feature];
+  return typeof val === 'boolean' ? val : typeof val === 'number' ? val > 0 : false;
 }

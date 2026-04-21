@@ -26,7 +26,7 @@ type PageData = {
 };
 
 function coercePlan(raw: unknown): Plan {
-  return raw === 'pro' || raw === 'power' ? raw : 'free';
+  return raw === 'pro' || raw === 'team' ? raw : 'free';
 }
 
 async function fetchHygiene(): Promise<PageData> {

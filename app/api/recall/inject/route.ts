@@ -97,7 +97,7 @@ async function recallForPaid(
 
 async function assemble(
   userId: string,
-  plan: 'free' | 'pro' | 'power',
+  plan: 'free' | 'pro' | 'team',
   input: Input
 ): Promise<{ block: string; memory_count: number; hints: string[] }> {
   const seen = new Map<string, BlockMemory>();

@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { cosine } from '../embed/index.js';
 import { localEmbedder } from '../embed/local.js';
+import { getLicense, type LicenseStatus } from '../license.js';
 import type {
   CaptureInput,
   HygieneSummary,
@@ -12,6 +13,27 @@ import type {
   TimelineOpts,
   UsageStats,
 } from './index.js';
+
+/**
+ * Raised when a write would exceed the plan cap. The CLI / MCP server
+ * converts this into a structured `plan_upgrade_required` response that
+ * includes the upgrade URL.
+ */
+export class PlanLimitError extends Error {
+  readonly code = 'plan_upgrade_required';
+  constructor(
+    readonly plan: string,
+    readonly used: number,
+    readonly cap: number,
+    readonly upgradeUrl: string,
+  ) {
+    super(
+      `Plan limit reached (${used}/${cap} memories on ${plan}). ` +
+        `Upgrade at ${upgradeUrl} to continue capturing.`,
+    );
+    this.name = 'PlanLimitError';
+  }
+}
 
 type Row = {
   id: string;
@@ -31,10 +53,26 @@ function fromFloat32(vec: Float32Array): Buffer {
   return Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength);
 }
 
+export type LocalStoreOpts = {
+  /**
+   * Called before every write to resolve the current plan + cap. Keeping
+   * this as a thunk (instead of a static value) lets the serve command
+   * refresh the license on a schedule without rebuilding the store.
+   */
+  getLicenseStatus?: () => LicenseStatus | Promise<LicenseStatus>;
+  /**
+   * Opt out of cap enforcement entirely — used by tests and the bulk
+   * import path where the caller has already checked headroom.
+   */
+  enforceCap?: boolean;
+};
+
 export class LocalStore implements Store {
   private db: Database.Database;
+  private readonly getLicenseStatus: () => LicenseStatus | Promise<LicenseStatus>;
+  private readonly enforceCap: boolean;
 
-  constructor(dbPath: string) {
+  constructor(dbPath: string, opts: LocalStoreOpts = {}) {
     mkdirSync(dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
@@ -51,9 +89,33 @@ export class LocalStore implements Store {
       create index if not exists memories_created_idx
         on memories (created_at desc);
     `);
+    this.getLicenseStatus =
+      opts.getLicenseStatus ??
+      (async () => getLicense({ apiKey: undefined }));
+    this.enforceCap = opts.enforceCap !== false;
+  }
+
+  /** Count non-deleted memories. Cheap — runs off the PK index. */
+  private liveCount(): number {
+    const row = this.db
+      .prepare('select count(*) as c from memories where deleted_at is null')
+      .get() as { c: number };
+    return row.c ?? 0;
+  }
+
+  private async assertHeadroom(want: number): Promise<LicenseStatus> {
+    const status = await this.getLicenseStatus();
+    if (!this.enforceCap) return status;
+    if (status.cap === null) return status;
+    const used = this.liveCount();
+    if (used + want > status.cap) {
+      throw new PlanLimitError(status.plan, used, status.cap, status.upgradeUrl);
+    }
+    return status;
   }
 
   async capture(input: CaptureInput): Promise<string> {
+    await this.assertHeadroom(1);
     const vec = await localEmbedder.embed(input.content);
     const id = randomUUID();
     this.db
@@ -73,6 +135,7 @@ export class LocalStore implements Store {
 
   async captureBulk(inputs: CaptureInput[]): Promise<string[]> {
     if (inputs.length === 0) return [];
+    await this.assertHeadroom(inputs.length);
     const vecs = await localEmbedder.embedBatch(inputs.map((i) => i.content));
     const ids: string[] = [];
     const stmt = this.db.prepare(
@@ -146,14 +209,16 @@ export class LocalStore implements Store {
   }
 
   async usage(): Promise<UsageStats> {
-    const row = this.db
-      .prepare('select count(*) as c from memories where deleted_at is null')
-      .get() as { c: number };
+    const count = this.liveCount();
+    const status = await this.getLicenseStatus();
+    const limit = status.cap;
+    const pctUsed =
+      limit === null ? 0 : Math.min(100, Math.round((count / Math.max(1, limit)) * 100));
     return {
-      count: row.c ?? 0,
-      plan: 'local',
-      limit: null,
-      pctUsed: 0,
+      count,
+      plan: status.plan,
+      limit,
+      pctUsed,
       nextReset: null,
     };
   }
@@ -161,9 +226,10 @@ export class LocalStore implements Store {
   async hygiene(): Promise<HygieneSummary> {
     // Local mode has no clusters, no dedupe cron, no retrieval tracking.
     // Return a shape-compatible "nothing to do" summary so callers can branch
-    // on plan === 'local' without crashing on missing fields.
+    // on the plan without crashing on missing fields.
+    const status = await this.getLicenseStatus();
     return {
-      plan: 'local',
+      plan: status.plan,
       duplicatesPending: 0,
       staleCount: 0,
       clusterCount: 0,

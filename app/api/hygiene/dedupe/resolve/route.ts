@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     .select('plan')
     .eq('user_id', user.id)
     .maybeSingle();
-  const plan = profile?.plan === 'pro' || profile?.plan === 'power' ? profile.plan : 'free';
+  const plan = profile?.plan === 'pro' || profile?.plan === 'team' ? profile.plan : 'free';
   if (plan === 'free') {
     return NextResponse.json(
       { error: 'Merging duplicates requires Pro or Power.', error_code: 'plan_upgrade_required' },

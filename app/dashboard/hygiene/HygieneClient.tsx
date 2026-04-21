@@ -27,7 +27,7 @@ export function HygieneClient({ data }: { data: PageData }) {
   const [busyStale, setBusyStale] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: 'good' | 'bad'; msg: string } | null>(null);
 
-  const isPaid = data.plan === 'pro' || data.plan === 'power';
+  const isPaid = data.plan === 'pro' || data.plan === 'team';
 
   function flash(kind: 'good' | 'bad', msg: string) {
     setToast({ kind, msg });

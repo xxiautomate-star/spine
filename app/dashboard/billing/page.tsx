@@ -43,12 +43,12 @@ async function fetchProfile(): Promise<BillingProfile> {
 }
 
 function coercePlan(raw: unknown): Plan {
-  return raw === 'pro' || raw === 'power' ? raw : 'free';
+  return raw === 'pro' || raw === 'team' ? raw : 'free';
 }
 
 export default async function BillingPage() {
   const profile = await fetchProfile();
-  const plans: Plan[] = ['free', 'pro', 'power'];
+  const plans: Plan[] = ['free', 'pro', 'team'];
   const tiles = plans.map((p) => ({ plan: p, tier: PLAN_LIMITS[p] }));
 
   return (

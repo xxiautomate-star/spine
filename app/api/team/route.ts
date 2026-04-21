@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (!profile || (profile.plan as string) !== 'power') {
+  if (!profile || (profile.plan as string) !== 'team') {
     return NextResponse.json(
       {
         error: 'Team creation requires the Power plan.',

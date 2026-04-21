@@ -154,7 +154,7 @@ export function BillingClient({
         {tiles.map(({ plan, tier }) => {
           const isCurrent = plan === profile.plan;
           const isDowngrade =
-            (profile.plan === 'power' && (plan === 'pro' || plan === 'free')) ||
+            (profile.plan === 'team' && (plan === 'pro' || plan === 'free')) ||
             (profile.plan === 'pro' && plan === 'free');
           const isFree = plan === 'free';
           const busy = busyPlan === plan;

@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
   // same new cluster, not two fresh ones).
   const augmented: Array<{
     user_id: string;
+    org_id: string | null;
     content: string;
     source: string | null;
     tags: string[] | null;
@@ -128,6 +129,7 @@ export async function POST(req: NextRequest) {
       : baseTags;
     augmented.push({
       user_id: auth.authed.userId,
+      org_id: auth.authed.orgId ?? null,
       content: c.content,
       source: c.source,
       tags: tags.length > 0 ? tags : null,

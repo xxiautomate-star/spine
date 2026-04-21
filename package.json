@@ -17,7 +17,8 @@
     "test:dashboard": "node scripts/test-dashboard.mjs",
     "test:ext:unit": "npm --prefix extension-harness run test:unit",
     "store:screenshots": "node scripts/capture-store-screenshots.mjs",
-    "spine:decay": "node scripts/spine-decay.mjs"
+    "spine:decay": "node scripts/spine-decay.mjs",
+    "spine:digest-test": "node scripts/spine-digest-test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

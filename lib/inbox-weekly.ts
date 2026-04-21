@@ -184,7 +184,7 @@ function renderWeeklyEmail(
       </div>`).join('')}`
     : '';
 
-  const powerCta = summary.plan !== 'power'
+  const powerCta = summary.plan !== 'team'
     ? `<div style="margin-top:24px;padding:20px;border:1px solid rgba(232,154,60,0.2);border-radius:8px;background:rgba(232,154,60,0.04);">
         <p style="margin:0 0 6px;font-family:'Courier New',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(232,154,60,0.6);">Power plan</p>
         <p style="margin:0 0 12px;font-size:14px;color:rgba(232,228,221,0.7);">Share your archive with teammates. Export via API. Unlimited memories.</p>

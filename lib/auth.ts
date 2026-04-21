@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { getSupabase } from './supabase';
 
-export type Plan = 'free' | 'pro' | 'power';
+export type Plan = 'free' | 'pro' | 'team';
 
-export type Authed = { userId: string; keyId: string; plan: Plan };
+export type Authed = { userId: string; keyId: string; plan: Plan; orgId: string | null };
 export type AuthResult =
   | { authed: Authed; error?: never; status?: never }
   | { authed: null; error: string; status: number };
@@ -14,7 +14,7 @@ export function hashApiKey(key: string): string {
 }
 
 function coercePlan(raw: unknown): Plan {
-  return raw === 'pro' || raw === 'power' ? raw : 'free';
+  return raw === 'pro' || raw === 'team' ? raw : 'free';
 }
 
 export async function requireApiKey(req: NextRequest): Promise<AuthResult> {
@@ -41,11 +41,21 @@ export async function requireApiKey(req: NextRequest): Promise<AuthResult> {
   }
   const userId = data.user_id as string;
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('plan')
-    .eq('user_id', userId)
-    .maybeSingle();
+  // Fetch plan + default org in parallel
+  const [profileRes, orgRes] = await Promise.all([
+    supabase.from('profiles').select('plan').eq('user_id', userId).maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('default_org_id')
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ]);
+
+  // Fire-and-forget: ensure default org exists for new users
+  const orgId = (orgRes.data?.default_org_id as string | null) ?? null;
+  if (!orgId) {
+    void supabase.rpc('spine_ensure_default_org', { p_user_id: userId }).then(() => void 0);
+  }
 
   void supabase
     .from('api_keys')
@@ -57,7 +67,8 @@ export async function requireApiKey(req: NextRequest): Promise<AuthResult> {
     authed: {
       userId,
       keyId: data.id as string,
-      plan: coercePlan(profile?.plan),
+      plan: coercePlan(profileRes.data?.plan),
+      orgId,
     },
   };
 }

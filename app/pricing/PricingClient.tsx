@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 // ── Plan data ─────────────────────────────────────────────────────────────
 
-type Plan = 'free' | 'pro' | 'power';
+type Plan = 'free' | 'pro' | 'team';
 
 type Tier = {
   plan: Plan;
@@ -52,7 +52,7 @@ const TIERS: Tier[] = [
     cta: 'Start Pro',
   },
   {
-    plan: 'power',
+    plan: 'team',
     name: 'Power',
     price: '$99',
     period: 'per month',
@@ -94,7 +94,7 @@ const FAQS = [
 
 // ── Checkout logic ────────────────────────────────────────────────────────
 
-async function startCheckout(plan: 'pro' | 'power'): Promise<void> {
+async function startCheckout(plan: 'pro' | 'team'): Promise<void> {
   const res = await fetch('/api/stripe/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -145,7 +145,7 @@ function TierCard({
   tier: Tier;
   userId: string | null;
   loading: Plan | null;
-  onUpgrade: (plan: 'pro' | 'power') => void;
+  onUpgrade: (plan: 'pro' | 'team') => void;
 }) {
   const isPaid = tier.plan !== 'free';
 
@@ -155,7 +155,7 @@ function TierCard({
       window.location.href = `/login?next=/pricing`;
       return;
     }
-    onUpgrade(tier.plan as 'pro' | 'power');
+    onUpgrade(tier.plan as 'pro' | 'team');
   }
 
   const isLoading = loading === tier.plan;
@@ -235,7 +235,7 @@ export function PricingClient({
   const [loading, setLoading] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleUpgrade(plan: 'pro' | 'power') {
+  async function handleUpgrade(plan: 'pro' | 'team') {
     setError(null);
     setLoading(plan);
     try {
