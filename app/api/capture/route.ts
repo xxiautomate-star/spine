@@ -7,6 +7,7 @@ import { withCors, preflight } from '@/lib/cors';
 import { captureCap, isUnlimited, PLAN_LIMITS } from '@/lib/plan-limits';
 import { assignCluster } from '@/lib/clusters';
 import { scanDuplicatesForMemory } from '@/lib/hygiene';
+import { extractAndIndex } from '@/lib/entity-extractor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -146,6 +147,15 @@ export async function POST(req: NextRequest) {
   // scanDuplicatesForMemory; we do not await the chain.
   for (const newId of ids) {
     void scanDuplicatesForMemory(supabase, auth.authed.userId, newId);
+  }
+
+  // Fire-and-forget entity extraction for each new memory. Populates the
+  // knowledge graph that powers /graph and the daily digest.
+  for (let i = 0; i < ids.length; i++) {
+    const content = augmented[i]?.content;
+    if (content) {
+      void extractAndIndex(supabase, auth.authed.userId, ids[i], content).catch(() => void 0);
+    }
   }
 
   // Invalidate cached hygiene summaries so the next /api/hygiene/summary

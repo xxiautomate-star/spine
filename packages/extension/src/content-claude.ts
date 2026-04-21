@@ -175,3 +175,138 @@ function findTurnElement(root: Element, content: string): Element | null {
 }
 
 start(driver);
+
+// ── Cross-session HUD ─────────────────────────────────────────────────────
+// Watches the Claude prompt input. After 800ms idle with >18 chars, checks
+// /api/recall/context-match. If a strong match is found, injects a HUD card
+// above the input so the user sees "You solved this on Apr 14" before sending.
+
+(function initHud() {
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+  let lastQuery = '';
+
+  function removeHud() {
+    document.getElementById('spine-hud')?.remove();
+  }
+
+  async function checkMatch(query: string) {
+    if (query === lastQuery) return;
+    lastQuery = query;
+
+    // Get settings to find API key + endpoint.
+    const storageData = await chrome.storage.sync.get(['spine:settings']);
+    const settings = (storageData['spine:settings'] ?? {}) as {
+      apiKey?: string;
+      endpoint?: string;
+      autoInject?: boolean;
+    };
+
+    if (!settings.apiKey || !settings.autoInject) return;
+
+    const endpoint = (settings.endpoint ?? 'https://spine.xxiautomate.com').replace(/\/+$/, '');
+
+    try {
+      const res = await fetch(`${endpoint}/api/recall/context-match`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${settings.apiKey}`,
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        matched: boolean;
+        headline?: string;
+        snippet?: string;
+        source?: string | null;
+        createdAt?: string;
+        continueUrl?: string;
+        confidence?: string;
+      };
+
+      if (!data.matched) { removeHud(); return; }
+
+      // Remove existing HUD before injecting new one.
+      removeHud();
+
+      const confidenceColor = data.confidence === 'exact' ? '#E89A3C' : '#4A5E7A';
+      const borderColor = data.confidence === 'exact'
+        ? 'rgba(232,154,60,0.35)' : 'rgba(74,94,122,0.35)';
+      const sourceLabel = data.source ?? 'your archive';
+      const dateStr = data.createdAt
+        ? new Date(data.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+        : '';
+      const snippet = (data.snippet ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const continueUrl = data.continueUrl && data.continueUrl !== '#' ? data.continueUrl : null;
+
+      const hudEl = document.createElement('div');
+      hudEl.innerHTML = `<div id="spine-hud" style="
+        position:fixed;bottom:80px;right:20px;z-index:2147483647;max-width:360px;
+        background:rgba(13,12,10,0.97);border:1px solid ${borderColor};
+        border-radius:12px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,0.6);
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:#E8E4DD;animation:spineHudIn 0.3s cubic-bezier(0.2,0.7,0.2,1) both;
+      ">
+        <style>@keyframes spineHudIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}</style>
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+          <div style="width:6px;height:6px;border-radius:50%;background:${confidenceColor};flex-shrink:0;margin-top:5px;"></div>
+          <div>
+            <p style="margin:0;font-size:12px;font-weight:600;color:${confidenceColor};">${data.headline ?? 'Prior answer found.'}</p>
+            <p style="margin:2px 0 0;font-size:10px;color:rgba(232,228,221,0.3);font-family:monospace;text-transform:uppercase;letter-spacing:0.06em;">${sourceLabel}${dateStr ? ' · ' + dateStr : ''}</p>
+          </div>
+          <button onclick="document.getElementById('spine-hud').remove()" style="margin-left:auto;flex-shrink:0;background:none;border:none;cursor:pointer;color:rgba(232,228,221,0.3);font-size:18px;line-height:1;padding:0;">×</button>
+        </div>
+        <p style="margin:0 0 12px;font-size:13px;line-height:1.6;color:rgba(232,228,221,0.75);">${snippet}</p>
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${continueUrl ? `<a href="${continueUrl}" target="_blank" style="font-size:10px;font-family:monospace;text-transform:uppercase;letter-spacing:0.1em;color:${confidenceColor};text-decoration:none;border-bottom:1px solid rgba(232,154,60,0.3);padding-bottom:1px;">Continue →</a>` : ''}
+          <a href="${endpoint}/timeline" target="_blank" style="font-size:10px;font-family:monospace;text-transform:uppercase;letter-spacing:0.1em;color:rgba(232,228,221,0.25);text-decoration:none;">Archive</a>
+        </div>
+      </div>`;
+
+      document.body.appendChild(hudEl.firstElementChild!);
+
+      // Auto-dismiss after 12s.
+      setTimeout(removeHud, 12_000);
+    } catch {
+      // Network error — fail silently.
+    }
+  }
+
+  function watchInput() {
+    const input = driver.getPromptInput();
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+      const text = (input.innerText ?? input.textContent ?? '').trim();
+      if (debounce) clearTimeout(debounce);
+      if (text.length < 18) { removeHud(); return; }
+      debounce = setTimeout(() => void checkMatch(text), 800);
+    });
+
+    input.addEventListener('keydown', (e: Event) => {
+      // Clear HUD when user submits.
+      if ((e as KeyboardEvent).key === 'Enter' && !(e as KeyboardEvent).shiftKey) {
+        removeHud();
+        lastQuery = '';
+      }
+    });
+  }
+
+  // Retry until the input mounts (SPA — may take a moment after navigation).
+  let attempts = 0;
+  const findInput = setInterval(() => {
+    attempts++;
+    if (driver.getPromptInput()) { watchInput(); clearInterval(findInput); }
+    if (attempts > 30) clearInterval(findInput);
+  }, 500);
+
+  // Re-attach on SPA navigation.
+  window.addEventListener('popstate', () => {
+    clearInterval(findInput);
+    removeHud();
+    lastQuery = '';
+    setTimeout(initHud, 800);
+  });
+})();
