@@ -8,26 +8,62 @@ import { hookStopCommand } from './commands/hook-stop.js';
 const USAGE = `@spine/mcp — the memory layer for your AI
 
 Usage:
-  npx @spine/mcp                     Start the MCP server on stdio (default)
-  npx @spine/mcp init                Interactive setup (writes ~/.spine/config.json)
-  npx @spine/mcp serve               Start the MCP server on stdio
-  npx @spine/mcp hook-stop           Claude Code Stop hook — auto-ingest session summary
-  npx @spine/mcp login --key KEY     Switch to cloud mode
+  npx @spine/mcp init                Interactive setup (auto-registers with Claude Code)
+  npx @spine/mcp init --key KEY      One-line cloud setup — no prompts
+  npx @spine/mcp init --local        One-line local-only setup — no prompts
+  npx @spine/mcp install             Alias for init
+  npx @spine/mcp serve               Start MCP server on stdio
+  npx @spine/mcp hook-stop           Claude Code Stop hook (call via hooks config)
+  npx @spine/mcp login --key KEY     Switch to cloud mode (alias for init --key)
   npx @spine/mcp --version           Print version
 
-Tools exposed: search_memory · add_memory · get_timeline · get_context
+Shorthand (flags passed without a subcommand run init):
+  npx @spine/mcp --key KEY           Same as: npx @spine/mcp init --key KEY
+
+Tools registered in Claude Code:
+  search_memory(query)            Semantic search across all sessions
+  add_memory(content, type)       Store a fact, decision, or bug fix
+  add_team_memory(content, type)  Share a memory with your team
+  get_timeline(from, to, type)    Chronological view of what happened
+  get_context(task_description)   Inject context before starting a task
+  replay_file(path)               Decision history for any file
+
 Docs: https://spine.xxiautomate.com
 `;
 
 async function main() {
   const [, , cmd, ...rest] = process.argv;
+
+  // Top-level flags that delegate to init (e.g. npx @spine/mcp --key <k>)
+  if (!cmd || cmd.startsWith('--')) {
+    const flags = cmd ? [cmd, ...rest] : rest;
+    if (flags.includes('--key') || flags.includes('--local')) {
+      return initCommand(flags);
+    }
+    if (flags.includes('-v') || flags.includes('--version')) {
+      const pkg = JSON.parse(
+        await readFile(new URL('../package.json', import.meta.url), 'utf8')
+      ) as { version: string };
+      process.stdout.write(pkg.version + '\n');
+      return;
+    }
+    if (flags.includes('-h') || flags.includes('--help')) {
+      process.stdout.write(USAGE);
+      return;
+    }
+    // No subcommand, no flags → start MCP server (default for Claude Code)
+    return serveCommand();
+  }
+
   switch (cmd) {
     case 'init':
-      return initCommand();
+    case 'install':
+      return initCommand(rest);
     case 'serve':
       return serveCommand();
     case 'login':
-      return loginCommand(rest);
+      // login --key KEY → same as init --key KEY
+      return initCommand(['--key', ...rest.filter((a) => a !== '--key')]);
     case 'hook-stop':
       return hookStopCommand();
     case '-v':
@@ -38,8 +74,6 @@ async function main() {
       process.stdout.write(pkg.version + '\n');
       return;
     }
-    case undefined:
-      return serveCommand();
     case '-h':
     case '--help':
       process.stdout.write(USAGE);

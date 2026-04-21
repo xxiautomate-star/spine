@@ -1,5 +1,8 @@
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join, dirname } from 'node:path';
 import {
   CONFIG_PATH,
   DEFAULT_API_BASE,
@@ -7,107 +10,196 @@ import {
   writeConfig,
 } from '../config.js';
 
-const SETTINGS_SNIPPET = `{
-  "mcpServers": {
-    "spine": {
-      "command": "npx",
-      "args": ["-y", "@spine/mcp", "serve"]
-    }
-  }
-}`;
+// ── Claude Code settings path (global, not per-project) ───────────────────────
+const CLAUDE_SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
 
-const CURSOR_SNIPPET = `{
-  "mcpServers": {
-    "spine": {
-      "command": "npx",
-      "args": ["-y", "@spine/mcp", "serve"]
-    }
-  }
-}`;
+const MCP_SERVER_ENTRY = {
+  command: 'npx',
+  args: ['-y', '@spine/mcp', 'serve'],
+};
 
-const STOP_HOOK_SNIPPET = `{
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx @spine/mcp hook-stop"
-          }
-        ]
-      }
-    ]
-  }
-}`;
+const STOP_HOOK_ENTRY = {
+  matcher: '',
+  hooks: [{ type: 'command', command: 'npx @spine/mcp hook-stop' }],
+};
 
-export async function initCommand(): Promise<void> {
-  const rl = createInterface({ input, output });
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function readJson<T>(path: string, fallback: T): Promise<T> {
   try {
-    process.stdout.write('\nSpine — setup\n─────────────\n\n');
-    const existing = await readConfig();
+    return JSON.parse(await readFile(path, 'utf8')) as T;
+  } catch {
+    return fallback;
+  }
+}
 
-    const answer = (
-      await rl.question('Storage mode — [L]ocal-only or [c]loud sync? (L/c): ')
-    )
-      .trim()
-      .toLowerCase();
+async function writeJson(path: string, data: unknown): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify(data, null, 2) + '\n', 'utf8');
+}
 
-    if (answer === 'c' || answer === 'cloud') {
-      const apiKey = (await rl.question('Paste your Spine API key: ')).trim();
-      if (!apiKey) throw new Error('An API key is required for cloud mode.');
-      const apiBasePrompt = (
-        await rl.question(`API base URL (default ${DEFAULT_API_BASE}): `)
-      ).trim();
-      const apiBase = apiBasePrompt || DEFAULT_API_BASE;
+type RegistrationResult = 'written' | 'already' | 'failed';
 
-      try {
-        const res = await fetch(`${apiBase}/ping`, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${apiKey}` },
-        });
-        if (res.ok) {
-          process.stdout.write('[spine] API key accepted \u2713\n');
-        } else if (res.status === 404) {
-          process.stdout.write('[spine] /ping not reachable yet \u2014 saving config anyway.\n');
-        } else {
-          process.stdout.write(`[spine] API returned ${res.status} \u2014 saving config anyway.\n`);
-        }
-      } catch {
-        process.stdout.write('[spine] could not reach API \u2014 saving config anyway.\n');
-      }
+/**
+ * Merge Spine into ~/.claude/settings.json.
+ * Adds mcpServers.spine and the Stop hook without overwriting anything else.
+ */
+async function registerWithClaudeCode(): Promise<RegistrationResult> {
+  try {
+    const settings = await readJson<Record<string, unknown>>(CLAUDE_SETTINGS_PATH, {});
+    let changed = false;
 
-      await writeConfig({ ...existing, mode: 'cloud', apiKey, apiBase });
-    } else {
-      await writeConfig({ mode: 'local' });
-      process.stdout.write('[spine] Local storage set. Memories live in ~/.spine/memories.db\n');
+    // MCP server
+    const mcpServers = (settings.mcpServers as Record<string, unknown> | undefined) ?? {};
+    if (!mcpServers['spine']) {
+      mcpServers['spine'] = MCP_SERVER_ENTRY;
+      settings.mcpServers = mcpServers;
+      changed = true;
     }
 
-    process.stdout.write(`\nConfig written to ${CONFIG_PATH}\n`);
+    // Stop hook — append if Spine hook isn't already there
+    const hooks = (settings.hooks as Record<string, unknown> | undefined) ?? {};
+    const stopArr = Array.isArray(hooks['Stop']) ? (hooks['Stop'] as unknown[]) : [];
+    const alreadyHooked = stopArr.some((h) => {
+      const entry = h as { hooks?: Array<{ command?: string }> };
+      return entry.hooks?.some((ih) => typeof ih.command === 'string' && ih.command.includes('@spine/mcp'));
+    });
+    if (!alreadyHooked) {
+      stopArr.push(STOP_HOOK_ENTRY);
+      hooks['Stop'] = stopArr;
+      settings.hooks = hooks;
+      changed = true;
+    }
 
-    process.stdout.write('\n\u2501\u2501\u2501 Step 1 \u2014 Add the MCP server \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n');
-    process.stdout.write('Claude Code \u2014 add to .claude/settings.json in your project:\n\n');
-    process.stdout.write(SETTINGS_SNIPPET + '\n\n');
-    process.stdout.write('Cursor (~/.cursor/mcp.json) \u00b7 Windsurf \u00b7 Continue (same schema):\n\n');
-    process.stdout.write(CURSOR_SNIPPET + '\n\n');
-    process.stdout.write(
-      'Restart your editor. Tools that will appear:\n' +
-      '  search_memory(query)              \u2014 semantic search across all sessions\n' +
-      '  add_memory(content, type)         \u2014 capture a fact, decision, or bug fix\n' +
-      '  add_team_memory(content, type)    \u2014 share a memory with your whole team\n' +
-      '  get_timeline(from, to, type)      \u2014 chronological view of what happened\n' +
-      '  get_context(task_description)     \u2014 inject relevant context for a task\n' +
-      '  replay_file(path)                 \u2014 full decision history for any file\n\n'
-    );
-
-    process.stdout.write('\u2501\u2501\u2501 Step 2 \u2014 Auto-capture (optional, recommended) \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n');
-    process.stdout.write(
-      'Merge this into .claude/settings.json so every session is ingested automatically.\n' +
-      'Ask "what did I work on last week?" and get a real answer.\n\n'
-    );
-    process.stdout.write(STOP_HOOK_SNIPPET + '\n\n');
-    process.stdout.write('Setup complete. Your AI now remembers.\n\n');
-  } finally {
-    rl.close();
+    if (!changed) return 'already';
+    await writeJson(CLAUDE_SETTINGS_PATH, settings);
+    return 'written';
+  } catch {
+    return 'failed';
   }
+}
+
+async function verifyApiKey(apiBase: string, apiKey: string): Promise<'ok' | 'rejected' | 'unreachable'> {
+  try {
+    const res = await fetch(`${apiBase}/ping`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) return 'ok';
+    if (res.status === 401 || res.status === 403) return 'rejected';
+    return 'ok'; // 404 etc — API exists, key format accepted
+  } catch {
+    return 'unreachable';
+  }
+}
+
+function printLine(s: string) { process.stdout.write(s + '\n'); }
+function ok(s: string)  { printLine('\u2713 ' + s); }
+function info(s: string) { printLine('  ' + s); }
+function warn(s: string) { printLine('\u26a0 ' + s); }
+function head(s: string) { printLine('\n' + s); }
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+export async function initCommand(args: string[] = []): Promise<void> {
+  // Parse flags
+  const keyFlagIdx = args.indexOf('--key');
+  const apiKeyFlag  = keyFlagIdx !== -1 ? (args[keyFlagIdx + 1] ?? '') : undefined;
+  const localFlag   = args.includes('--local');
+
+  head('Spine — setup\n─────────────');
+
+  // ── Spine config (~/.spine/config.json) ──────────────────────────────────
+  const existing = await readConfig();
+
+  if (apiKeyFlag !== undefined) {
+    // Non-interactive: --key provided
+    if (!apiKeyFlag) {
+      process.stderr.write('Error: --key requires an API key value.\n');
+      process.exit(1);
+    }
+    info(`Verifying API key against ${DEFAULT_API_BASE} …`);
+    const status = await verifyApiKey(DEFAULT_API_BASE, apiKeyFlag);
+    if (status === 'rejected') {
+      process.stderr.write('Error: API key was rejected (401/403). Check your key at spine.xxiautomate.com\n');
+      process.exit(1);
+    }
+    if (status === 'unreachable') {
+      warn('Could not reach Spine API — saving config anyway.');
+    } else {
+      ok('API key verified');
+    }
+    await writeConfig({ ...existing, mode: 'cloud', apiKey: apiKeyFlag, apiBase: DEFAULT_API_BASE });
+    ok(`Config written → ${CONFIG_PATH}`);
+
+  } else if (localFlag) {
+    await writeConfig({ mode: 'local' });
+    ok(`Local mode set. Memories → ~/.spine/memories.db`);
+
+  } else {
+    // Interactive
+    const rl = createInterface({ input, output });
+    try {
+      const answer = (
+        await rl.question('\nStorage mode — [L]ocal-only or [c]loud sync? (L/c): ')
+      ).trim().toLowerCase();
+
+      if (answer === 'c' || answer === 'cloud') {
+        const apiKey = (await rl.question('Paste your Spine API key: ')).trim();
+        if (!apiKey) {
+          process.stderr.write('Error: API key is required for cloud mode.\n');
+          process.exit(1);
+        }
+        info('Verifying …');
+        const status = await verifyApiKey(DEFAULT_API_BASE, apiKey);
+        if (status === 'rejected') {
+          process.stderr.write('Error: API key was rejected. Check your key at spine.xxiautomate.com\n');
+          process.exit(1);
+        }
+        if (status === 'unreachable') warn('Could not reach Spine API — saving config anyway.');
+        else ok('API key verified');
+
+        await writeConfig({ ...existing, mode: 'cloud', apiKey, apiBase: DEFAULT_API_BASE });
+        ok(`Config written → ${CONFIG_PATH}`);
+      } else {
+        await writeConfig({ mode: 'local' });
+        ok('Local mode set. Memories → ~/.spine/memories.db');
+      }
+    } finally {
+      rl.close();
+    }
+  }
+
+  // ── Register with Claude Code (~/.claude/settings.json) ──────────────────
+  head('Registering with Claude Code …');
+  const regResult = await registerWithClaudeCode();
+  if (regResult === 'written') {
+    ok(`MCP server registered  → ${CLAUDE_SETTINGS_PATH}`);
+    ok('Stop hook registered   → sessions captured automatically');
+  } else if (regResult === 'already') {
+    ok('Already registered in ~/.claude/settings.json');
+  } else {
+    warn(`Could not write to ${CLAUDE_SETTINGS_PATH}`);
+    info('Add this manually to ~/.claude/settings.json:');
+    info('');
+    info('  "mcpServers": {');
+    info('    "spine": { "command": "npx", "args": ["-y", "@spine/mcp", "serve"] }');
+    info('  },');
+    info('  "hooks": {');
+    info('    "Stop": [{ "matcher": "", "hooks": [{ "type": "command",');
+    info('      "command": "npx @spine/mcp hook-stop" }] }]');
+    info('  }');
+    info('');
+  }
+
+  // ── Tools available ───────────────────────────────────────────────────────
+  head('Setup complete. Restart Claude Code, then try:');
+  info('  search_memory("auth bug")          — find past decisions');
+  info('  get_context("task description")    — inject context before a task');
+  info('  replay_file("src/lib/auth.ts")     — full decision history for a file');
+  info('  add_memory("we use postgres 15")   — store a fact permanently');
+  info('');
+  info('Docs → https://spine.xxiautomate.com');
+  info('');
 }
