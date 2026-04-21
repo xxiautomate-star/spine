@@ -8,6 +8,7 @@ import { captureCap, isUnlimited, PLAN_LIMITS } from '@/lib/plan-limits';
 import { assignCluster } from '@/lib/clusters';
 import { scanDuplicatesForMemory } from '@/lib/hygiene';
 import { extractAndIndex } from '@/lib/entity-extractor';
+import { detectConflicts } from '@/lib/conflict-detector';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -149,12 +150,12 @@ export async function POST(req: NextRequest) {
     void scanDuplicatesForMemory(supabase, auth.authed.userId, newId);
   }
 
-  // Fire-and-forget entity extraction for each new memory. Populates the
-  // knowledge graph that powers /graph and the daily digest.
+  // Fire-and-forget entity extraction + conflict detection for each new memory.
   for (let i = 0; i < ids.length; i++) {
     const content = augmented[i]?.content;
     if (content) {
       void extractAndIndex(supabase, auth.authed.userId, ids[i], content).catch(() => void 0);
+      void detectConflicts(supabase, auth.authed.userId, ids[i], content).catch(() => void 0);
     }
   }
 

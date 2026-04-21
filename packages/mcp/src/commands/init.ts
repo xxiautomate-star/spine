@@ -11,7 +11,7 @@ const SETTINGS_SNIPPET = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@spine/mcp", "serve"]
+      "args": ["-y", "xxiautomate-spine", "serve"]
     }
   }
 }`;

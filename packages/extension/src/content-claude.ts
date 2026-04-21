@@ -310,3 +310,67 @@ start(driver);
     setTimeout(initHud, 800);
   });
 })();
+
+// ── Conflict HUD ──────────────────────────────────────────────────────────────
+
+(function initConflictHud() {
+  const CONFLICT_HUD_ID = 'spine-conflict-hud';
+
+  function removeConflictHud() {
+    document.getElementById(CONFLICT_HUD_ID)?.remove();
+  }
+
+  function showConflictHud(conflicts: { id: string; entity_name?: string; quote_a: string; quote_b: string }[]) {
+    removeConflictHud();
+    if (conflicts.length === 0) return;
+
+    const c = conflicts[0];
+    const entity = c.entity_name ? `<strong>${c.entity_name}</strong> ` : '';
+    const quoteA = c.quote_a.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const quoteB = c.quote_b.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const more = conflicts.length > 1 ? `<p style="margin:8px 0 0;font-size:10px;color:rgba(232,228,221,0.25);font-family:monospace;">+${conflicts.length - 1} more conflict${conflicts.length > 2 ? 's' : ''}</p>` : '';
+
+    const el = document.createElement('div');
+    el.id = CONFLICT_HUD_ID;
+    el.innerHTML = `
+      <style>@keyframes spineConflictIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}</style>
+      <div style="
+        position:fixed;top:80px;right:20px;z-index:2147483647;max-width:380px;
+        background:rgba(13,12,10,0.97);border:1px solid rgba(232,100,60,0.4);
+        border-radius:12px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,0.7);
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        color:#E8E4DD;animation:spineConflictIn 0.35s cubic-bezier(0.2,0.7,0.2,1) both;
+      ">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div style="width:6px;height:6px;border-radius:50%;background:#E8643C;flex-shrink:0;"></div>
+          <p style="margin:0;font-size:11px;font-weight:600;color:#E8643C;text-transform:uppercase;letter-spacing:0.08em;font-family:monospace;">Memory conflict</p>
+          <button onclick="document.getElementById('${CONFLICT_HUD_ID}').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:rgba(232,228,221,0.3);font-size:18px;line-height:1;padding:0;">×</button>
+        </div>
+        <p style="margin:0 0 10px;font-size:12px;color:rgba(232,228,221,0.55);">Spine detected a contradiction in ${entity}your memories.</p>
+        <div style="background:rgba(232,228,221,0.04);border-radius:8px;padding:10px;margin-bottom:8px;">
+          <p style="margin:0 0 2px;font-size:9px;color:rgba(232,228,221,0.3);text-transform:uppercase;letter-spacing:0.1em;font-family:monospace;">Before</p>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:rgba(232,228,221,0.65);">"${quoteA}"</p>
+        </div>
+        <div style="background:rgba(232,228,221,0.04);border-radius:8px;padding:10px;margin-bottom:12px;">
+          <p style="margin:0 0 2px;font-size:9px;color:rgba(232,228,221,0.3);text-transform:uppercase;letter-spacing:0.1em;font-family:monospace;">Now</p>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:rgba(232,228,221,0.85);">"${quoteB}"</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <a href="${window.location.origin.includes('claude.ai') ? 'https://spine.xxiautomate.com' : 'https://spine.xxiautomate.com'}/timeline?conflicts=1" target="_blank" style="font-size:10px;font-family:monospace;text-transform:uppercase;letter-spacing:0.1em;color:#E89A3C;text-decoration:none;border-bottom:1px solid rgba(232,154,60,0.3);padding-bottom:1px;">Resolve →</a>
+          <button onclick="document.getElementById('${CONFLICT_HUD_ID}').remove()" style="font-size:10px;font-family:monospace;text-transform:uppercase;letter-spacing:0.1em;color:rgba(232,228,221,0.25);background:none;border:none;cursor:pointer;padding:0;">Dismiss</button>
+        </div>
+        ${more}
+      </div>
+    `;
+
+    document.body.appendChild(el);
+    setTimeout(removeConflictHud, 18_000);
+  }
+
+  // Listen for background messages.
+  chrome.runtime.onMessage.addListener((msg: { type?: string; conflicts?: unknown[] }) => {
+    if (msg.type === 'spine.conflicts' && Array.isArray(msg.conflicts)) {
+      showConflictHud(msg.conflicts as Parameters<typeof showConflictHud>[0]);
+    }
+  });
+})();

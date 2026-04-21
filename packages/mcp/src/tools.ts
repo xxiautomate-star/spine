@@ -178,6 +178,45 @@ export const TOOL_DEFS = [
       },
     },
   },
+  {
+    name: 'get_context',
+    description:
+      'Retrieve the most relevant memories for the current query and return them as a ' +
+      'ready-to-use context block. This is the fast path for real-time context injection — ' +
+      'equivalent to spine_context but named for discoverability by Claude Desktop / claude.ai. ' +
+      'Also returns the count of unresolved memory conflicts so the UI can surface a badge.',
+    inputSchema: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: { type: 'string', description: 'What is being discussed right now.' },
+        token_budget: {
+          type: 'integer',
+          minimum: 100,
+          maximum: 8000,
+          default: 2000,
+        },
+      },
+    },
+  },
+  {
+    name: 'pin_memory',
+    description:
+      'Capture a memory AND mark it as required_context so it is injected into every future ' +
+      'context retrieval regardless of cosine similarity. Use sparingly — only for facts that ' +
+      'must always be present (e.g. "user is allergic to X", "project uses Postgres 15, NOT MySQL").',
+    inputSchema: {
+      type: 'object',
+      required: ['content'],
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The fact to pin. Will be stored and always injected.',
+        },
+        source: { type: 'string' },
+      },
+    },
+  },
 ] as const;
 
 type ToolArgs = Record<string, unknown>;
@@ -360,6 +399,60 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
         memory_count: picked.length,
         hints,
       });
+    }
+
+    case 'get_context': {
+      const budget = Math.max(100, Math.min(8000, num(args.token_budget, 2000)));
+      const charBudget = budget * 4;
+      const memories = await store.recall(str(args.query, 'query'), 20);
+      const picked: typeof memories = [];
+      let used = 0;
+      for (const m of memories) {
+        const est = m.content.length + 80;
+        if (used + est > charBudget && picked.length > 0) break;
+        picked.push(m);
+        used += est;
+      }
+      const body = picked
+        .map((m, i) => `— (${i + 1}) ${m.createdAt}${m.source ? ` · ${m.source}` : ''}\n${m.content}`)
+        .join('\n\n');
+      const context = picked.length === 0
+        ? '# Spine: 0 relevant memories\n\n(none yet — capture some facts first)'
+        : `# Spine: ${picked.length} relevant memories\n\n${body}`;
+
+      // Attempt to surface unresolved conflict count (cloud store only).
+      let conflictCount = 0;
+      try {
+        const stats = await store.usage();
+        // CloudStore exposes an optional conflictCount field if the API returns it.
+        conflictCount = (stats as unknown as { conflictCount?: number }).conflictCount ?? 0;
+      } catch { /* local store — ignore */ }
+
+      return JSON.stringify({ context, memory_count: picked.length, conflict_count: conflictCount });
+    }
+
+    case 'pin_memory': {
+      const id = await store.capture({
+        content: str(args.content, 'content'),
+        source: typeof args.source === 'string' ? args.source : 'mcp-pin',
+        tags: ['pinned'],
+      });
+      // Mark required_context via the dashboard API (cloud only).
+      // Local store has no policy API — silently skip.
+      try {
+        const cs = store as unknown as { _endpoint?: string; _apiKey?: string };
+        if (cs._endpoint && cs._apiKey) {
+          await fetch(`${cs._endpoint}/api/memories/${id}/policy`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${cs._apiKey}`,
+            },
+            body: JSON.stringify({ required_context: true }),
+          });
+        }
+      } catch { /* non-critical */ }
+      return JSON.stringify({ id, pinned: true });
     }
 
     default:

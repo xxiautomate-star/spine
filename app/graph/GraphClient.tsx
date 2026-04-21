@@ -35,6 +35,13 @@ type Edge = {
 
 type GraphData = { nodes: Node[]; edges: Edge[] };
 
+type MergeProposal = {
+  id: string;
+  similarity: number;
+  node_a: { id: string; name: string; type: string };
+  node_b: { id: string; name: string; type: string };
+};
+
 // ── Colors ────────────────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<EntityType, string> = {
@@ -154,6 +161,8 @@ export function GraphClient({ email }: { email: string }) {
   const [hovered, setHovered] = useState<Node | null>(null);
   const [selected, setSelected] = useState<Node | null>(null);
   const [filter, setFilter] = useState<EntityType | 'all'>('all');
+  const [proposals, setProposals] = useState<MergeProposal[]>([]);
+  const [mergingId, setMergingId] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const simRef = useRef<D3Simulation | null>(null);
@@ -162,21 +171,52 @@ export function GraphClient({ email }: { email: string }) {
   const hoveredRef = useRef<Node | null>(null);
   const selectedRef = useRef<Node | null>(null);
 
-  // Fetch graph data.
+  // Fetch graph data + merge proposals in parallel.
   useEffect(() => {
-    fetch('/api/graph')
-      .then((r) => r.json())
-      .then((data: GraphData | { error?: string }) => {
-        if ('error' in data && data.error) {
-          setError(data.error);
+    Promise.all([
+      fetch('/api/graph').then((r) => r.json()),
+      fetch('/api/entity/proposals').then((r) => r.json()),
+    ])
+      .then(([graphData, proposalData]: [GraphData | { error?: string }, { proposals?: MergeProposal[] }]) => {
+        if ('error' in graphData && graphData.error) {
+          setError(graphData.error as string);
         } else {
-          const d = data as GraphData;
-          setGraph(d);
+          setGraph(graphData as GraphData);
         }
+        setProposals(proposalData.proposals ?? []);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleMerge(proposal: MergeProposal, survivorId: string) {
+    setMergingId(proposal.id);
+    try {
+      await fetch('/api/entity/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposal_id: proposal.id, survivor_id: survivorId }),
+      });
+      setProposals((prev) => prev.filter((p) => p.id !== proposal.id));
+      // Refresh graph
+      const data = (await fetch('/api/graph').then((r) => r.json())) as GraphData;
+      setGraph(data);
+    } catch {
+      // noop
+    } finally {
+      setMergingId(null);
+    }
+  }
+
+  async function handleDismissProposal(proposalId: string) {
+    // Mark dismissed server-side by resolving with both nodes surviving
+    await fetch('/api/entity/merge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposal_id: proposalId, undo: true }),
+    }).catch(() => null);
+    setProposals((prev) => prev.filter((p) => p.id !== proposalId));
+  }
 
   // Trigger entity extraction if graph is empty.
   function triggerExtraction() {
@@ -433,7 +473,56 @@ export function GraphClient({ email }: { email: string }) {
         </aside>
 
         {/* Canvas */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative flex flex-col">
+          {/* Merge proposal banners */}
+          {proposals.length > 0 && (
+            <div className="flex-shrink-0 border-b border-cream/[0.06] max-h-48 overflow-y-auto">
+              {proposals.slice(0, 5).map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-3 px-5 py-3 text-[11px] border-b border-cream/[0.04] last:border-0"
+                >
+                  <span className="font-mono text-cream/25 flex-shrink-0 text-[9px] uppercase tracking-wider">
+                    {Math.round(p.similarity * 100)}% match
+                  </span>
+                  <span className="text-cream/60 truncate flex-1">
+                    <span className="text-amber/80">{p.node_a.name}</span>
+                    <span className="text-cream/25 mx-1.5">≈</span>
+                    <span className="text-amber/80">{p.node_b.name}</span>
+                    <span className="text-cream/25 mx-1.5">·</span>
+                    <span className="text-cream/30 capitalize">{p.node_a.type}</span>
+                  </span>
+                  <button
+                    disabled={mergingId === p.id}
+                    onClick={() => handleMerge(p, p.node_a.id)}
+                    className="flex-shrink-0 font-mono text-[9px] uppercase tracking-wider text-amber/55 hover:text-amber transition-colors duration-200 disabled:opacity-40"
+                  >
+                    Keep {p.node_a.name}
+                  </button>
+                  <button
+                    disabled={mergingId === p.id}
+                    onClick={() => handleMerge(p, p.node_b.id)}
+                    className="flex-shrink-0 font-mono text-[9px] uppercase tracking-wider text-amber/55 hover:text-amber transition-colors duration-200 disabled:opacity-40"
+                  >
+                    Keep {p.node_b.name}
+                  </button>
+                  <button
+                    onClick={() => handleDismissProposal(p.id)}
+                    className="flex-shrink-0 font-mono text-[9px] text-cream/20 hover:text-cream/40 transition-colors duration-200"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              ))}
+              {proposals.length > 5 && (
+                <p className="px-5 py-2 font-mono text-[9px] text-cream/20">
+                  +{proposals.length - 5} more similar entities
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex-1 relative">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
               <p className="font-mono text-[11px] uppercase tracking-widest text-cream/25 animate-pulse">
@@ -494,6 +583,7 @@ export function GraphClient({ email }: { email: string }) {
               </p>
             </div>
           )}
+          </div>{/* end flex-1 relative inner */}
         </div>
       </div>
     </>

@@ -176,8 +176,41 @@ async function handleCapture(msg: CaptureRequest): Promise<CaptureResponse> {
   await appendToQueue(queued);
 
   const flushed = await flushQueue();
-  if (flushed > 0) await incrementSession(flushed);
+  if (flushed > 0) {
+    await incrementSession(flushed);
+    // Async: check for new conflicts after capture settled (~4s for Haiku to run)
+    setTimeout(() => void checkAndBroadcastConflicts(), 4500);
+  }
   return { ok: true, queued: fresh.length, flushed };
+}
+
+async function checkAndBroadcastConflicts(): Promise<void> {
+  try {
+    const settings = await getSettings();
+    if (!settings.apiKey) return;
+
+    const res = await fetch(
+      `${trimEnd(settings.endpoint, '/')}/api/conflicts?limit=5`,
+      { headers: { Authorization: `Bearer ${settings.apiKey}` } }
+    );
+    if (!res.ok) return;
+
+    const data = (await res.json()) as { conflicts?: { id: string; entity_name?: string; quote_a: string; quote_b: string }[] };
+    const conflicts = data.conflicts ?? [];
+    if (conflicts.length === 0) return;
+
+    // Broadcast to all claude.ai tabs
+    const tabs = await chrome.tabs.query({ url: ['*://claude.ai/*', '*://chatgpt.com/*', '*://v0.dev/*'] });
+    for (const tab of tabs) {
+      if (tab.id == null) continue;
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'spine.conflicts',
+        conflicts,
+      }).catch(() => void 0);
+    }
+  } catch {
+    // Swallow — non-critical
+  }
 }
 
 async function handleFlush(_msg: FlushRequest): Promise<FlushResponse> {
