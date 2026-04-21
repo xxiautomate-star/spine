@@ -96,6 +96,34 @@ export class LocalStore implements Store {
     try {
       this.db.exec("alter table memories add column type text not null default 'context'");
     } catch { /* column already exists */ }
+
+    // FTS5 virtual table for BM25 full-text search
+    this.db.exec(`
+      create virtual table if not exists memories_fts using fts5(
+        id unindexed,
+        content,
+        tokenize='porter unicode61'
+      );
+    `);
+    // Keep FTS5 in sync with the main table
+    this.db.exec(`
+      create trigger if not exists memories_ai after insert on memories begin
+        insert into memories_fts(id, content) values (new.id, new.content);
+      end;
+      create trigger if not exists memories_ad after delete on memories begin
+        delete from memories_fts where id = old.id;
+      end;
+      create trigger if not exists memories_au after update of content on memories begin
+        delete from memories_fts where id = old.id;
+        insert into memories_fts(id, content) values (new.id, new.content);
+      end;
+    `);
+    // Backfill existing rows not yet in FTS5
+    this.db.exec(`
+      insert or ignore into memories_fts(id, content)
+      select id, content from memories where deleted_at is null
+        and id not in (select id from memories_fts);
+    `);
     this.getLicenseStatus =
       opts.getLicenseStatus ??
       (async () => getLicense({ apiKey: undefined }));
@@ -169,23 +197,97 @@ export class LocalStore implements Store {
   }
 
   async recall(query: string, limit: number): Promise<Memory[]> {
+    const pool = Math.min(limit * 3 + 50, 200);
+
+    // ── Semantic search ──────────────────────────────────────────────────────
     const qvec = await localEmbedder.embed(query);
-    const rows = this.db
+    const allRows = this.db
       .prepare('select * from memories where deleted_at is null')
       .all() as Row[];
-    const scored = rows.map((r) => ({
-      row: r,
-      sim: cosine(qvec, toFloat32(r.embedding)),
-    }));
-    scored.sort((a, b) => b.sim - a.sim);
-    return scored.slice(0, limit).map(({ row, sim }) => ({
+
+    const semScored = allRows
+      .filter((r) => r.embedding && r.embedding.length > 0)
+      .map((r) => ({ row: r, sim: cosine(qvec, toFloat32(r.embedding)) }));
+    semScored.sort((a, b) => b.sim - a.sim);
+    const semTop = semScored.slice(0, pool);
+
+    const semRanks = new Map<string, number>();
+    semTop.forEach(({ row }, i) => semRanks.set(row.id, i + 1));
+
+    const simMap = new Map<string, number>();
+    for (const { row, sim } of semScored) simMap.set(row.id, sim);
+
+    // ── BM25 search via FTS5 ─────────────────────────────────────────────────
+    const bm25Ranks = new Map<string, number>();
+    try {
+      const ftsQuery = query.replace(/['"*^()[\]{}:=<>!]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (ftsQuery) {
+        const bm25Rows = this.db
+          .prepare('select id from memories_fts where memories_fts match ? order by rank limit ?')
+          .all(ftsQuery, pool) as { id: string }[];
+        bm25Rows.forEach((r, i) => bm25Ranks.set(r.id, i + 1));
+      }
+    } catch { /* FTS5 unavailable or invalid query token */ }
+
+    // ── RRF fusion ───────────────────────────────────────────────────────────
+    const K = 60;
+    const allIds = new Set([...semRanks.keys(), ...bm25Ranks.keys()]);
+
+    // Ensure BM25-only candidates have their row data
+    const rowMap = new Map<string, Row>(allRows.map((r) => [r.id, r]));
+    for (const id of bm25Ranks.keys()) {
+      if (!rowMap.has(id)) {
+        const r = this.db.prepare('select * from memories where id = ?').get(id) as Row | undefined;
+        if (r) rowMap.set(id, r);
+      }
+    }
+
+    // ── Recency decay (90-day half-life, same as cloud retrieval.ts) ─────────
+    const now = Date.now();
+    const decayTau = 90 / Math.LN2;
+
+    const candidates: { row: Row; finalScore: number }[] = [];
+    for (const id of allIds) {
+      const row = rowMap.get(id);
+      if (!row) continue;
+      const sr = semRanks.get(id) ?? 1000;
+      const br = bm25Ranks.get(id) ?? 1000;
+      const rrf = 1 / (K + sr) + 1 / (K + br);
+      const ageDays = (now - new Date(row.created_at).getTime()) / 86_400_000;
+      const decay = Math.exp(-ageDays / decayTau);
+      candidates.push({ row, finalScore: rrf * decay });
+    }
+    candidates.sort((a, b) => b.finalScore - a.finalScore);
+    const top50 = candidates.slice(0, 50);
+
+    // ── MMR deduplication (threshold 0.85) ───────────────────────────────────
+    const selected: { row: Row }[] = [];
+    const selectedEmbeddings: Float32Array[] = [];
+
+    for (const candidate of top50) {
+      if (selected.length >= limit) break;
+      if (!candidate.row.embedding || candidate.row.embedding.length === 0) {
+        selected.push(candidate);
+        continue;
+      }
+      const candEmb = toFloat32(candidate.row.embedding);
+      const maxSim = selectedEmbeddings.length > 0
+        ? Math.max(...selectedEmbeddings.map((e) => cosine(candEmb, e)))
+        : 0;
+      if (maxSim < 0.85) {
+        selected.push(candidate);
+        selectedEmbeddings.push(candEmb);
+      }
+    }
+
+    return selected.map(({ row }) => ({
       id: row.id,
       content: row.content,
       source: row.source,
       tags: safeParse(row.tags),
       type: (row.type ?? 'context') as import('./index.js').MemoryType,
       createdAt: row.created_at,
-      similarity: sim,
+      similarity: simMap.get(row.id),
     }));
   }
 

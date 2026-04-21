@@ -42,7 +42,7 @@ async function replayForUser(userId: string, path: string, limit: number): Promi
   // ── Keyword search: memories that literally mention the path ──────────────
   const kwLimit = Math.min(limit * 2, 100);
   const { data: kwData } = await sb
-    .from('spine_memories')
+    .from('memories')
     .select('id, content, source, tags, type, project, created_at')
     .eq('user_id', userId)
     .is('deleted_at', null)

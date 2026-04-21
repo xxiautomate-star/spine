@@ -40,7 +40,7 @@ export async function gatherBriefingData(
     sb.from('profiles').select('slack_webhook').eq('user_id', userId).maybeSingle(),
 
     // Yesterday's memories with type
-    sb.from('spine_memories')
+    sb.from('memories')
       .select('id, content, type, created_at')
       .eq('user_id', userId)
       .is('deleted_at', null)
@@ -49,13 +49,13 @@ export async function gatherBriefingData(
       .order('created_at', { ascending: false }),
 
     // Total memory count
-    sb.from('spine_memories')
+    sb.from('memories')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .is('deleted_at', null),
 
     // Unresolved decisions: decision memories with no follow-up in 48h
-    sb.from('spine_memories')
+    sb.from('memories')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('type', 'decision')

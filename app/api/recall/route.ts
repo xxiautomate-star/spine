@@ -3,7 +3,6 @@ import { requireApiKey } from '@/lib/auth';
 import { rankMemories } from '@/lib/retrieval';
 import { rerank } from '@/lib/rerank';
 import { buildInjectionBlock } from '@/lib/context-block';
-import { embedText } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
 import { touchRetrieved } from '@/lib/retrieval-touch';
 
@@ -25,23 +24,20 @@ async function freeRecall(
   limit: number,
   includeBlock: boolean
 ) {
-  const vec = await embedText(query);
-  const supabase = getSupabase();
-  if (!supabase) throw new Error('Server not configured.');
-  const { data, error } = await supabase.rpc('spine_match_memories', {
-    p_user: userId,
-    p_query_embedding: vec,
-    p_limit: limit,
+  // Hybrid BM25 + vector RRF + recency for free tier — same pipeline as pro,
+  // just without the Haiku reranker step.
+  const candidates = await rankMemories(userId, query, {
+    poolLimit: limit * 3,
+    limit,
   });
-  if (error) throw new Error(error.message);
 
-  const memories = ((data ?? []) as MatchRow[]).map((r) => ({
-    id: r.id,
-    content: r.content,
-    source: r.source,
-    tags: r.tags ?? [],
-    createdAt: r.created_at,
-    similarity: r.similarity,
+  const memories = candidates.map((c) => ({
+    id: c.id,
+    content: c.content,
+    source: c.source,
+    tags: c.tags,
+    createdAt: c.createdAt,
+    similarity: c.vecSimilarity,
   }));
 
   touchRetrieved(userId, memories.map((m) => m.id));

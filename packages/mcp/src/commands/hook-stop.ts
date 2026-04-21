@@ -1,18 +1,20 @@
 /**
- * Claude Code Stop hook — auto-ingests a session summary when Claude stops.
+ * Claude Code Stop hook — full transcript capture.
  *
  * Claude Code invokes this as:
  *   npx @spine/mcp hook-stop
  * with a JSON blob on stdin:
  *   { session_id, stop_hook_active, transcript_path }
  *
- * It reads the last few turns from the transcript, builds a terse summary,
- * and fires a spine_capture into the configured store (local or cloud).
+ * Every turn in the transcript is extracted, assembled into a full conversation
+ * text, and chunked into 2000-token segments (~7500 chars). Each chunk is
+ * stored as a separate memory via captureBulk. This makes every word of every
+ * session semantically searchable — not just a 400+600 char summary.
  *
  * Nothing is written if:
- *  - stop_hook_active is true (we are inside a hook — avoid recursion)
+ *  - stop_hook_active is true (avoid recursion)
  *  - transcript_path is missing or unreadable
- *  - the last turns are empty / tool-only
+ *  - the transcript is empty or tool-only
  */
 
 import { readFile } from 'node:fs/promises';
@@ -22,10 +24,14 @@ import { DEFAULT_API_BASE, readConfig } from '../config.js';
 import { CloudStore } from '../store/cloud.js';
 import { LocalStore } from '../store/local.js';
 import { loadProjectConfig, applyConfigToCapture } from '../project-config.js';
+import type { CaptureInput } from '../store/index.js';
 
 const SPINE_DB_PATH = join(homedir(), '.spine', 'memories.db');
-const MAX_TASK_CHARS = 400;
-const MAX_OUTCOME_CHARS = 600;
+
+// ~2000 tokens per chunk (1 token ≈ 4 chars)
+const CHUNK_SIZE = 7500;
+// Overlap between chunks to preserve context at boundaries
+const CHUNK_OVERLAP = 300;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,7 +50,6 @@ interface Turn {
     role?: string;
     content?: string | ContentBlock[];
   };
-  // flat form (some versions of CC emit this)
   content?: string | ContentBlock[];
 }
 
@@ -100,6 +105,57 @@ function getTurnContent(t: Turn): string {
   return extractText(t.content ?? t.message?.content);
 }
 
+/**
+ * Build a chronological transcript string from all turns with text content.
+ * Tool-only turns (no text) are skipped.
+ */
+function buildTranscript(turns: Turn[], sessionId: string): string {
+  const lines: string[] = [`[session:${sessionId}]`];
+  for (const turn of turns) {
+    const role = getTurnRole(turn);
+    const text = getTurnContent(turn);
+    if (!text || !role) continue;
+    lines.push(`[${role}] ${text}`);
+  }
+  return lines.join('\n\n');
+}
+
+/**
+ * Chunk a long text into CHUNK_SIZE segments with CHUNK_OVERLAP overlap.
+ * Prefers breaking at paragraph boundaries to avoid mid-sentence splits.
+ */
+function chunkText(text: string): string[] {
+  if (text.length <= CHUNK_SIZE) return [text];
+
+  const chunks: string[] = [];
+  let start = 0;
+
+  while (start < text.length) {
+    const end = Math.min(start + CHUNK_SIZE, text.length);
+
+    // Try to break at a double-newline (paragraph boundary)
+    let breakAt = end;
+    if (end < text.length) {
+      const paraBreak = text.lastIndexOf('\n\n', end);
+      if (paraBreak > start + CHUNK_SIZE * 0.4) {
+        breakAt = paraBreak + 2;
+      } else {
+        // Fall back to any newline
+        const lineBreak = text.lastIndexOf('\n', end);
+        if (lineBreak > start + CHUNK_SIZE * 0.4) {
+          breakAt = lineBreak + 1;
+        }
+      }
+    }
+
+    chunks.push(text.slice(start, breakAt).trim());
+    // Overlap: back up by CHUNK_OVERLAP so context is preserved across boundaries
+    start = Math.max(start + 1, breakAt - CHUNK_OVERLAP);
+  }
+
+  return chunks.filter((c) => c.length > 0);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export async function hookStopCommand(): Promise<void> {
@@ -112,7 +168,6 @@ export async function hookStopCommand(): Promise<void> {
     /* proceed with empty */
   }
 
-  // Guard against recursion — Claude Code sets this when re-entering
   if (hookInput.stop_hook_active) return;
 
   const transcriptPath = hookInput.transcript_path;
@@ -121,55 +176,44 @@ export async function hookStopCommand(): Promise<void> {
   const turns = await parseTranscript(transcriptPath);
   if (turns.length === 0) return;
 
-  // Walk backwards: find last user turn and last assistant turn
-  let lastUserText = '';
-  let lastAssistantText = '';
-  for (let i = turns.length - 1; i >= 0; i--) {
-    const role = getTurnRole(turns[i]);
-    const text = getTurnContent(turns[i]);
-    if (!text) continue;
-    if (role === 'user' && !lastUserText) lastUserText = text;
-    if (role === 'assistant' && !lastAssistantText) lastAssistantText = text;
-    if (lastUserText && lastAssistantText) break;
-  }
-
-  if (!lastUserText && !lastAssistantText) return;
-
-  const task = lastUserText.slice(0, MAX_TASK_CHARS);
-  const outcome = lastAssistantText.slice(0, MAX_OUTCOME_CHARS);
   const sessionId = hookInput.session_id?.slice(0, 8) ?? 'unknown';
 
-  const lines: string[] = [`[session:${sessionId}]`];
-  if (task) lines.push(`Task: ${task}`);
-  if (outcome) lines.push(`Outcome: ${outcome}`);
-  const content = lines.join('\n');
+  // Build the full transcript text from all turns
+  const fullTranscript = buildTranscript(turns, sessionId);
+  if (fullTranscript.trim().length < 50) return;
 
   const [spineConfig, projectConfig] = await Promise.all([
     readConfig(),
     loadProjectConfig(),
   ]);
 
-  const { tags, skip } = applyConfigToCapture(content, projectConfig, ['auto', 'session-end']);
+  // Apply project config to determine tags and min-length check
+  const { tags: baseTags, skip } = applyConfigToCapture(
+    fullTranscript,
+    projectConfig,
+    ['session-end']
+  );
+  if (skip) return;
 
-  if (skip) return; // below min length — don't capture
+  // Chunk the full transcript
+  const chunks = chunkText(fullTranscript);
+  const total = chunks.length;
+
+  // Build capture inputs — one per chunk
+  const inputs: CaptureInput[] = chunks.map((chunk, i) => ({
+    content: total > 1 ? `[chunk:${i + 1}/${total}]\n${chunk}` : chunk,
+    source: 'claude-code',
+    type: 'context',
+    tags: [...baseTags, 'session-chunk', `session:${sessionId}`],
+  }));
 
   try {
     if (spineConfig.mode === 'cloud' && spineConfig.apiKey) {
       const store = new CloudStore(spineConfig.apiBase ?? DEFAULT_API_BASE, spineConfig.apiKey);
-      await store.capture({
-        content,
-        source: 'claude-code',
-        type: 'context',
-        tags,
-      });
+      await store.captureBulk(inputs);
     } else {
       const store = new LocalStore(SPINE_DB_PATH);
-      await store.capture({
-        content,
-        source: 'claude-code',
-        type: 'context',
-        tags,
-      });
+      await store.captureBulk(inputs);
       store.close();
     }
   } catch {
