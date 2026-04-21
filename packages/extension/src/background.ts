@@ -36,10 +36,45 @@ const FLUSH_ALARM = 'spine-flush';
 const FLUSH_PERIOD_MIN = 0.5; // 30s
 const MAX_BATCH = 25;
 const MAX_BACKOFF_MS = 5 * 60_000;
+const SESSION_KEY = 'spine:session_count';
 
 let backoffMs = 0;
 let nextAttemptAt = 0;
 let flushing = false;
+
+// In-memory session counter — persisted to chrome.storage.session so it
+// survives service-worker restarts within the same browser session.
+let sessionCaptured = 0;
+
+async function initSessionCount() {
+  try {
+    const stored = await chrome.storage.session.get(SESSION_KEY);
+    sessionCaptured = typeof stored[SESSION_KEY] === 'number' ? stored[SESSION_KEY] : 0;
+    await paintBadgeCount();
+  } catch {
+    // chrome.storage.session may not be available in older builds.
+  }
+}
+
+async function incrementSession(n: number) {
+  if (n <= 0) return;
+  sessionCaptured += n;
+  try {
+    await chrome.storage.session.set({ [SESSION_KEY]: sessionCaptured });
+  } catch { /* session storage unavailable */ }
+  await paintBadgeCount();
+}
+
+async function paintBadgeCount() {
+  const text = sessionCaptured > 0 ? String(sessionCaptured) : '';
+  await Promise.all([
+    chrome.action.setBadgeText({ text }),
+    chrome.action.setBadgeBackgroundColor({ color: '#E89A3C' }),
+    chrome.action.setBadgeTextColor?.({ color: '#0D0C0A' }).catch(() => void 0),
+  ]);
+}
+
+void initSessionCount();
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(FLUSH_ALARM, { periodInMinutes: FLUSH_PERIOD_MIN });
@@ -141,6 +176,7 @@ async function handleCapture(msg: CaptureRequest): Promise<CaptureResponse> {
   await appendToQueue(queued);
 
   const flushed = await flushQueue();
+  if (flushed > 0) await incrementSession(flushed);
   return { ok: true, queued: fresh.length, flushed };
 }
 

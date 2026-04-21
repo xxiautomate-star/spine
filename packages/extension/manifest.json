@@ -2,14 +2,19 @@
   "manifest_version": 3,
   "name": "Spine — Memory for your AI",
   "short_name": "Spine",
-  "version": "0.1.0",
-  "description": "Captures conversations from ChatGPT and Gemini. Injects relevant memory at the start of new chats.",
+  "version": "0.2.0",
+  "description": "Captures conversations from Claude, ChatGPT, Gemini, v0, and Cursor automatically. Your AI finally knows you — across every session.",
   "minimum_chrome_version": "116",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "alarms", "scripting"],
   "host_permissions": [
+    "https://claude.ai/*",
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://gemini.google.com/*",
+    "https://v0.dev/*",
+    "https://cursor.sh/*",
+    "https://codeium.com/*",
+    "https://windsurf.codeium.com/*",
     "https://spine.xxiautomate.com/*",
     "http://localhost:3000/*"
   ],
@@ -18,6 +23,11 @@
     "type": "module"
   },
   "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content-claude.js"],
+      "run_at": "document_idle"
+    },
     {
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
       "js": ["content-chatgpt.js"],
@@ -29,10 +39,30 @@
       "run_at": "document_idle"
     },
     {
+      "matches": ["https://v0.dev/*"],
+      "js": ["content-v0.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://cursor.sh/*"],
+      "js": ["content-cursor.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://codeium.com/*", "https://windsurf.codeium.com/*"],
+      "js": ["content-codeium.js"],
+      "run_at": "document_idle"
+    },
+    {
       "matches": [
+        "https://claude.ai/*",
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
-        "https://gemini.google.com/*"
+        "https://gemini.google.com/*",
+        "https://v0.dev/*",
+        "https://cursor.sh/*",
+        "https://codeium.com/*",
+        "https://windsurf.codeium.com/*"
       ],
       "js": ["content-hygiene.js"],
       "run_at": "document_idle"
@@ -43,7 +73,7 @@
     "open_in_tab": true
   },
   "action": {
-    "default_title": "Spine",
+    "default_title": "Spine — memories captured this session",
     "default_popup": "popup.html"
   },
   "icons": {

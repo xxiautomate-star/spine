@@ -5,20 +5,25 @@
 export type Settings = {
   apiKey: string;
   endpoint: string;
+  captureClaude: boolean;
   captureChatGPT: boolean;
   captureGemini: boolean;
+  captureV0: boolean;
+  captureCursor: boolean;
+  captureCodeium: boolean;
   autoInject: boolean;
-  // Hygiene nudge — periodically polls /api/hygiene/summary on tab
-  // focus and paints a badge dot when duplicate or stale memories need
-  // attention. Defaults OFF; user flips it from the options page.
   hygienePoll: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   endpoint: 'https://spine.xxiautomate.com',
+  captureClaude: true,
   captureChatGPT: true,
   captureGemini: true,
+  captureV0: true,
+  captureCursor: true,
+  captureCodeium: true,
   autoInject: true,
   hygienePoll: false,
 };

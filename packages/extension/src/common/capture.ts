@@ -25,7 +25,7 @@ export type PlatformDriver = {
   /** Returns true when the current URL is a fresh conversation (no messages). */
   isFreshConversation: () => boolean;
   /** Toggle controlling whether this platform should capture at all. */
-  enabledKey: 'captureChatGPT' | 'captureGemini';
+  enabledKey: keyof Pick<import('./storage.js').Settings, 'captureClaude' | 'captureChatGPT' | 'captureGemini' | 'captureV0' | 'captureCursor' | 'captureCodeium'>;
 };
 
 const FLUSH_DEBOUNCE_MS = 1500;

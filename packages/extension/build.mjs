@@ -13,8 +13,12 @@ const WATCH = process.argv.includes('--watch');
 
 const ENTRIES = {
   background: join(ROOT, 'src/background.ts'),
+  'content-claude': join(ROOT, 'src/content-claude.ts'),
   'content-chatgpt': join(ROOT, 'src/content-chatgpt.ts'),
   'content-gemini': join(ROOT, 'src/content-gemini.ts'),
+  'content-v0': join(ROOT, 'src/content-v0.ts'),
+  'content-cursor': join(ROOT, 'src/content-cursor.ts'),
+  'content-codeium': join(ROOT, 'src/content-codeium.ts'),
   'content-hygiene': join(ROOT, 'src/content-hygiene.ts'),
   options: join(ROOT, 'src/options/options.ts'),
   popup: join(ROOT, 'src/popup/popup.ts'),
