@@ -217,6 +217,53 @@ export class LocalStore implements Store {
     }));
   }
 
+  async replay(path: string, limit: number): Promise<Memory[]> {
+    const cap = Math.max(1, Math.min(200, limit));
+    // Keyword scan — content mentions the filename or directory
+    const filename = path.split(/[/\\]/).pop() ?? path;
+    const keyRows = this.db
+      .prepare(
+        "select * from memories where deleted_at is null and (content like ? or content like ?) order by created_at asc limit ?"
+      )
+      .all(`%${filename}%`, `%${path}%`, cap) as Row[];
+
+    // Semantic scan
+    let semRows: Row[] = [];
+    try {
+      const qvec = await localEmbedder.embed(`decisions, bugs, and context for file: ${path}`);
+      const allRows = this.db
+        .prepare('select * from memories where deleted_at is null')
+        .all() as Row[];
+      const scored = allRows.map((r) => ({
+        row: r,
+        sim: cosine(qvec, toFloat32(r.embedding)),
+      }));
+      scored.sort((a, b) => b.sim - a.sim);
+      semRows = scored.filter(({ sim }) => sim >= 0.55).slice(0, cap).map(({ row }) => row);
+    } catch { /* embedder unavailable */ }
+
+    // Merge + deduplicate
+    const seen = new Set<string>();
+    const merged: Row[] = [];
+    for (const r of [...keyRows, ...semRows]) {
+      if (!seen.has(r.id)) {
+        seen.add(r.id);
+        merged.push(r);
+      }
+    }
+    // Sort chronologically ASC — oldest first to read as a narrative
+    merged.sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+    return merged.slice(0, cap).map((r) => ({
+      id: r.id,
+      content: r.content,
+      source: r.source,
+      tags: safeParse(r.tags),
+      type: (r.type ?? 'context') as import('./index.js').MemoryType,
+      createdAt: r.created_at,
+    }));
+  }
+
   async forget(id: string): Promise<boolean> {
     // Forget is forget — hard delete. The row (and its embedding) is gone.
     const res = this.db.prepare('delete from memories where id = ?').run(id);

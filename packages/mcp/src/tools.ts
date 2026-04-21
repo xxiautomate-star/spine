@@ -302,6 +302,60 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'replay_file',
+    description:
+      'Given a file path, reconstruct the full decision history for that file — every bug fix, ' +
+      'architectural decision, feature addition, and context note ever captured that mentions it. ' +
+      'Results are sorted chronologically (oldest first) so you can read them as a narrative. ' +
+      'Use this to answer "why was this file built this way?", "what broke here before?", or ' +
+      '"show me the history of auth.ts". Combines keyword matching and semantic search.',
+    inputSchema: {
+      type: 'object',
+      required: ['path'],
+      properties: {
+        path: {
+          type: 'string',
+          description: 'File path to replay, e.g. "src/lib/auth.ts" or "app/api/users/route.ts".',
+        },
+        limit: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 100,
+          default: 30,
+          description: 'Maximum number of memories to return.',
+        },
+      },
+    },
+  },
+  {
+    name: 'add_team_memory',
+    description:
+      'Store a memory with team visibility — it will be searchable by all members of your ' +
+      'organisation, not just you. Use for shared decisions, architectural mandates, team ' +
+      'conventions, and anything the whole team should know. Returns the new memory id.',
+    inputSchema: {
+      type: 'object',
+      required: ['content'],
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The memory to share with the team. Store it verbatim — do not summarise.',
+        },
+        type: {
+          type: 'string',
+          enum: ['decision', 'bug', 'feature', 'context', 'fact'],
+          default: 'decision',
+          description: 'Memory type.',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional tags for filtering.',
+        },
+      },
+    },
+  },
+  {
     name: 'pin_memory',
     description:
       'Capture a memory AND mark it as required_context so it is injected into every future ' +
@@ -576,6 +630,42 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
         memories = memories.filter((m) => m.tags.some((t) => t === projectFilter));
       }
       return JSON.stringify({ memories, count: memories.length });
+    }
+
+    case 'replay_file': {
+      const path = str(args.path, 'path');
+      const limit = Math.max(1, Math.min(100, num(args.limit, 30)));
+      const memories = await store.replay(path, limit);
+      const filename = path.split(/[/\\]/).pop() ?? path;
+      const header = memories.length === 0
+        ? `# Spine Replay: ${filename}\n\nNo memories found for this file yet. Capture some decisions and bugs as you work on it.`
+        : `# Spine Replay: ${filename} — ${memories.length} ${memories.length === 1 ? 'memory' : 'memories'} (oldest → newest)`;
+      const body = memories.map((m, i) => {
+        const date = m.createdAt.slice(0, 10);
+        const typeLabel = m.type !== 'context' ? ` [${m.type}]` : '';
+        const src = m.source ? ` · ${m.source}` : '';
+        return `— (${i + 1}) ${date}${typeLabel}${src}\n${m.content}`;
+      }).join('\n\n');
+      return JSON.stringify({
+        replay: memories.length === 0 ? header : `${header}\n\n${body}`,
+        memories,
+        count: memories.length,
+        path,
+      });
+    }
+
+    case 'add_team_memory': {
+      const memType = ['decision','bug','feature','context','fact'].includes(args.type as string)
+        ? (args.type as import('./store/index.js').MemoryType)
+        : 'decision' as const;
+      const extraTags = ['team', ...(tags(args.tags) ?? [])];
+      const id = await store.capture({
+        content: str(args.content, 'content'),
+        type: memType,
+        source: 'team',
+        tags: extraTags,
+      });
+      return JSON.stringify({ id, stored: true, type: memType, visibility: 'team' });
     }
 
     case 'pin_memory': {

@@ -92,10 +92,12 @@ export async function initCommand(): Promise<void> {
     process.stdout.write(CURSOR_SNIPPET + '\n\n');
     process.stdout.write(
       'Restart your editor. Tools that will appear:\n' +
-      '  search_memory(query)           \u2014 semantic search across all sessions\n' +
-      '  add_memory(content, type)      \u2014 capture a fact, decision, or bug fix\n' +
-      '  get_timeline(from, to, type)   \u2014 chronological view of what happened\n' +
-      '  get_context(task_description)  \u2014 inject relevant context for a task\n\n'
+      '  search_memory(query)              \u2014 semantic search across all sessions\n' +
+      '  add_memory(content, type)         \u2014 capture a fact, decision, or bug fix\n' +
+      '  add_team_memory(content, type)    \u2014 share a memory with your whole team\n' +
+      '  get_timeline(from, to, type)      \u2014 chronological view of what happened\n' +
+      '  get_context(task_description)     \u2014 inject relevant context for a task\n' +
+      '  replay_file(path)                 \u2014 full decision history for any file\n\n'
     );
 
     process.stdout.write('\u2501\u2501\u2501 Step 2 \u2014 Auto-capture (optional, recommended) \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n');

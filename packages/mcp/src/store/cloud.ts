@@ -47,6 +47,11 @@ export class CloudStore implements Store {
     return data.memories;
   }
 
+  async replay(path: string, limit: number): Promise<Memory[]> {
+    const data = await this.req<{ memories: Memory[] }>('/replay', { path, limit });
+    return data.memories;
+  }
+
   async forget(id: string): Promise<boolean> {
     const data = await this.req<{ forgotten: boolean }>('/forget', { id });
     return data.forgotten;

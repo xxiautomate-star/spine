@@ -45,6 +45,7 @@ export interface Store {
   captureBulk(inputs: CaptureInput[]): Promise<string[]>;
   recall(query: string, limit: number): Promise<Memory[]>;
   timeline(opts: TimelineOpts): Promise<Memory[]>;
+  replay(path: string, limit: number): Promise<Memory[]>;
   forget(id: string): Promise<boolean>;
   usage(): Promise<UsageStats>;
   hygiene(): Promise<HygieneSummary>;

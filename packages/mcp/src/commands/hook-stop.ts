@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import { DEFAULT_API_BASE, readConfig } from '../config.js';
 import { CloudStore } from '../store/cloud.js';
 import { LocalStore } from '../store/local.js';
+import { loadProjectConfig, applyConfigToCapture } from '../project-config.js';
 
 const SPINE_DB_PATH = join(homedir(), '.spine', 'memories.db');
 const MAX_TASK_CHARS = 400;
@@ -143,16 +144,23 @@ export async function hookStopCommand(): Promise<void> {
   if (outcome) lines.push(`Outcome: ${outcome}`);
   const content = lines.join('\n');
 
-  const config = await readConfig();
+  const [spineConfig, projectConfig] = await Promise.all([
+    readConfig(),
+    loadProjectConfig(),
+  ]);
+
+  const { tags, skip } = applyConfigToCapture(content, projectConfig, ['auto', 'session-end']);
+
+  if (skip) return; // below min length — don't capture
 
   try {
-    if (config.mode === 'cloud' && config.apiKey) {
-      const store = new CloudStore(config.apiBase ?? DEFAULT_API_BASE, config.apiKey);
+    if (spineConfig.mode === 'cloud' && spineConfig.apiKey) {
+      const store = new CloudStore(spineConfig.apiBase ?? DEFAULT_API_BASE, spineConfig.apiKey);
       await store.capture({
         content,
         source: 'claude-code',
         type: 'context',
-        tags: ['auto', 'session-end'],
+        tags,
       });
     } else {
       const store = new LocalStore(SPINE_DB_PATH);
@@ -160,7 +168,7 @@ export async function hookStopCommand(): Promise<void> {
         content,
         source: 'claude-code',
         type: 'context',
-        tags: ['auto', 'session-end'],
+        tags,
       });
       store.close();
     }
