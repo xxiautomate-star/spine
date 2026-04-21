@@ -12,7 +12,7 @@ import type { PlanTier } from '@/lib/plan-limits';
 export type BillingProfile = {
   plan: Plan;
   memoryCount: number;
-  stripeCustomerId: string | null;
+  hasBilling: boolean;
   updatedAt: string | null;
 };
 
@@ -57,7 +57,7 @@ export function BillingClient({
   async function upgrade(plan: Plan) {
     setBusyPlan(plan);
     try {
-      const res = await fetch('/api/stripe/checkout', {
+      const res = await fetch('/api/ls/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan }),
@@ -73,19 +73,8 @@ export function BillingClient({
     }
   }
 
-  async function openPortal() {
-    setPortalBusy(true);
-    try {
-      const res = await fetch('/api/stripe/portal', { method: 'POST' });
-      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !data.url) {
-        setToast({ kind: 'bad', msg: data.error ?? 'Could not open the billing portal.' });
-        return;
-      }
-      window.location.href = data.url;
-    } finally {
-      setPortalBusy(false);
-    }
+  function openPortal() {
+    window.location.href = '/api/ls/portal';
   }
 
   return (
@@ -137,7 +126,7 @@ export function BillingClient({
           </div>
         )}
 
-        {profile.stripeCustomerId && (
+        {profile.hasBilling && (
           <div className="mt-8">
             <button
               onClick={openPortal}
@@ -195,7 +184,7 @@ export function BillingClient({
                     This is your plan.
                   </span>
                 ) : isFree ? (
-                  profile.stripeCustomerId ? (
+                  profile.hasBilling ? (
                     <button
                       onClick={openPortal}
                       disabled={portalBusy}

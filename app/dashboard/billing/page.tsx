@@ -1,7 +1,5 @@
 // Server component: reads the signed-in user's profile + live memory count,
-// passes them to the client for rendering. Nothing here hits Stripe directly —
-// the client component posts to /api/stripe/checkout or /api/stripe/portal
-// when the user clicks.
+// passes them to the client for rendering. Checkout + portal go to LemonSqueezy.
 
 import { getServerSupabase, getServerUser } from '@/lib/supabase-server';
 import { PLAN_LIMITS } from '@/lib/plan-limits';
@@ -14,17 +12,17 @@ async function fetchProfile(): Promise<BillingProfile> {
   const fallback: BillingProfile = {
     plan: 'free',
     memoryCount: 0,
-    stripeCustomerId: null,
+    hasBilling: false,
     updatedAt: null,
   };
   const supabase = await getServerSupabase();
   const user = await getServerUser();
   if (!supabase || !user) return fallback;
 
-  const [{ data: profile }, { count }] = await Promise.all([
+  const [{ data: profile }, { count }, { data: org }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('plan, stripe_customer_id, plan_updated_at, updated_at')
+      .select('plan, plan_updated_at')
       .eq('user_id', user.id)
       .maybeSingle(),
     supabase
@@ -32,12 +30,20 @@ async function fetchProfile(): Promise<BillingProfile> {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .is('deleted_at', null),
+    supabase
+      .from('orgs')
+      .select('ls_customer_id')
+      .eq('owner_id', user.id)
+      .not('ls_customer_id', 'is', null)
+      .limit(1)
+      .maybeSingle(),
   ]);
 
+  const plan = coercePlan(profile?.plan);
   return {
-    plan: coercePlan(profile?.plan),
+    plan,
     memoryCount: count ?? 0,
-    stripeCustomerId: (profile?.stripe_customer_id as string | null) ?? null,
+    hasBilling: plan !== 'free' || !!org?.ls_customer_id,
     updatedAt: (profile?.plan_updated_at as string | null) ?? null,
   };
 }
