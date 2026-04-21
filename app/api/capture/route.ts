@@ -17,15 +17,18 @@ export async function OPTIONS() {
   return preflight();
 }
 
+const VALID_TYPES = new Set(['decision', 'bug', 'feature', 'context', 'fact']);
+
 type CaptureItem = {
   content?: unknown;
   source?: unknown;
   tags?: unknown;
+  type?: unknown;
 };
 
 type Body = CaptureItem & { bulk?: CaptureItem[] };
 
-function coerceItem(item: CaptureItem): { content: string; source: string | null; tags: string[] | null } | null {
+function coerceItem(item: CaptureItem): { content: string; source: string | null; tags: string[] | null; type: string } | null {
   if (typeof item.content !== 'string' || !item.content.trim()) return null;
   return {
     content: item.content,
@@ -33,6 +36,7 @@ function coerceItem(item: CaptureItem): { content: string; source: string | null
     tags: Array.isArray(item.tags)
       ? item.tags.filter((t): t is string => typeof t === 'string')
       : null,
+    type: typeof item.type === 'string' && VALID_TYPES.has(item.type) ? item.type : 'context',
   };
 }
 
@@ -112,6 +116,7 @@ export async function POST(req: NextRequest) {
     content: string;
     source: string | null;
     tags: string[] | null;
+    type: string;
     embedding: number[];
     cluster_id: string | null;
   }> = [];
@@ -133,6 +138,7 @@ export async function POST(req: NextRequest) {
       content: c.content,
       source: c.source,
       tags: tags.length > 0 ? tags : null,
+      type: c.type,
       embedding: vectors[i],
       cluster_id: assignment?.clusterId ?? null,
     });

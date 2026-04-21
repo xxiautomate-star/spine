@@ -121,7 +121,7 @@ export function InstallDemoLoop() {
                 <span style={{ color: 'rgba(40,200,64,0.7)' }}>~</span>
                 <span style={{ color: 'rgba(232,228,221,0.2)' }}> $ </span>
                 {atLeast(phase, 'install-1') && (
-                  <span style={{ color: '#E89A3C' }}>npx @xxi/spine-mcp init</span>
+                  <span style={{ color: '#E89A3C' }}>npx @spine/mcp init</span>
                 )}
                 {phase === 'install-0' && <Cursor active />}
                 {phase === 'install-1' && <Cursor active={false} />}
@@ -129,7 +129,7 @@ export function InstallDemoLoop() {
 
               {atLeast(phase, 'install-2') && (
                 <div style={{ color: 'rgba(232,228,221,0.3)', animation: 'slideUp 0.3s ease' }}>
-                  <div>Need to install the following packages: @xxi/spine-mcp</div>
+                  <div>Need to install the following packages: @spine/mcp</div>
                   <div>Ok to proceed? (y) <span style={{ color: '#E89A3C' }}>y</span></div>
                   {atLeast(phase, 'install-3') && (
                     <div style={{ color: 'rgba(232,228,221,0.5)', animation: 'slideUp 0.3s ease' }}>
@@ -146,7 +146,7 @@ export function InstallDemoLoop() {
                             Config written to ~/.spine/config.json<br />
                             <br />
                             <span style={{ color: 'rgba(232,228,221,0.4)' }}>Add to Claude Code / Cursor MCP settings:</span><br />
-                            <span style={{ color: 'rgba(232,154,60,0.7)' }}>{`{"mcpServers":{"spine":{"command":"npx","args":["-y","@xxi/spine-mcp","serve"]}}}`}</span>
+                            <span style={{ color: 'rgba(232,154,60,0.7)' }}>{`{"mcpServers":{"spine":{"command":"npx","args":["-y","@spine/mcp","serve"]}}}`}</span>
                           </div>
                         </>
                       )}

@@ -15,7 +15,7 @@ async function fetchMemories(userId: string): Promise<MemoryRow[]> {
 
   const { data } = await supabase
     .from('memories')
-    .select('id, content, source, tags, created_at')
+    .select('id, content, source, tags, type, created_at')
     .eq('user_id', userId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })

@@ -11,7 +11,7 @@ const STEPS = [
     n: '01',
     title: 'Install in 30 seconds',
     body: 'One command wires Spine into Claude Code, Claude Desktop, Cursor, or any MCP-compatible AI. No account required to begin.',
-    code: 'npx @xxi/spine-mcp init',
+    code: 'npx @spine/mcp init',
   },
   {
     n: '02',

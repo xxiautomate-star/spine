@@ -7,7 +7,7 @@ const MCP_SNIPPET = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "xxiautomate-spine"]
+      "args": ["-y", "@spine/mcp"]
     }
   }
 }`;

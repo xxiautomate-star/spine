@@ -6,12 +6,12 @@ const SNIPPET_SETTINGS = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "xxiautomate-spine", "serve"]
+      "args": ["-y", "@spine/mcp", "serve"]
     }
   }
 }`;
 
-const SNIPPET_CLOUD = `$ npx xxiautomate-spine init
+const SNIPPET_CLOUD = `$ npx @spine/mcp init
 # Spine — setup
 # ─────────────
 # Storage mode — [L]ocal-only or [c]loud sync? (L/c): c
@@ -20,7 +20,7 @@ const SNIPPET_CLOUD = `$ npx xxiautomate-spine init
 # [spine] API key accepted.
 # Config written to ~/.spine/config.json`;
 
-const SNIPPET_LOCAL = `$ npx xxiautomate-spine init
+const SNIPPET_LOCAL = `$ npx @spine/mcp init
 # Storage mode — [L]ocal-only or [c]loud sync? (L/c): [Enter]
 # [spine] Local-only storage set. Memories live in ~/.spine/memories.db`;
 
@@ -118,7 +118,7 @@ export default function McpDocsPage() {
           <p className="text-[#E8E4DD]/45 text-sm mb-5 leading-relaxed">
             No global install required. <code className="font-mono text-[#E89A3C]/80 bg-[#E89A3C]/[0.06] px-1.5 py-0.5 rounded">npx</code> fetches and runs the latest version each time.
           </p>
-          <CodeBlock lang="bash">{`$ npx xxiautomate-spine init`}</CodeBlock>
+          <CodeBlock lang="bash">{`$ npx @spine/mcp init`}</CodeBlock>
         </section>
 
         {/* Cloud setup */}

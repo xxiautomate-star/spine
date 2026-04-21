@@ -3,17 +3,29 @@
 import Link from 'next/link';
 import { useState, useMemo, useRef, useEffect, type ReactNode } from 'react';
 
+export type MemoryType = 'decision' | 'bug' | 'feature' | 'context' | 'fact';
+
 export type MemoryRow = {
   id: string;
   content: string;
   source: string | null;
   tags: string[] | null;
+  type?: MemoryType | null;
   created_at: string;
 };
 
 type Props = {
   memories: MemoryRow[];
   email: string;
+};
+
+// ── Memory type config ─────────────────────────────────────────────────────
+const TYPE_META: Record<MemoryType, { label: string; color: string; bg: string }> = {
+  decision: { label: 'decision', color: '#E89A3C',  bg: 'rgba(232,154,60,0.12)' },
+  bug:      { label: 'bug fix',  color: '#F87171',  bg: 'rgba(248,113,113,0.12)' },
+  feature:  { label: 'feature',  color: '#34D399',  bg: 'rgba(52,211,153,0.12)' },
+  context:  { label: 'context',  color: '#60A5FA',  bg: 'rgba(96,165,250,0.10)' },
+  fact:     { label: 'fact',     color: '#A78BFA',  bg: 'rgba(167,139,250,0.10)' },
 };
 
 // ── Source colour map ──────────────────────────────────────────────────────
@@ -89,7 +101,7 @@ const PREVIEW_GROUPS: DayGroup[] = [
     date: 'April 10',
     weekday: 'Thursday',
     memories: [
-      { id: 'p6', content: 'MCP is the Anthropic-blessed protocol for AI tool extensions. The wedge: npx xxiautomate-spine installs Spine into Claude Code and Claude Desktop in 30 seconds.', source: 'claude.ai', tags: ['mcp', 'architecture'], created_at: '2026-04-10T16:18:00Z' },
+      { id: 'p6', content: 'MCP is the Anthropic-blessed protocol for AI tool extensions. The wedge: npx @spine/mcp installs Spine into Claude Code and Claude Desktop in 30 seconds.', source: 'claude.ai', tags: ['mcp', 'architecture'], created_at: '2026-04-10T16:18:00Z' },
       { id: 'p7', content: 'Pricing: Free = 100 memories + 1 integration. Pro $9/mo = unlimited + cross-AI. Power $29/mo = team memory + background agents.', source: 'chatgpt.com', tags: ['pricing', 'product'], created_at: '2026-04-10T17:30:00Z' },
       { id: 'p8', content: 'Design reference: Readwise, Arc browser, Apple Journal. Palette: #0D0C0A bg, #E8E4DD text, #E89A3C accent. A library at dusk.', source: 'claude.ai', tags: ['design', 'brand'], created_at: '2026-04-10T18:02:00Z' },
     ],
@@ -117,6 +129,8 @@ function SearchRail({
   setSourceFilter,
   tagFilter,
   setTagFilter,
+  typeFilter,
+  setTypeFilter,
   sources,
   allTags,
   total,
@@ -128,6 +142,8 @@ function SearchRail({
   setSourceFilter: (s: string) => void;
   tagFilter: string;
   setTagFilter: (t: string) => void;
+  typeFilter: MemoryType | 'all';
+  setTypeFilter: (t: MemoryType | 'all') => void;
   sources: string[];
   allTags: string[];
   total: number;
@@ -243,6 +259,38 @@ function SearchRail({
         </div>
       )}
 
+      {/* Type filter */}
+      <div>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-cream/25 block mb-3">
+          Type
+        </label>
+        <div className="space-y-1.5">
+          <button
+            onClick={() => setTypeFilter('all')}
+            className={`block w-full text-left font-mono text-[11px] py-1 transition-colors duration-300 ${
+              typeFilter === 'all' ? 'text-cream' : 'text-cream/35 hover:text-cream/60'
+            }`}
+          >
+            all types
+          </button>
+          {(Object.entries(TYPE_META) as [MemoryType, (typeof TYPE_META)[MemoryType]][]).map(([t, meta]) => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
+              className={`flex items-center gap-2 w-full text-left font-mono text-[11px] py-1 transition-colors duration-300 ${
+                typeFilter === t ? 'text-cream' : 'text-cream/35 hover:text-cream/55'
+              }`}
+            >
+              <span
+                className="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                style={{ background: typeFilter === t ? meta.color : 'rgba(232,228,221,0.2)' }}
+              />
+              {meta.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Semantic search link */}
       <div className="pt-2 border-t border-cream/[0.06]">
         <Link href="/search" className="font-mono text-[10px] uppercase tracking-widest text-amber/40 hover:text-amber/70 transition-colors duration-300">
@@ -261,6 +309,7 @@ function SearchRail({
 // ── Memory card ────────────────────────────────────────────────────────────
 function MemCard({ m, query, index }: { m: MemoryRow; query: string; index: number }) {
   const meta = sourceMeta(m.source);
+  const typeMeta = m.type ? TYPE_META[m.type] : null;
   const time = formatTime(m.created_at);
   const tags = m.tags ?? [];
 
@@ -279,11 +328,19 @@ function MemCard({ m, query, index }: { m: MemoryRow; query: string; index: numb
       <div className="rounded-lg px-5 py-4 group-hover:bg-amber/[0.035] transition-all duration-500 group-hover:shadow-[0_0_60px_-20px_rgba(232,154,60,0.18)]">
         {/* Meta row */}
         <div className="flex items-center justify-between gap-3 mb-2.5">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${meta.dot}`} aria-hidden />
             <span className={`font-mono text-[10px] ${meta.text} truncate`}>
               {meta.label}
             </span>
+            {typeMeta && m.type !== 'context' && (
+              <span
+                className="font-mono text-[9px] px-1.5 py-px rounded leading-none flex-shrink-0"
+                style={{ color: typeMeta.color, background: typeMeta.bg }}
+              >
+                {typeMeta.label}
+              </span>
+            )}
           </div>
           <time className="font-mono text-[10px] text-cream/22 flex-shrink-0">{time}</time>
         </div>
@@ -367,7 +424,7 @@ function EmptyState() {
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@xxi/spine-mcp"]
+      "args": ["-y", "@spine/mcp"]
     }
   }
 }`}</p>
@@ -395,6 +452,7 @@ export function TimelineClient({ memories, email }: Props) {
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<MemoryType | 'all'>('all');
 
   const sources = useMemo(() => {
     const s = new Set<string>();
@@ -413,6 +471,7 @@ export function TimelineClient({ memories, email }: Props) {
     return memories.filter((m) => {
       if (sourceFilter !== 'all' && m.source !== sourceFilter) return false;
       if (tagFilter !== 'all' && !(m.tags ?? []).includes(tagFilter)) return false;
+      if (typeFilter !== 'all' && (m.type ?? 'context') !== typeFilter) return false;
       if (q) {
         const inContent = m.content.toLowerCase().includes(q);
         const inTags = (m.tags ?? []).some((t) => t.toLowerCase().includes(q));
@@ -420,7 +479,7 @@ export function TimelineClient({ memories, email }: Props) {
       }
       return true;
     });
-  }, [memories, query, sourceFilter, tagFilter]);
+  }, [memories, query, sourceFilter, tagFilter, typeFilter]);
 
   const groups = useMemo(() => {
     let offset = 0;
@@ -518,6 +577,8 @@ export function TimelineClient({ memories, email }: Props) {
                   setSourceFilter={setSourceFilter}
                   tagFilter={tagFilter}
                   setTagFilter={setTagFilter}
+                  typeFilter={typeFilter}
+                  setTypeFilter={setTypeFilter}
                   sources={sources}
                   allTags={allTags}
                   total={memories.length}
@@ -543,7 +604,7 @@ export function TimelineClient({ memories, email }: Props) {
                       Nothing matches that search.
                     </p>
                     <button
-                      onClick={() => { setQuery(''); setSourceFilter('all'); setTagFilter('all'); }}
+                      onClick={() => { setQuery(''); setSourceFilter('all'); setTagFilter('all'); setTypeFilter('all'); }}
                       className="mt-4 font-mono text-[11px] text-amber/50 hover:text-amber transition-colors duration-300 underline underline-offset-4 decoration-amber/25"
                     >
                       Clear filters

@@ -40,6 +40,7 @@ type Row = {
   content: string;
   source: string | null;
   tags: string;
+  type: string | null;
   embedding: Buffer;
   created_at: string;
   deleted_at: string | null;
@@ -82,13 +83,19 @@ export class LocalStore implements Store {
         content     text not null,
         source      text,
         tags        text not null default '[]',
+        type        text not null default 'context',
         embedding   blob not null,
         created_at  text not null,
-        deleted_at  text
+        deleted_at  text,
+        check (type in ('decision','bug','feature','context','fact'))
       );
       create index if not exists memories_created_idx
         on memories (created_at desc);
     `);
+    // Migrate existing DBs without the type column
+    try {
+      this.db.exec("alter table memories add column type text not null default 'context'");
+    } catch { /* column already exists */ }
     this.getLicenseStatus =
       opts.getLicenseStatus ??
       (async () => getLicense({ apiKey: undefined }));
@@ -120,13 +127,14 @@ export class LocalStore implements Store {
     const id = randomUUID();
     this.db
       .prepare(
-        'insert into memories (id, content, source, tags, embedding, created_at) values (?, ?, ?, ?, ?, ?)'
+        'insert into memories (id, content, source, tags, type, embedding, created_at) values (?, ?, ?, ?, ?, ?, ?)'
       )
       .run(
         id,
         input.content,
         input.source ?? null,
         JSON.stringify(input.tags ?? []),
+        input.type ?? 'context',
         fromFloat32(vec),
         new Date().toISOString()
       );
@@ -139,7 +147,7 @@ export class LocalStore implements Store {
     const vecs = await localEmbedder.embedBatch(inputs.map((i) => i.content));
     const ids: string[] = [];
     const stmt = this.db.prepare(
-      'insert into memories (id, content, source, tags, embedding, created_at) values (?, ?, ?, ?, ?, ?)'
+      'insert into memories (id, content, source, tags, type, embedding, created_at) values (?, ?, ?, ?, ?, ?, ?)'
     );
     const tx = this.db.transaction(() => {
       for (let i = 0; i < inputs.length; i++) {
@@ -150,6 +158,7 @@ export class LocalStore implements Store {
           inputs[i].content,
           inputs[i].source ?? null,
           JSON.stringify(inputs[i].tags ?? []),
+          inputs[i].type ?? 'context',
           fromFloat32(vecs[i]),
           new Date().toISOString()
         );
@@ -174,6 +183,7 @@ export class LocalStore implements Store {
       content: row.content,
       source: row.source,
       tags: safeParse(row.tags),
+      type: (row.type ?? 'context') as import('./index.js').MemoryType,
       createdAt: row.created_at,
       similarity: sim,
     }));
@@ -190,6 +200,10 @@ export class LocalStore implements Store {
       sql += ' and created_at <= ?';
       params.push(opts.to);
     }
+    if (opts.type) {
+      sql += ' and type = ?';
+      params.push(opts.type);
+    }
     sql += ' order by created_at desc limit ?';
     params.push(opts.limit);
     const rows = this.db.prepare(sql).all(...params) as Row[];
@@ -198,6 +212,7 @@ export class LocalStore implements Store {
       content: r.content,
       source: r.source,
       tags: safeParse(r.tags),
+      type: (r.type ?? 'context') as import('./index.js').MemoryType,
       createdAt: r.created_at,
     }));
   }

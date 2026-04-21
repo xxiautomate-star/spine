@@ -3,16 +3,19 @@ import { readFile } from 'node:fs/promises';
 import { initCommand } from './commands/init.js';
 import { loginCommand } from './commands/login.js';
 import { serveCommand } from './commands/serve.js';
+import { hookStopCommand } from './commands/hook-stop.js';
 
-const USAGE = `xxiautomate-spine — the memory layer for your AI
+const USAGE = `@spine/mcp — the memory layer for your AI
 
 Usage:
-  npx xxiautomate-spine                   Start the MCP server on stdio (default)
-  npx xxiautomate-spine init              Interactive setup (writes ~/.spine/config.json)
-  npx xxiautomate-spine serve             Start the MCP server on stdio
-  npx xxiautomate-spine login --key KEY   Switch to cloud mode
-  npx xxiautomate-spine --version         Print version
+  npx @spine/mcp                     Start the MCP server on stdio (default)
+  npx @spine/mcp init                Interactive setup (writes ~/.spine/config.json)
+  npx @spine/mcp serve               Start the MCP server on stdio
+  npx @spine/mcp hook-stop           Claude Code Stop hook — auto-ingest session summary
+  npx @spine/mcp login --key KEY     Switch to cloud mode
+  npx @spine/mcp --version           Print version
 
+Tools exposed: search_memory · add_memory · get_timeline · get_context
 Docs: https://spine.xxiautomate.com
 `;
 
@@ -25,6 +28,8 @@ async function main() {
       return serveCommand();
     case 'login':
       return loginCommand(rest);
+    case 'hook-stop':
+      return hookStopCommand();
     case '-v':
     case '--version': {
       const pkg = JSON.parse(

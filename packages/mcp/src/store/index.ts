@@ -1,8 +1,11 @@
+export type MemoryType = 'decision' | 'bug' | 'feature' | 'context' | 'fact';
+
 export type Memory = {
   id: string;
   content: string;
   source: string | null;
   tags: string[];
+  type: MemoryType;
   createdAt: string;
   similarity?: number;
 };
@@ -11,12 +14,14 @@ export type CaptureInput = {
   content: string;
   source?: string | null;
   tags?: string[];
+  type?: MemoryType;
 };
 
 export type TimelineOpts = {
   from?: string;
   to?: string;
   limit: number;
+  type?: MemoryType;
 };
 
 export type UsageStats = {

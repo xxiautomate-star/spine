@@ -125,7 +125,7 @@ export default function FeaturesPage() {
               {i === 0 && (
                 <div className="mt-6 p-4 bg-[#E89A3C]/[0.04] border border-[#E89A3C]/[0.15] rounded-xl">
                   <code className="font-mono text-[12px] text-[#E89A3C]/70">
-                    $ npx xxiautomate-spine init
+                    $ npx @spine/mcp init
                   </code>
                   <span className="font-mono text-[11px] text-[#E8E4DD]/25 ml-4">— one command, any MCP client</span>
                 </div>

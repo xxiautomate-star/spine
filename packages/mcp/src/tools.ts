@@ -181,15 +181,18 @@ export const TOOL_DEFS = [
   {
     name: 'get_context',
     description:
-      'Retrieve the most relevant memories for the current query and return them as a ' +
-      'ready-to-use context block. This is the fast path for real-time context injection — ' +
-      'equivalent to spine_context but named for discoverability by Claude Desktop / claude.ai. ' +
-      'Also returns the count of unresolved memory conflicts so the UI can surface a badge.',
+      'Given a task description, retrieve the most relevant memories and return them as a ' +
+      'ready-to-use context block. Use this at the START of any task — paste the output into ' +
+      'your system prompt so Claude has full context on related decisions, bugs, and history. ' +
+      'Answers "what do I already know that is relevant to what I am about to do?"',
     inputSchema: {
       type: 'object',
-      required: ['query'],
+      required: ['task_description'],
       properties: {
-        query: { type: 'string', description: 'What is being discussed right now.' },
+        task_description: {
+          type: 'string',
+          description: 'What you are about to work on, e.g. "fix the OAuth refresh token bug" or "add pagination to the users table".',
+        },
         token_budget: {
           type: 'integer',
           minimum: 100,
@@ -244,6 +247,12 @@ export const TOOL_DEFS = [
           type: 'string',
           description: 'The full text to store. No length limit. Do not summarise or compress.',
         },
+        type: {
+          type: 'string',
+          enum: ['decision', 'bug', 'feature', 'context', 'fact'],
+          default: 'context',
+          description: 'Memory type. decision = architecture/product choice, bug = fix and root cause, feature = new capability, context = background/notes, fact = stable fact about the project or user.',
+        },
         source: {
           type: 'string',
           description: 'Where this came from, e.g. "claude-code", "cursor", "manual".',
@@ -251,7 +260,7 @@ export const TOOL_DEFS = [
         tags: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Optional tags for grouping and filtering, e.g. ["bug", "auth", "postgres"].',
+          description: 'Optional tags for grouping and filtering, e.g. ["auth", "postgres"].',
         },
       },
     },
@@ -260,9 +269,8 @@ export const TOOL_DEFS = [
     name: 'get_timeline',
     description:
       'Retrieve stored memories in reverse chronological order (newest first), optionally ' +
-      'bounded by a date range. Use this to answer "what did we work on last week", ' +
-      '"show me recent captures", or to give the user a digest of recent activity. ' +
-      'All timestamps are ISO 8601 UTC.',
+      'filtered by date range and/or memory type. Use this to answer "what did we work on last ' +
+      'week", "show recent decisions", "list bugs fixed this month". All timestamps ISO 8601 UTC.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -273,6 +281,15 @@ export const TOOL_DEFS = [
         to: {
           type: 'string',
           description: 'ISO 8601 end timestamp (inclusive).',
+        },
+        type: {
+          type: 'string',
+          enum: ['decision', 'bug', 'feature', 'context', 'fact'],
+          description: 'Filter to a specific memory type.',
+        },
+        project: {
+          type: 'string',
+          description: 'Filter by project tag.',
         },
         limit: {
           type: 'integer',
@@ -325,8 +342,11 @@ function tags(v: unknown): string[] | undefined {
 export async function runTool(store: Store, name: string, args: ToolArgs): Promise<string> {
   switch (name) {
     case 'spine_capture': {
+      const memType = ['decision','bug','feature','context','fact'].includes(args.type as string)
+        ? (args.type as import('./store/index.js').MemoryType) : 'context' as const;
       const id = await store.capture({
         content: str(args.content, 'content'),
+        type: memType,
         source: typeof args.source === 'string' ? args.source : null,
         tags: tags(args.tags),
       });
@@ -489,7 +509,10 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
     case 'get_context': {
       const budget = Math.max(100, Math.min(8000, num(args.token_budget, 2000)));
       const charBudget = budget * 4;
-      const memories = await store.recall(str(args.query, 'query'), 20);
+      const taskDesc = typeof args.task_description === 'string' ? args.task_description
+        : typeof args.query === 'string' ? args.query  // backward compat
+        : str(args.task_description, 'task_description');
+      const memories = await store.recall(taskDesc, 20);
       const picked: typeof memories = [];
       let used = 0;
       for (const m of memories) {
@@ -524,21 +547,34 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
     }
 
     case 'add_memory': {
+      const memType = ['decision','bug','feature','context','fact'].includes(args.type as string)
+        ? (args.type as import('./store/index.js').MemoryType)
+        : 'context' as const;
       const id = await store.capture({
         content: str(args.content, 'content'),
+        type: memType,
         source: typeof args.source === 'string' ? args.source : null,
         tags: tags(args.tags),
       });
-      return JSON.stringify({ id, stored: true });
+      return JSON.stringify({ id, stored: true, type: memType });
     }
 
     case 'get_timeline': {
       const limit = Math.max(1, Math.min(200, num(args.limit, 20)));
-      const memories = await store.timeline({
+      const memType = ['decision','bug','feature','context','fact'].includes(args.type as string)
+        ? (args.type as import('./store/index.js').MemoryType)
+        : undefined;
+      const projectFilter = typeof args.project === 'string' ? args.project : undefined;
+      let memories = await store.timeline({
         from: typeof args.from === 'string' ? args.from : undefined,
         to: typeof args.to === 'string' ? args.to : undefined,
+        type: memType,
         limit,
       });
+      // Client-side project filter (filter by tag matching project name)
+      if (projectFilter) {
+        memories = memories.filter((m) => m.tags.some((t) => t === projectFilter));
+      }
       return JSON.stringify({ memories, count: memories.length });
     }
 
