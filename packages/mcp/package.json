@@ -1,10 +1,11 @@
 {
-  "name": "xxiautomate-spine",
-  "version": "0.1.0",
-  "description": "The memory layer for your AI. Append-only, infinite, never summarised. MCP server for Claude Code, Claude Desktop, Cursor, and other MCP clients.",
+  "name": "@xxi/spine-mcp",
+  "version": "0.2.0",
+  "description": "The memory layer for your AI. Append-only, infinite, never summarised. MCP server for Claude Code, Claude Desktop, Cursor, Windsurf, and Continue.",
   "type": "module",
   "main": "./dist/cli.js",
   "bin": {
+    "spine-mcp": "./dist/cli.js",
     "xxiautomate-spine": "./dist/cli.js"
   },
   "files": [

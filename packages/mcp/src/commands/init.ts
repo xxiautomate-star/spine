@@ -11,7 +11,17 @@ const SETTINGS_SNIPPET = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "xxiautomate-spine", "serve"]
+      "args": ["-y", "@xxi/spine-mcp", "serve"]
+    }
+  }
+}`;
+
+// Cursor uses ~/.cursor/mcp.json (same schema)
+const CURSOR_SNIPPET = `{
+  "mcpServers": {
+    "spine": {
+      "command": "npx",
+      "args": ["-y", "@xxi/spine-mcp", "serve"]
     }
   }
 }`;
@@ -67,8 +77,10 @@ export async function initCommand(): Promise<void> {
     process.stdout.write(`\nConfig written to ${CONFIG_PATH}\n\n`);
     process.stdout.write('Add this block to your Claude Code / Claude Desktop MCP settings:\n\n');
     process.stdout.write(SETTINGS_SNIPPET + '\n\n');
+    process.stdout.write('For Cursor (~/.cursor/mcp.json) or Windsurf / Continue (same schema):\n\n');
+    process.stdout.write(CURSOR_SNIPPET + '\n\n');
     process.stdout.write(
-      'Then restart Claude. Spine tools (spine_capture, spine_recall, ...) will appear in the tool inspector.\n'
+      'Then restart your AI editor. Spine tools (search_memory, add_memory, get_timeline, ...) will appear.\n'
     );
   } finally {
     rl.close();

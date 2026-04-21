@@ -115,7 +115,10 @@ function SearchRail({
   setQuery,
   sourceFilter,
   setSourceFilter,
+  tagFilter,
+  setTagFilter,
   sources,
+  allTags,
   total,
   filtered,
 }: {
@@ -123,7 +126,10 @@ function SearchRail({
   setQuery: (q: string) => void;
   sourceFilter: string;
   setSourceFilter: (s: string) => void;
+  tagFilter: string;
+  setTagFilter: (t: string) => void;
   sources: string[];
+  allTags: string[];
   total: number;
   filtered: number;
 }) {
@@ -206,6 +212,43 @@ function SearchRail({
           </div>
         </div>
       )}
+
+      {/* Tag filter */}
+      {allTags.length > 0 && (
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-cream/25 block mb-3">
+            Tag
+          </label>
+          <div className="space-y-1">
+            <button
+              onClick={() => setTagFilter('all')}
+              className={`block w-full text-left font-mono text-[11px] py-1 transition-colors duration-300 ${
+                tagFilter === 'all' ? 'text-cream' : 'text-cream/35 hover:text-cream/60'
+              }`}
+            >
+              all tags
+            </button>
+            {allTags.slice(0, 12).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTagFilter(tagFilter === t ? 'all' : t)}
+                className={`block w-full text-left font-mono text-[11px] py-1 transition-colors duration-300 ${
+                  tagFilter === t ? 'text-amber' : 'text-cream/35 hover:text-cream/55'
+                }`}
+              >
+                #{t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Semantic search link */}
+      <div className="pt-2 border-t border-cream/[0.06]">
+        <Link href="/search" className="font-mono text-[10px] uppercase tracking-widest text-amber/40 hover:text-amber/70 transition-colors duration-300">
+          Semantic search →
+        </Link>
+      </div>
 
       {/* Keyboard hint */}
       <p className="font-mono text-[10px] text-cream/15 leading-relaxed">
@@ -324,7 +367,7 @@ function EmptyState() {
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "xxiautomate-spine"]
+      "args": ["-y", "@xxi/spine-mcp"]
     }
   }
 }`}</p>
@@ -351,6 +394,7 @@ function EmptyState() {
 export function TimelineClient({ memories, email }: Props) {
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
 
   const sources = useMemo(() => {
     const s = new Set<string>();
@@ -358,10 +402,17 @@ export function TimelineClient({ memories, email }: Props) {
     return [...s].sort();
   }, [memories]);
 
+  const allTags = useMemo(() => {
+    const t = new Set<string>();
+    for (const m of memories) for (const tag of m.tags ?? []) t.add(tag);
+    return [...t].sort();
+  }, [memories]);
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
     return memories.filter((m) => {
       if (sourceFilter !== 'all' && m.source !== sourceFilter) return false;
+      if (tagFilter !== 'all' && !(m.tags ?? []).includes(tagFilter)) return false;
       if (q) {
         const inContent = m.content.toLowerCase().includes(q);
         const inTags = (m.tags ?? []).some((t) => t.toLowerCase().includes(q));
@@ -369,7 +420,7 @@ export function TimelineClient({ memories, email }: Props) {
       }
       return true;
     });
-  }, [memories, query, sourceFilter]);
+  }, [memories, query, sourceFilter, tagFilter]);
 
   const groups = useMemo(() => {
     let offset = 0;
@@ -407,11 +458,14 @@ export function TimelineClient({ memories, email }: Props) {
           <span className="font-serif text-xl text-cream">Spine</span>
         </Link>
         <div className="flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest">
+          <Link href="/search" className="text-cream/35 hover:text-amber transition-colors duration-300 hidden sm:block">
+            Search
+          </Link>
           <Link href="/dashboard/memories" className="text-cream/35 hover:text-cream/65 transition-colors duration-300 hidden sm:block">
             Archive
           </Link>
-          <Link href="/dashboard/recall" className="text-cream/35 hover:text-cream/65 transition-colors duration-300 hidden sm:block">
-            Recall
+          <Link href="/graph" className="text-cream/35 hover:text-cream/65 transition-colors duration-300 hidden sm:block">
+            Graph
           </Link>
           <span className="text-cream/25 hidden md:block">{email}</span>
           <form action="/auth/signout" method="post">
@@ -462,7 +516,10 @@ export function TimelineClient({ memories, email }: Props) {
                   setQuery={setQuery}
                   sourceFilter={sourceFilter}
                   setSourceFilter={setSourceFilter}
+                  tagFilter={tagFilter}
+                  setTagFilter={setTagFilter}
                   sources={sources}
+                  allTags={allTags}
                   total={memories.length}
                   filtered={filtered.length}
                 />
@@ -486,7 +543,7 @@ export function TimelineClient({ memories, email }: Props) {
                       Nothing matches that search.
                     </p>
                     <button
-                      onClick={() => { setQuery(''); setSourceFilter('all'); }}
+                      onClick={() => { setQuery(''); setSourceFilter('all'); setTagFilter('all'); }}
                       className="mt-4 font-mono text-[11px] text-amber/50 hover:text-amber transition-colors duration-300 underline underline-offset-4 decoration-amber/25"
                     >
                       Clear filters

@@ -1,0 +1,115 @@
+{
+  "name": "spine-memory-vscode",
+  "displayName": "Spine — Memory for AI",
+  "description": "Auto-capture code context into your Spine memory archive. Recall across Claude Code, Cursor, ChatGPT, and any future AI session.",
+  "version": "0.2.0",
+  "publisher": "xxiautomate",
+  "private": true,
+  "license": "MIT",
+  "repository": "https://github.com/xxiautomate-star/spine",
+  "icon": "assets/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "AI"
+  ],
+  "keywords": [
+    "memory",
+    "ai",
+    "claude",
+    "cursor",
+    "copilot",
+    "spine",
+    "mcp"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "spine.captureSelection",
+        "title": "Spine: Capture Selection as Memory"
+      },
+      {
+        "command": "spine.addMemory",
+        "title": "Spine: Add Memory..."
+      },
+      {
+        "command": "spine.search",
+        "title": "Spine: Search Memories..."
+      },
+      {
+        "command": "spine.showStatus",
+        "title": "Spine: Show Connection Status"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "spine.captureSelection",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "editorTextFocus && editorHasSelection"
+      },
+      {
+        "command": "spine.search",
+        "key": "ctrl+shift+/",
+        "mac": "cmd+shift+/"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "spine.captureSelection",
+          "when": "editorHasSelection",
+          "group": "spine@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Spine",
+      "properties": {
+        "spine.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Spine API key. Overrides ~/.spine/config.json if set.",
+          "markdownDescription": "Your Spine API key from [spine.xxiautomate.com/dashboard/keys](https://spine.xxiautomate.com/dashboard/keys). Overrides `~/.spine/config.json` if set here."
+        },
+        "spine.apiBase": {
+          "type": "string",
+          "default": "https://spine.xxiautomate.com/api",
+          "description": "Spine API base URL. Leave as default unless self-hosting."
+        },
+        "spine.autoCaptureOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically capture the code context around your cursor when a file is saved. Disabled by default."
+        },
+        "spine.autoCaptureMinLength": {
+          "type": "number",
+          "default": 80,
+          "description": "Minimum character length for auto-capture to fire. Prevents capturing boilerplate saves."
+        },
+        "spine.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Spine connection status in the status bar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -watch -p tsconfig.json",
+    "package": "npx @vscode/vsce package"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.17.17",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.7.3"
+  }
+}

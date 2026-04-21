@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ConflictHeroLoop } from '@/components/ConflictHeroLoop';
+import { InstallDemoLoop } from '@/components/InstallDemoLoop';
 
 export const metadata = {
   title: 'Spine — Your AI remembers every word',
@@ -11,7 +11,7 @@ const STEPS = [
     n: '01',
     title: 'Install in 30 seconds',
     body: 'One command wires Spine into Claude Code, Claude Desktop, Cursor, or any MCP-compatible AI. No account required to begin.',
-    code: 'npx xxiautomate-spine init',
+    code: 'npx @xxi/spine-mcp init',
   },
   {
     n: '02',
@@ -130,9 +130,9 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Right: animated conflict HUD demo */}
+        {/* Right: "first capture in 30 seconds" demo */}
         <div className="relative hidden lg:flex items-center justify-center pr-12 py-16">
-          <ConflictHeroLoop />
+          <InstallDemoLoop />
         </div>
       </section>
 

@@ -199,6 +199,91 @@ export const TOOL_DEFS = [
       },
     },
   },
+  // ── Primary discovery-friendly tool names ────────────────────────────────
+  // These are the canonical names for new integrations (Claude Code, Cursor,
+  // Windsurf, Continue). The spine_* names above remain for backwards compat.
+  {
+    name: 'search_memory',
+    description:
+      'Search your Spine memory archive using natural language. Returns the most relevant ' +
+      'stored memories ranked by semantic similarity — facts, decisions, code patterns, ' +
+      'bug fixes, anything captured from previous sessions. Use this whenever the user asks ' +
+      '"do we know anything about X", "what did we decide on Y", or "find the context on Z". ' +
+      'Returns content exactly as captured — never summarised or paraphrased.',
+    inputSchema: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Natural-language search query, e.g. "OAuth bug fix last week" or "database schema decisions".',
+        },
+        limit: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 50,
+          default: 10,
+          description: 'Maximum number of memories to return.',
+        },
+      },
+    },
+  },
+  {
+    name: 'add_memory',
+    description:
+      'Permanently store a memory in Spine. The archive is append-only — every memory is kept ' +
+      'forever, verbatim, and searchable across all future sessions and AI tools. Returns the ' +
+      'new memory id. Use this to remember: architectural decisions, bug fixes and their causes, ' +
+      'user preferences, project conventions, API keys or endpoints, anything the user says they ' +
+      'want remembered. One memory per fact. Never summarise — store it as the user said it.',
+    inputSchema: {
+      type: 'object',
+      required: ['content'],
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The full text to store. No length limit. Do not summarise or compress.',
+        },
+        source: {
+          type: 'string',
+          description: 'Where this came from, e.g. "claude-code", "cursor", "manual".',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional tags for grouping and filtering, e.g. ["bug", "auth", "postgres"].',
+        },
+      },
+    },
+  },
+  {
+    name: 'get_timeline',
+    description:
+      'Retrieve stored memories in reverse chronological order (newest first), optionally ' +
+      'bounded by a date range. Use this to answer "what did we work on last week", ' +
+      '"show me recent captures", or to give the user a digest of recent activity. ' +
+      'All timestamps are ISO 8601 UTC.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        from: {
+          type: 'string',
+          description: 'ISO 8601 start timestamp (inclusive), e.g. "2026-04-14T00:00:00Z".',
+        },
+        to: {
+          type: 'string',
+          description: 'ISO 8601 end timestamp (inclusive).',
+        },
+        limit: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 200,
+          default: 20,
+          description: 'Maximum number of memories to return.',
+        },
+      },
+    },
+  },
   {
     name: 'pin_memory',
     description:
@@ -429,6 +514,32 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
       } catch { /* local store — ignore */ }
 
       return JSON.stringify({ context, memory_count: picked.length, conflict_count: conflictCount });
+    }
+
+    // ── Primary-name aliases ───────────────────────────────────────────────
+    case 'search_memory': {
+      const limit = Math.max(1, Math.min(50, num(args.limit, 10)));
+      const memories = await store.recall(str(args.query, 'query'), limit);
+      return JSON.stringify({ memories, count: memories.length });
+    }
+
+    case 'add_memory': {
+      const id = await store.capture({
+        content: str(args.content, 'content'),
+        source: typeof args.source === 'string' ? args.source : null,
+        tags: tags(args.tags),
+      });
+      return JSON.stringify({ id, stored: true });
+    }
+
+    case 'get_timeline': {
+      const limit = Math.max(1, Math.min(200, num(args.limit, 20)));
+      const memories = await store.timeline({
+        from: typeof args.from === 'string' ? args.from : undefined,
+        to: typeof args.to === 'string' ? args.to : undefined,
+        limit,
+      });
+      return JSON.stringify({ memories, count: memories.length });
     }
 
     case 'pin_memory': {
