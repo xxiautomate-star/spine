@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } from 'react';
 
 export type MemoryType = 'decision' | 'bug' | 'feature' | 'context' | 'fact';
 
@@ -15,7 +15,7 @@ export type MemoryRow = {
 };
 
 type Props = {
-  memories: MemoryRow[];
+  memories: MemoryRow[];   // initial server-rendered list
   email: string;
 };
 
@@ -307,11 +307,38 @@ function SearchRail({
 }
 
 // ── Memory card ────────────────────────────────────────────────────────────
-function MemCard({ m, query, index }: { m: MemoryRow; query: string; index: number }) {
+function MemCard({
+  m,
+  query,
+  index,
+  onEdit,
+  onDelete,
+}: {
+  m: MemoryRow;
+  query: string;
+  index: number;
+  onEdit: (id: string, content: string) => Promise<void>;
+  onDelete: (id: string) => void;
+}) {
   const meta = sourceMeta(m.source);
   const typeMeta = m.type ? TYPE_META[m.type] : null;
   const time = formatTime(m.created_at);
-  const tags = m.tags ?? [];
+  const cardTags = m.tags ?? [];
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(m.content);
+  const [saving, setSaving] = useState(false);
+
+  async function saveEdit() {
+    const trimmed = draft.trim();
+    if (trimmed === m.content.trim()) { setEditing(false); return; }
+    setSaving(true);
+    try {
+      await onEdit(m.id, trimmed);
+    } finally {
+      setSaving(false);
+      setEditing(false);
+    }
+  }
 
   return (
     <div
@@ -342,18 +369,71 @@ function MemCard({ m, query, index }: { m: MemoryRow; query: string; index: numb
               </span>
             )}
           </div>
-          <time className="font-mono text-[10px] text-cream/22 flex-shrink-0">{time}</time>
+          <div className="flex items-center gap-3">
+            <time className="font-mono text-[10px] text-cream/22 flex-shrink-0">{time}</time>
+            {!editing && (
+              <>
+                <button
+                  onClick={() => { setDraft(m.content); setEditing(true); }}
+                  title="Edit"
+                  aria-label="Edit memory"
+                  className="opacity-0 group-hover:opacity-100 font-mono text-[11px] text-cream/25 hover:text-amber transition-all duration-300 leading-none"
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={() => onDelete(m.id)}
+                  title="Delete"
+                  aria-label="Delete memory"
+                  className="opacity-0 group-hover:opacity-100 font-mono text-[11px] text-cream/25 hover:text-red-400/70 transition-all duration-300 leading-none"
+                >
+                  ×
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Content */}
-        <p className="text-[14px] leading-[1.75] text-cream/78 mb-3">
-          {highlight(m.content, query)}
-        </p>
+        {/* Content — edit mode or read mode */}
+        {editing ? (
+          <div className="space-y-2 mb-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={Math.max(3, Math.min(12, draft.split('\n').length + 1))}
+              className="w-full bg-night/60 border border-cream/20 focus:border-amber/40 rounded px-3 py-2 text-[13px] leading-[1.7] text-cream/85 outline-none resize-none transition-colors duration-300 placeholder:text-cream/20"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { setEditing(false); setDraft(m.content); }
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { void saveEdit(); }
+              }}
+            />
+            <div className="flex gap-4">
+              <button
+                onClick={() => { void saveEdit(); }}
+                disabled={saving}
+                className="font-mono text-[10px] text-amber/70 hover:text-amber transition-colors duration-300 disabled:opacity-40"
+              >
+                {saving ? 'saving…' : 'save  ⌘↵'}
+              </button>
+              <button
+                onClick={() => { setEditing(false); setDraft(m.content); }}
+                className="font-mono text-[10px] text-cream/30 hover:text-cream/60 transition-colors duration-300"
+              >
+                cancel  esc
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[14px] leading-[1.75] text-cream/78 mb-3">
+            {highlight(m.content, query)}
+          </p>
+        )}
 
         {/* Tags */}
-        {tags.length > 0 && (
+        {!editing && cardTags.length > 0 && (
           <div className="flex flex-wrap gap-3">
-            {tags.map((t) => (
+            {cardTags.map((t) => (
               <span key={t} className="font-mono text-[10px] text-cream/25">
                 #{t}
               </span>
@@ -366,7 +446,19 @@ function MemCard({ m, query, index }: { m: MemoryRow; query: string; index: numb
 }
 
 // ── Day group ──────────────────────────────────────────────────────────────
-function DayGroup({ group, query, cardOffset }: { group: DayGroup; query: string; cardOffset: number }) {
+function DayGroup({
+  group,
+  query,
+  cardOffset,
+  onEdit,
+  onDelete,
+}: {
+  group: DayGroup;
+  query: string;
+  cardOffset: number;
+  onEdit: (id: string, content: string) => Promise<void>;
+  onDelete: (id: string) => void;
+}) {
   return (
     <section>
       {/* Day header */}
@@ -383,7 +475,14 @@ function DayGroup({ group, query, cardOffset }: { group: DayGroup; query: string
       {/* Cards */}
       <div className="space-y-1">
         {group.memories.map((m, i) => (
-          <MemCard key={m.id} m={m} query={query} index={cardOffset + i} />
+          <MemCard
+            key={m.id}
+            m={m}
+            query={query}
+            index={cardOffset + i}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         ))}
       </div>
     </section>
@@ -397,7 +496,14 @@ function EmptyState() {
       {/* Blurred archive preview — what it will look like */}
       <div className="blur-[3px] opacity-35 pointer-events-none select-none space-y-16">
         {PREVIEW_GROUPS.map((g, gi) => (
-          <DayGroup key={g.dateKey} group={g} query="" cardOffset={gi * 3} />
+          <DayGroup
+            key={g.dateKey}
+            group={g}
+            query=""
+            cardOffset={gi * 3}
+            onEdit={async () => {}}
+            onDelete={() => {}}
+          />
         ))}
       </div>
 
@@ -448,11 +554,58 @@ function EmptyState() {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-export function TimelineClient({ memories, email }: Props) {
+export function TimelineClient({ memories: initialMemories, email }: Props) {
+  const [memories, setMemories] = useState<MemoryRow[]>(initialMemories);
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<MemoryType | 'all'>('all');
+  const [toast, setToast] = useState<{
+    id: string;
+    preview: string;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+
+  const handleEdit = useCallback(async (id: string, content: string) => {
+    const res = await fetch(`/api/memories/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) throw new Error('Save failed');
+    setMemories((prev) => prev.map((m) => (m.id === id ? { ...m, content } : m)));
+  }, []);
+
+  const handleDelete = useCallback((id: string) => {
+    const deleted = memories.find((m) => m.id === id);
+    if (!deleted) return;
+    setMemories((prev) => prev.filter((m) => m.id !== id));
+    if (toast) clearTimeout(toast.timer);
+    const timer = setTimeout(async () => {
+      await fetch(`/api/memories/${id}`, { method: 'DELETE' });
+      setToast(null);
+    }, 5000);
+    setToast({
+      id,
+      preview: deleted.content.slice(0, 55) + (deleted.content.length > 55 ? '…' : ''),
+      timer,
+    });
+  }, [memories, toast]);
+
+  const handleRestore = useCallback(() => {
+    if (!toast) return;
+    clearTimeout(toast.timer);
+    const toRestore = initialMemories.find((m) => m.id === toast.id);
+    if (toRestore) {
+      setMemories((prev) => {
+        if (prev.some((m) => m.id === toast.id)) return prev;
+        const inserted = [...prev, toRestore];
+        inserted.sort((a, b) => b.created_at.localeCompare(a.created_at));
+        return inserted;
+      });
+    }
+    setToast(null);
+  }, [toast, initialMemories]);
 
   const sources = useMemo(() => {
     const s = new Set<string>();
@@ -550,6 +703,21 @@ export function TimelineClient({ memories, email }: Props) {
         </p>
       </div>
 
+      {/* Undo toast */}
+      {toast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-5 py-3 bg-night border border-cream/12 rounded-lg shadow-[0_8px_40px_rgba(0,0,0,0.5)] animate-[fadeUp_0.3s_ease_both]">
+          <span className="font-mono text-[11px] text-cream/50 max-w-[220px] truncate">
+            Deleted: {toast.preview}
+          </span>
+          <button
+            onClick={handleRestore}
+            className="font-mono text-[11px] text-amber hover:text-amber/70 transition-colors duration-300 flex-shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       <div className="px-6 md:px-16 pb-32 max-w-5xl mx-auto">
         {isEmpty ? (
@@ -617,6 +785,8 @@ export function TimelineClient({ memories, email }: Props) {
                       group={g}
                       query={query}
                       cardOffset={cardOffset}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
                     />
                   ))
                 )}
