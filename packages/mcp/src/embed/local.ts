@@ -13,13 +13,13 @@ let cached: Promise<Extractor> | null = null;
 
 function getPipe(): Promise<Extractor> {
   if (!cached) {
-    cached = pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2') as unknown as Promise<Extractor>;
+    cached = pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5') as unknown as Promise<Extractor>;
   }
   return cached;
 }
 
 export const localEmbedder: Embedder = {
-  dims: 384,
+  dims: 384, // BAAI/bge-small-en-v1.5
 
   async embed(text) {
     const extract = await getPipe();

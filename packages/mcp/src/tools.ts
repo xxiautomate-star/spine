@@ -67,6 +67,8 @@ export const TOOL_DEFS = [
       properties: {
         query: { type: 'string', description: 'Natural-language query.' },
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
+        before: { type: 'string', description: 'ISO 8601 upper bound (exclusive). Only return memories created before this date.' },
+        after: { type: 'string', description: 'ISO 8601 lower bound (inclusive). Only return memories created after this date.' },
       },
     },
   },
@@ -373,6 +375,29 @@ export const TOOL_DEFS = [
       },
     },
   },
+  {
+    name: 'spine_remember',
+    description:
+      'Store a memory permanently. Spine is append-only — every memory is kept forever, ' +
+      'verbatim, and searchable across all future sessions and AI tools. Use this to remember ' +
+      'facts, decisions, preferences, or anything the user wants to persist. One memory per fact. ' +
+      'Do not summarise. Returns the new memory id.',
+    inputSchema: {
+      type: 'object',
+      required: ['body'],
+      properties: {
+        body: {
+          type: 'string',
+          description: 'The full text to store. No length limit. Do not summarise or compress.',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional tags for filtering, e.g. ["auth", "postgres"].',
+        },
+      },
+    },
+  },
 ] as const;
 
 type ToolArgs = Record<string, unknown>;
@@ -428,8 +453,14 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
 
     case 'spine_recall': {
       const limit = Math.max(1, Math.min(50, num(args.limit, 10)));
-      const memories = await store.recall(str(args.query, 'query'), limit);
-      return JSON.stringify({ memories });
+      let memories = await store.recall(str(args.query, 'query'), limit * 3);
+      if (typeof args.before === 'string') {
+        memories = memories.filter((m) => m.createdAt < (args.before as string));
+      }
+      if (typeof args.after === 'string') {
+        memories = memories.filter((m) => m.createdAt >= (args.after as string));
+      }
+      return JSON.stringify({ memories: memories.slice(0, limit) });
     }
 
     case 'spine_context': {
@@ -690,6 +721,16 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
         }
       } catch { /* non-critical */ }
       return JSON.stringify({ id, pinned: true });
+    }
+
+    case 'spine_remember': {
+      const id = await store.capture({
+        content: str(args.body, 'body'),
+        type: 'fact',
+        source: typeof args.source === 'string' ? args.source : null,
+        tags: tags(args.tags),
+      });
+      return JSON.stringify({ id, stored: true });
     }
 
     default:
