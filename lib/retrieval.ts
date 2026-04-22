@@ -105,5 +105,59 @@ export async function rankMemories(
   });
 
   candidates.sort((a, b) => b.fusedScore - a.fusedScore);
-  return candidates.slice(0, limit);
+  const top = candidates.slice(0, limit);
+
+  // Graph expansion: walk memory_edges from top-10 to surface related chunks
+  // that BM25+vector both missed. Weight-discounted to 0.6× of the linking
+  // chunk's fusedScore so they appear below direct matches.
+  try {
+    const seedIds = top.slice(0, 10).map((c) => c.id);
+    const alreadyIn = new Set(top.map((c) => c.id));
+
+    const { data: neighbors } = await supabase.rpc('memory_graph_neighbors', {
+      p_user: userId,
+      p_seed_ids: seedIds,
+      p_limit: 10,
+    });
+
+    if (neighbors && neighbors.length > 0) {
+      for (const n of neighbors as Array<{
+        id: string; content: string; source: string | null;
+        tags: string[] | null; created_at: string;
+        relationship_type: string; entity_name: string | null; weight: number;
+      }>) {
+        if (alreadyIn.has(n.id)) continue;
+
+        // Inherit fusedScore from the highest-scoring seed that linked to it,
+        // then discount by 0.6 and edge weight (capped at 2.0 for normalisation).
+        const edgeBoost = Math.min(n.weight / 2.0, 1.0);
+        const parentScore = top[0]?.fusedScore ?? 0.1;
+        const ageDays = (now - new Date(n.created_at).getTime()) / 86_400_000;
+        const decay = Math.exp(-ageDays / decayTau);
+
+        top.push({
+          id: n.id,
+          content: n.content,
+          source: n.source,
+          tags: n.tags ?? [],
+          createdAt: n.created_at,
+          vecSimilarity: 0,
+          bm25Rank: 0,
+          vecRankPos: 0,
+          bm25RankPos: 0,
+          rrfScore: 0,
+          ageDays,
+          decay,
+          fusedScore: parentScore * 0.6 * edgeBoost * decay,
+        });
+        alreadyIn.add(n.id);
+      }
+
+      top.sort((a, b) => b.fusedScore - a.fusedScore);
+    }
+  } catch {
+    // graph expansion is best-effort — never fail the primary recall
+  }
+
+  return top.slice(0, limit);
 }

@@ -285,6 +285,60 @@ export async function extractAndIndex(
     }
   }
 
+  // memory_edges: link this memory to others that share its entity nodes.
+  // Query entity_edges to find sibling memories that reference the same nodes.
+  if (nodeIds.length > 0) {
+    try {
+      const { data: siblingEdges } = await sb
+        .from('entity_edges')
+        .select('memory_id, from_node, to_node, weight')
+        .or(
+          nodeIds.map((id) => `from_node.eq.${id},to_node.eq.${id}`).join(',')
+        )
+        .neq('memory_id', memoryId)
+        .limit(50);
+
+      if (siblingEdges && siblingEdges.length > 0) {
+        // Aggregate weight by sibling memory_id (more shared nodes = higher weight)
+        const weightMap = new Map<string, { weight: number; entity: string }>();
+        for (const edge of siblingEdges) {
+          const sibId = edge.memory_id as string;
+          const current = weightMap.get(sibId);
+          const sharedNodeId = nodeIds.find(
+            (n) => n === edge.from_node || n === edge.to_node
+          );
+          // Find entity name for this node id
+          const entityName = sharedNodeId
+            ? (pairs.find(() => true)?.[0] ?? 'entity')
+            : 'entity';
+          if (!current) {
+            weightMap.set(sibId, { weight: (edge.weight as number) || 1.0, entity: entityName });
+          } else {
+            weightMap.set(sibId, { weight: current.weight + 1.0, entity: current.entity });
+          }
+        }
+
+        // Upsert memory_edges for each sibling
+        for (const [sibMemId, { weight: w, entity: entityName }] of weightMap) {
+          const [a, b] = memoryId < sibMemId ? [memoryId, sibMemId] : [sibMemId, memoryId];
+          await sb.from('memory_edges').upsert(
+            {
+              user_id: userId,
+              chunk_id_a: a,
+              chunk_id_b: b,
+              relationship_type: 'entity_linked',
+              entity_name: entityName,
+              weight: Math.min(w, 5.0),
+            },
+            { onConflict: 'chunk_id_a,chunk_id_b,relationship_type', ignoreDuplicates: false }
+          );
+        }
+      }
+    } catch {
+      // fire-and-forget — memory_edges failure must not block capture
+    }
+  }
+
   return {
     entities,
     nodeIds,
