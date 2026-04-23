@@ -5,6 +5,7 @@ import { rerank } from '@/lib/rerank';
 import { buildInjectionBlock } from '@/lib/context-block';
 import { getSupabase } from '@/lib/supabase';
 import { touchRetrieved } from '@/lib/retrieval-touch';
+import { logRecallEvent } from '@/lib/recall-telemetry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,7 @@ async function freeRecall(
 ) {
   // Hybrid BM25 + vector RRF + recency for free tier — same pipeline as pro,
   // just without the Haiku reranker step.
+  const t0 = Date.now();
   const candidates = await rankMemories(userId, query, {
     poolLimit: limit * 3,
     limit,
@@ -41,6 +43,14 @@ async function freeRecall(
   }));
 
   touchRetrieved(userId, memories.map((m) => m.id));
+  logRecallEvent({
+    userId,
+    isDemo: false,
+    queryLen: query.length,
+    hits: memories.map((m) => ({ id: m.id, createdAt: m.createdAt })),
+    latencyMs: Date.now() - t0,
+    plan: 'free',
+  });
 
   const block = includeBlock
     ? buildInjectionBlock(
@@ -88,6 +98,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Pro / Power: full hybrid + Haiku rerank.
+  const t0 = Date.now();
   try {
     const candidates = await rankMemories(auth.authed.userId, query, {
       poolLimit: 15,
@@ -140,6 +151,15 @@ export async function POST(req: NextRequest) {
       .filter((x): x is NonNullable<typeof x> => x !== null);
 
     touchRetrieved(auth.authed.userId, memories.map((m) => m.id));
+    logRecallEvent({
+      userId: auth.authed.userId,
+      isDemo: false,
+      queryLen: query.length,
+      hits: memories.map((m) => ({ id: m.id, createdAt: m.createdAt })),
+      latencyMs: Date.now() - t0,
+      rerankCostUsd: rerankCost,
+      plan: auth.authed.plan,
+    });
 
     const block = includeBlock
       ? buildInjectionBlock(

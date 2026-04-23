@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { embedText } from '@/lib/openai';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
+import { logRecallEvent } from '@/lib/recall-telemetry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get('q')?.trim() ?? '';
   const limit = Math.min(20, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '10', 10)));
 
+  const t0 = Date.now();
   let data: MatchRow[] | null = null;
   let error: { message: string } | null = null;
 
@@ -77,5 +79,20 @@ export async function GET(req: NextRequest) {
     similarity: typeof r.similarity === 'number' ? r.similarity : 1,
   }));
 
-  return withCors(NextResponse.json({ memories, query, total: memories.length }));
+  const latencyMs = Date.now() - t0;
+
+  if (query.length > 0) {
+    logRecallEvent({
+      userId: null,
+      isDemo: true,
+      queryLen: query.length,
+      hits: memories.map((m) => ({ id: m.id, createdAt: m.createdAt })),
+      latencyMs,
+      plan: 'demo',
+    });
+  }
+
+  return withCors(
+    NextResponse.json({ memories, query, total: memories.length, latency_ms: latencyMs })
+  );
 }
