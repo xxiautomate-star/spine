@@ -1,13 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getBrowserSupabase } from '@/lib/supabase-browser';
 
-export function LoginClient() {
-  const [email, setEmail] = useState('');
+type Props = {
+  prefillEmail?: string;
+  inviteCode?: string;
+};
+
+export function LoginClient({ prefillEmail, inviteCode }: Props) {
+  const [email, setEmail] = useState(prefillEmail ?? '');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [githubBusy, setGithubBusy] = useState(false);
+
+  useEffect(() => {
+    // Stash invite code so it survives the magic-link round-trip.
+    if (inviteCode && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('spine_invite_code', inviteCode);
+      } catch {
+        // private mode, etc. — harmless
+      }
+    }
+  }, [inviteCode]);
+
+  const nextPath = inviteCode
+    ? `/auth/after-invite?code=${encodeURIComponent(inviteCode)}`
+    : '/dashboard/keys';
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +43,7 @@ export function LoginClient() {
     const origin = window.location.origin;
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${origin}/auth/callback?next=/dashboard/keys` },
+      options: { emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
     });
     if (error) {
       setStatus('error');
@@ -43,7 +63,7 @@ export function LoginClient() {
     const origin = window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
-      options: { redirectTo: `${origin}/auth/callback?next=/dashboard/keys` },
+      options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
     });
     if (error) {
       setGithubBusy(false);
@@ -80,14 +100,21 @@ export function LoginClient() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@somewhere.com"
-          className="w-full bg-transparent border-b border-cream/20 focus:border-cream/60 focus:outline-none py-3 text-lg placeholder:text-cream/25"
+          readOnly={Boolean(inviteCode && prefillEmail)}
+          className="w-full bg-transparent border-b border-cream/20 focus:border-cream/60 focus:outline-none py-3 text-lg placeholder:text-cream/25 read-only:text-cream/70"
         />
         <button
           type="submit"
           disabled={status === 'sending'}
           className="w-full bg-amber text-night font-mono text-[12px] uppercase tracking-widest px-5 py-4 transition-opacity disabled:opacity-50"
         >
-          {status === 'sending' ? 'Sending…' : status === 'sent' ? 'Link sent — check your inbox' : 'Email me a link'}
+          {status === 'sending'
+            ? 'Sending…'
+            : status === 'sent'
+            ? 'Link sent — check your inbox'
+            : inviteCode
+            ? 'Claim my seat'
+            : 'Email me a link'}
         </button>
         {status === 'error' && errorMsg && (
           <p className="font-mono text-[11px] text-amber">{errorMsg}</p>

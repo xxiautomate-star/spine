@@ -1,4 +1,5 @@
 import { embedText } from './openai';
+import { embedWithThread, type Turn } from './thread-embed';
 import { getSupabase } from './supabase';
 
 export type Candidate = {
@@ -7,6 +8,8 @@ export type Candidate = {
   source: string | null;
   tags: string[];
   createdAt: string;
+  lastConfirmedAt: string | null;
+  supersededBy: string | null;
   vecSimilarity: number;
   bm25Rank: number;
   vecRankPos: number; // 0 = not in top-N by vector
@@ -14,6 +17,7 @@ export type Candidate = {
   rrfScore: number;
   ageDays: number;
   decay: number;
+  supersededPenalty: number; // 1.0 or 0.3
   fusedScore: number;
 };
 
@@ -26,6 +30,10 @@ export type RankOptions = {
   rrfK?: number;
   /** Temporal decay half-life in days. Default 90. */
   decayHalfLifeDays?: number;
+  /** Last 2-3 turns of the active conversation. Blended into the query embedding. */
+  threadTurns?: Turn[];
+  /** Multiplier for memories whose superseded_by is non-null. Default 0.3. */
+  supersededWeight?: number;
 };
 
 type Row = {
@@ -34,6 +42,8 @@ type Row = {
   source: string | null;
   tags: string[] | null;
   created_at: string;
+  last_confirmed_at: string | null;
+  superseded_by: string | null;
   vec_similarity: number;
   bm25_rank: number;
 };
@@ -47,18 +57,44 @@ export async function rankMemories(
   const limit = opts.limit ?? 15;
   const rrfK = opts.rrfK ?? 60;
   const halfLife = opts.decayHalfLifeDays ?? 90;
+  const supersededWeight = Math.max(0, Math.min(1, opts.supersededWeight ?? 0.3));
 
   const supabase = getSupabase();
   if (!supabase) throw new Error('Server not configured for retrieval.');
 
-  const embedding = await embedText(query);
+  const embedding =
+    opts.threadTurns && opts.threadTurns.length > 0
+      ? await embedWithThread({ query, turns: opts.threadTurns })
+      : await embedText(query);
 
-  const { data, error } = await supabase.rpc('spine_hybrid_candidates', {
+  // Try v2 (superseded-aware); fall back to v1 for environments where the
+  // migration hasn't landed yet.
+  let data: Row[] | null = null;
+  let error: { message: string } | null = null;
+
+  const v2 = await supabase.rpc('spine_hybrid_candidates_v2', {
     p_user: userId,
     p_query: query,
     p_query_embedding: embedding,
     p_limit: poolLimit,
   });
+  if (v2.error && /does not exist/i.test(v2.error.message)) {
+    const v1 = await supabase.rpc('spine_hybrid_candidates', {
+      p_user: userId,
+      p_query: query,
+      p_query_embedding: embedding,
+      p_limit: poolLimit,
+    });
+    data = (v1.data ?? []).map((r: Record<string, unknown>) => ({
+      ...(r as Row),
+      last_confirmed_at: null,
+      superseded_by: null,
+    }));
+    error = v1.error;
+  } else {
+    data = v2.data as Row[] | null;
+    error = v2.error;
+  }
   if (error) throw new Error(`spine_hybrid_candidates: ${error.message}`);
 
   const rows = (data ?? []) as Row[];
@@ -87,12 +123,15 @@ export async function rankMemories(
       (vp > 0 ? 1 / (rrfK + vp) : 0) + (bp > 0 ? 1 / (rrfK + bp) : 0);
     const ageDays = (now - new Date(r.created_at).getTime()) / 86_400_000;
     const decay = Math.exp(-ageDays / decayTau);
+    const penalty = r.superseded_by ? supersededWeight : 1.0;
     return {
       id: r.id,
       content: r.content,
       source: r.source,
       tags: r.tags ?? [],
       createdAt: r.created_at,
+      lastConfirmedAt: r.last_confirmed_at,
+      supersededBy: r.superseded_by,
       vecSimilarity: r.vec_similarity,
       bm25Rank: r.bm25_rank,
       vecRankPos: vp,
@@ -100,7 +139,8 @@ export async function rankMemories(
       rrfScore: rrf,
       ageDays,
       decay,
-      fusedScore: rrf * decay,
+      supersededPenalty: penalty,
+      fusedScore: rrf * decay * penalty,
     };
   });
 
@@ -141,6 +181,8 @@ export async function rankMemories(
           source: n.source,
           tags: n.tags ?? [],
           createdAt: n.created_at,
+          lastConfirmedAt: null,
+          supersededBy: null,
           vecSimilarity: 0,
           bm25Rank: 0,
           vecRankPos: 0,
@@ -148,6 +190,7 @@ export async function rankMemories(
           rrfScore: 0,
           ageDays,
           decay,
+          supersededPenalty: 1.0,
           fusedScore: parentScore * 0.6 * edgeBoost * decay,
         });
         alreadyIn.add(n.id);

@@ -17,6 +17,14 @@ type Entry = {
 // Curated from git history. When a new Round lands, append here.
 const LOG: Entry[] = [
   {
+    round: 'Round 16',
+    date: '2026-04-24',
+    title: 'v1.1 retrieval quality + rolling access',
+    body:
+      'The four engineering fixes from the 2026-04-22 collaborative review, shipped together. Active-thread reranker blends the last 2–3 turns into the query embedding. Cohere Rerank 3 replaces Haiku as the primary cross-encoder (Haiku stays as fallback). Per-session de-duplication means a memory injected in-thread is not re-injected until its relevance score jumps meaningfully. `superseded_by` chain lets updates outweigh stale memories without destroying them. Every injection line now carries [age · confirmed · src] provenance so the receiving AI can weight confidence. Plus: invite flow — /admin/waitlist issues codes, /auth/after-invite redeems, rolling access stops being a marketing word.',
+    commits: ['012 migration', 'thread-embed', 'cross-encoder', 'session-dedup', 'invites'],
+  },
+  {
     round: 'Round 15',
     date: '2026-04-23',
     title: 'Labs landing · live demo · public stats',
