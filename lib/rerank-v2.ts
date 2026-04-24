@@ -131,6 +131,7 @@ export async function rankMemoriesV2(
   opts: RerankV2Options = {}
 ): Promise<{
   candidates: RankedCandidate[];
+  fullPool: RankedCandidate[];
   weights: Weights;
   poolSize: number;
 }> {
@@ -158,7 +159,7 @@ export async function rankMemoriesV2(
   if (error) throw new Error(`spine_hybrid_candidates_v3: ${error.message}`);
   const rows = (data ?? []) as Row[];
   if (rows.length === 0) {
-    return { candidates: [], weights, poolSize: 0 };
+    return { candidates: [], fullPool: [], weights, poolSize: 0 };
   }
 
   const now = Date.now();
@@ -218,6 +219,7 @@ export async function rankMemoriesV2(
 
   return {
     candidates: ranked.slice(0, limit),
+    fullPool: ranked,
     weights,
     poolSize: rows.length,
   };

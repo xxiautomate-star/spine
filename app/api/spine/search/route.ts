@@ -16,6 +16,7 @@ import { crossEncoderRerank } from '@/lib/cross-encoder';
 import { withCors, preflight } from '@/lib/cors';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { logRecallEvent } from '@/lib/recall-telemetry';
+import { logRecall, type LoggedCandidate } from '@/lib/recall-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -143,6 +144,27 @@ export async function GET(req: NextRequest) {
     hits: top.map((c) => ({ id: c.id, createdAt: c.createdAt })),
     latencyMs,
     plan: 'demo-v2',
+  });
+
+  // Full-pool log for the trainer. Cross-encoder score is attached when present.
+  const crossById = new Map(crossPicks.map((p) => [p.id, p.score]));
+  const logged: LoggedCandidate[] = (ranked.fullPool ?? ranked.candidates).map((c) => ({
+    ...c,
+    crossEncoderScore: crossById.get(c.id) ?? null,
+  }));
+
+  logRecall({
+    userId: null,
+    sessionId: req.nextUrl.searchParams.get('session_id'),
+    isDemo: true,
+    query,
+    poolSize: ranked.poolSize,
+    topK,
+    shownIds: top.map((c) => c.id),
+    provider,
+    weights: ranked.weights,
+    latencyMs,
+    candidates: logged,
   });
 
   return withCors(

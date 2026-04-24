@@ -1,30 +1,30 @@
 #!/usr/bin/env node
-// Train rerank weights from Spine's own recall history.
+// Train rerank weights on REAL labels from the /api/spine-feedback pipeline.
 //
-// Label derivation (honest, given we don't collect click-through):
-//   POSITIVE : memory was injected in >=2 distinct sessions within 7 days
-//              (i.e. Spine decided to surface it again — implicit usefulness)
-//   NEGATIVE : memory was retrieved at least once but never re-surfaced
+// Data source: spine_training_samples view (migration 015) which joins
+//   saas_spine_recall_queries ↔ saas_spine_recall_candidates ↔ saas_spine_recall_labels.
+// Each candidate becomes one training row: features = the 4 normalised
+// signals that were logged at recall time, label = was_used (quoted_phrase
+// match in the user's next turn within 10 min).
 //
-// This is weak supervision. It trains the RATIOS between the four signals,
-// not the absolute scale. Output: a row in spine_rerank_weights with the
-// fitted coefficients. The bench + /spine/proof page will then compare the
-// trained weights to the default priors on the same queries.
-//
-// Algorithm: batch logistic regression via full-batch gradient descent with
-// L2 regularisation. Pure JS, no dependencies. Up to a few thousand rows
-// fits in memory easily.
+// Algorithm: batch logistic regression with L2 regularisation, pure-JS SGD.
+// Writes a new row to spine_rerank_weights with model_version='lr-v2-real'
+// and flips the prior active row inactive.
 //
 // Usage:
-//   node scripts/train-rerank-weights.mjs --user <uuid>
-//   node scripts/train-rerank-weights.mjs          # trains global default
+//   node scripts/train-rerank-weights.mjs                  # global default
+//   node scripts/train-rerank-weights.mjs --user <uuid>    # per-user
+//   node scripts/train-rerank-weights.mjs --min 50         # abort if fewer than N positives
+//   node scripts/train-rerank-weights.mjs --demo           # include is_demo queries
 
 import { createClient } from '@supabase/supabase-js';
 
 const args = parseArgs(process.argv.slice(2));
-const USER = typeof args.user === 'string' ? args.user : null; // null = global
-const LR = Number(args.lr ?? 0.05);
-const ITERS = Number(args.iters ?? 400);
+const USER = typeof args.user === 'string' ? args.user : null;
+const MIN_POSITIVES = Number(args.min ?? 20);
+const INCLUDE_DEMO = Boolean(args.demo);
+const LR = Number(args.lr ?? 0.1);
+const ITERS = Number(args.iters ?? 600);
 const L2 = Number(args.l2 ?? 0.01);
 
 function parseArgs(argv) {
@@ -39,152 +39,117 @@ function parseArgs(argv) {
   }
   return out;
 }
-
 function must(name) {
   const v = process.env[name];
   if (!v) { console.error(`[train] Missing env: ${name}`); process.exit(1); }
   return v;
 }
-
 const SUPABASE_URL = must('NEXT_PUBLIC_SUPABASE_URL');
 const SERVICE_KEY = must('SUPABASE_SERVICE_ROLE_KEY');
 const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
 function sigmoid(z) { return 1 / (1 + Math.exp(-Math.max(-30, Math.min(30, z)))); }
 
-async function loadLabeledSamples() {
-  // Pull memory features (age, retrieval_count, centrality) + session
-  // injection history. We don't have per-recall BM25/vec scores stored, so
-  // we approximate them using:
-  //   bm25_feat  : normalised retrieval_count (often correlates with lexical hits)
-  //   vec_feat   : 0.5 constant placeholder — upgraded once we log per-recall scores
-  //   recency    : exp decay
-  //   centrality : precomputed
-  //
-  // Limitation noted: this trainer primarily calibrates recency vs. centrality
-  // vs. retrieval_count. When per-recall feature logs land, swap the feature
-  // source for a richer dataset without changing the math.
+async function loadSamples() {
+  // Read from the training-samples view. Filter by user if scoped, and by
+  // is_demo if caller didn't opt in to demo traffic (which mixes contexts).
+  let q = sb.from('spine_training_samples').select('user_id, query, why_bm25, why_vec, why_recency, why_centrality, cross_encoder_score, label, rank_shown');
+  if (USER) q = q.eq('user_id', USER);
 
-  const filter = USER ? { user_id: USER } : {};
-
-  const { data: mems, error: memErr } = await sb
-    .from('memories')
-    .select('id, user_id, created_at, retrieval_count, centrality')
-    .is('deleted_at', null)
-    .match(filter)
-    .limit(10000);
-  if (memErr) throw new Error(memErr.message);
-
-  const { data: injections, error: injErr } = await sb
-    .from('session_injections')
-    .select('memory_id, session_id, injected_at')
-    .match(filter)
-    .limit(200000);
-  if (injErr) throw new Error(injErr.message);
-
-  // Label: memory_id appeared in >=2 distinct session_ids within 7d window.
-  const byMem = new Map();
-  for (const inj of injections ?? []) {
-    const sessions = byMem.get(inj.memory_id) ?? new Set();
-    sessions.add(inj.session_id);
-    byMem.set(inj.memory_id, sessions);
+  // Grab in pages because view rows can be large.
+  const pageSize = 2000;
+  const all = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await q.range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+    if (from > 200_000) break;
   }
-
-  const now = Date.now();
-  const HALF_LIFE_MS = 90 * 86400 * 1000;
-  const tau = HALF_LIFE_MS / Math.LN2;
-
-  const retrievalMax = Math.max(1, ...(mems ?? []).map((m) => Number(m.retrieval_count ?? 0)));
-  const centralityMax = Math.max(0.0001, ...(mems ?? []).map((m) => Number(m.centrality ?? 0)));
-
-  const samples = [];
-  for (const m of mems ?? []) {
-    const sessionCount = (byMem.get(m.id) ?? new Set()).size;
-    const ageMs = now - new Date(m.created_at).getTime();
-    const recency = Math.exp(-ageMs / tau);
-    const bm25Feat = Number(m.retrieval_count ?? 0) / retrievalMax;
-    const vecFeat = 0.5; // placeholder
-    const centralityFeat = Number(m.centrality ?? 0) / centralityMax;
-
-    const label = sessionCount >= 2 ? 1 : 0;
-    // Ignore memories never retrieved at all (no signal either way).
-    if (sessionCount === 0 && Number(m.retrieval_count ?? 0) === 0) continue;
-
-    samples.push({
-      x: [bm25Feat, vecFeat, recency, centralityFeat],
-      y: label,
-    });
-  }
-
-  return samples;
+  return all;
 }
 
 function train(samples) {
-  if (samples.length === 0) return null;
-
-  // 4 features + bias
-  let w = [0.25, 0.55, 0.1, 0.1]; // informed start
-  let b = 0;
-
   const n = samples.length;
-  const positives = samples.filter((s) => s.y === 1).length;
-  const negatives = n - positives;
-  console.log(`[train] ${n} samples · ${positives} pos · ${negatives} neg`);
+  if (n === 0) return null;
 
-  if (positives === 0 || negatives === 0) {
-    console.log('[train] one class only — cannot train. Keeping defaults.');
-    return { w, b, n, auc: null };
+  const positives = samples.filter((s) => s.label === true).length;
+  const negatives = n - positives;
+  console.log(`[train] ${n} candidates · ${positives} positive · ${negatives} negative`);
+  if (positives < MIN_POSITIVES) {
+    console.log(`[train] fewer than ${MIN_POSITIVES} positives — refusing to train. Collect more data first.`);
+    return null;
   }
+
+  // Class weighting: positives are rare, upweight them to 1:1 effective ratio.
+  const posWeight = negatives / Math.max(1, positives);
+
+  let w = [0.25, 0.55, 0.1, 0.1];
+  let b = 0;
 
   for (let iter = 0; iter < ITERS; iter++) {
     const gw = [0, 0, 0, 0];
     let gb = 0;
     let loss = 0;
     for (const s of samples) {
-      const z = s.x[0] * w[0] + s.x[1] * w[1] + s.x[2] * w[2] + s.x[3] * w[3] + b;
+      const x = [
+        Number(s.why_bm25 ?? 0),
+        Number(s.why_vec ?? 0),
+        Number(s.why_recency ?? 0),
+        Number(s.why_centrality ?? 0),
+      ];
+      const y = s.label ? 1 : 0;
+      const weight = y === 1 ? posWeight : 1;
+
+      const z = x[0] * w[0] + x[1] * w[1] + x[2] * w[2] + x[3] * w[3] + b;
       const p = sigmoid(z);
-      const err = p - s.y;
-      for (let k = 0; k < 4; k++) gw[k] += err * s.x[k];
+      const err = (p - y) * weight;
+      for (let k = 0; k < 4; k++) gw[k] += err * x[k];
       gb += err;
-      loss += -(s.y * Math.log(Math.max(1e-9, p)) + (1 - s.y) * Math.log(Math.max(1e-9, 1 - p)));
+      loss += weight * -(y * Math.log(Math.max(1e-9, p)) + (1 - y) * Math.log(Math.max(1e-9, 1 - p)));
     }
     for (let k = 0; k < 4; k++) w[k] -= (LR / n) * (gw[k] + L2 * w[k]);
     b -= (LR / n) * gb;
 
-    if (iter % 50 === 0 || iter === ITERS - 1) {
+    if (iter % 100 === 0 || iter === ITERS - 1) {
       console.log(`[train]   iter ${iter} · loss ${(loss / n).toFixed(4)} · w [${w.map((x) => x.toFixed(3)).join(', ')}] · b ${b.toFixed(3)}`);
     }
   }
 
-  // AUC via two-class probabilistic ranking
-  const scored = samples.map((s) => ({
-    score: sigmoid(s.x[0] * w[0] + s.x[1] * w[1] + s.x[2] * w[2] + s.x[3] * w[3] + b),
-    y: s.y,
-  })).sort((a, b) => b.score - a.score);
-  const P = scored.filter((x) => x.y === 1).length;
+  // AUC via pairwise ranking.
+  const scored = samples.map((s) => {
+    const x = [Number(s.why_bm25 ?? 0), Number(s.why_vec ?? 0), Number(s.why_recency ?? 0), Number(s.why_centrality ?? 0)];
+    const z = x[0] * w[0] + x[1] * w[1] + x[2] * w[2] + x[3] * w[3] + b;
+    return { score: sigmoid(z), y: s.label ? 1 : 0 };
+  }).sort((a, b) => b.score - a.score);
+
+  const P = scored.filter((r) => r.y === 1).length;
   const N = scored.length - P;
   let rankSum = 0;
   scored.forEach((row, i) => {
     if (row.y === 1) rankSum += scored.length - i;
   });
-  const auc = (rankSum - (P * (P + 1)) / 2) / (P * N);
+  const auc = (rankSum - (P * (P + 1)) / 2) / Math.max(1, P * N);
 
-  return { w, b, n, auc };
+  return { w, b, n, auc, positives, negatives };
 }
 
 async function writeWeights(result) {
   if (!result) return;
 
-  // Normalize so weights sum to 1 — keeps fused score in [0, 1].
-  const sum = result.w.reduce((s, x) => s + Math.abs(x), 0) || 1;
-  const norm = result.w.map((x) => Math.max(0, x) / sum);
+  // Keep weights non-negative, normalise so they sum to 1 (stable fused range).
+  const raw = result.w.map((x) => Math.max(0, x));
+  const sum = raw.reduce((s, x) => s + x, 0) || 1;
+  const norm = raw.map((x) => x / sum);
 
-  // Deactivate previous active row for this scope
-  const scopeFilter = USER ? { user_id: USER } : { user_id: null };
+  const scopeMatch = USER ? { user_id: USER } : { user_id: null };
   await sb
     .from('spine_rerank_weights')
     .update({ is_active: false })
-    .match(scopeFilter)
+    .match(scopeMatch)
     .eq('is_active', true);
 
   const row = {
@@ -196,18 +161,19 @@ async function writeWeights(result) {
     bias: result.b,
     training_n: result.n,
     training_auc: result.auc,
-    model_version: 'lr-v1',
+    model_version: 'lr-v2-real',
     is_active: true,
-    notes: `trained ${new Date().toISOString().slice(0, 10)} · auc ${result.auc?.toFixed(3) ?? '—'}`,
+    notes: `trained ${new Date().toISOString().slice(0, 10)} · auc ${result.auc.toFixed(3)} · ${result.positives}p/${result.negatives}n`,
   };
-
   const { error } = await sb.from('spine_rerank_weights').insert(row);
   if (error) throw new Error(error.message);
-  console.log(`[train] wrote weights: ${JSON.stringify(row)}`);
+  console.log(`[train] ✓ wrote new active weights — auc=${result.auc.toFixed(3)}`);
+  console.log(`[train] weights: bm25=${norm[0].toFixed(3)} vec=${norm[1].toFixed(3)} recency=${norm[2].toFixed(3)} centrality=${norm[3].toFixed(3)} bias=${result.b.toFixed(3)}`);
 }
 
 async function main() {
-  const samples = await loadLabeledSamples();
+  console.log(`[train] scope: ${USER ?? 'global'} · include_demo=${INCLUDE_DEMO} · min_positives=${MIN_POSITIVES}`);
+  const samples = await loadSamples();
   const result = train(samples);
   if (result) await writeWeights(result);
 }

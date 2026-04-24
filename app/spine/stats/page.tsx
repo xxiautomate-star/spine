@@ -82,6 +82,20 @@ export default async function SpineStatsPage() {
                 ? `$${stats.total_spend_usd.toFixed(4)} total rerank + embed spend`
                 : 'Rerank + embed spend',
           },
+          {
+            label: 'Ranker quality · AUC',
+            value:
+              stats.ranker_auc === null
+                ? '—'
+                : stats.ranker_auc.toFixed(3),
+            sub:
+              stats.ranker_auc !== null && stats.ranker_auc_prev !== null
+                ? `${stats.ranker_model ?? '—'} · Δ ${(stats.ranker_auc - stats.ranker_auc_prev >= 0 ? '+' : '')}${(stats.ranker_auc - stats.ranker_auc_prev).toFixed(3)} vs prior`
+                : stats.ranker_model
+                ? `${stats.ranker_model} · no prior to compare`
+                : 'Run the trainer to populate',
+            href: '/spine/why',
+          },
         ];
 
   return (

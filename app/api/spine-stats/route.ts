@@ -15,6 +15,10 @@ export type SpineStats = {
   largest_scale_tested: number | null;
   largest_scale_p99_ms: number | null;
   largest_scale_accuracy: number | null;
+  ranker_auc: number | null;
+  ranker_auc_prev: number | null;
+  ranker_model: string | null;
+  ranker_trained_at: string | null;
   updated_at: string;
 };
 
@@ -26,7 +30,7 @@ export async function GET(): Promise<NextResponse> {
 
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [memRes, recallRes, costRes, benchRes] = await Promise.all([
+  const [memRes, recallRes, costRes, benchRes, weightsRes] = await Promise.all([
     // Exclude bench memories so prod counts stay honest.
     supabase
       .from('memories')
@@ -45,6 +49,12 @@ export async function GET(): Promise<NextResponse> {
       .select('scale, p99_latency_ms, recall_accuracy, created_at')
       .order('scale', { ascending: false })
       .limit(1),
+    supabase
+      .from('spine_rerank_weights')
+      .select('model_version, training_auc, created_at, is_active, user_id')
+      .is('user_id', null)
+      .order('created_at', { ascending: false })
+      .limit(2),
   ]);
 
   const totalMemories = memRes.count ?? 0;
@@ -76,6 +86,15 @@ export async function GET(): Promise<NextResponse> {
     | { scale: number; p99_latency_ms: number; recall_accuracy: number }
     | undefined;
 
+  const weightRows = (weightsRes.data ?? []) as Array<{
+    model_version: string;
+    training_auc: number | null;
+    created_at: string;
+    is_active: boolean;
+  }>;
+  const activeWeight = weightRows.find((w) => w.is_active) ?? weightRows[0] ?? null;
+  const priorWeight = weightRows.find((w) => !w.is_active) ?? weightRows[1] ?? null;
+
   const stats: SpineStats = {
     total_memories: totalMemories,
     cross_session_recalls_7d: crossSessionRecalls7d,
@@ -86,6 +105,10 @@ export async function GET(): Promise<NextResponse> {
     largest_scale_tested: benchTop?.scale ?? null,
     largest_scale_p99_ms: benchTop?.p99_latency_ms ?? null,
     largest_scale_accuracy: benchTop?.recall_accuracy ?? null,
+    ranker_auc: activeWeight?.training_auc ?? null,
+    ranker_auc_prev: priorWeight?.training_auc ?? null,
+    ranker_model: activeWeight?.model_version ?? null,
+    ranker_trained_at: activeWeight?.created_at ?? null,
     updated_at: new Date().toISOString(),
   };
 

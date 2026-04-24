@@ -8,6 +8,7 @@ import { getServerUser } from '@/lib/supabase-server';
 import { getSupabase } from '@/lib/supabase';
 import { rankMemoriesV2 } from '@/lib/rerank-v2';
 import { crossEncoderRerank } from '@/lib/cross-encoder';
+import { logRecall, type LoggedCandidate } from '@/lib/recall-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -104,6 +105,26 @@ export async function POST(req: NextRequest) {
       .rpc('spine_touch_retrieved', { p_user: user.id, p_ids: hits.map((h) => h.id) })
       .then(() => void 0, () => void 0);
   }
+
+  // Per-candidate recall log. Uses fullPool so the trainer sees beaten candidates.
+  const logged: LoggedCandidate[] = (ranked.fullPool ?? ranked.candidates).map((c) => ({
+    ...c,
+    crossEncoderScore: null,
+  }));
+
+  logRecall({
+    userId: user.id,
+    sessionId: req.headers.get('x-spine-session') ?? null,
+    isDemo: false,
+    query,
+    poolSize: ranked.poolSize,
+    topK: limit,
+    shownIds: hits.map((h) => h.id),
+    provider: rerankProvider,
+    weights: ranked.weights,
+    latencyMs: 0, // not tracked at this call site; recall-telemetry already logs end-to-end
+    candidates: logged,
+  });
 
   return NextResponse.json({
     memories: hits,

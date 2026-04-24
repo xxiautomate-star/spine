@@ -57,10 +57,16 @@ export default async function SpineLabs() {
         </Link>
         <div className="flex items-center gap-4 md:gap-6">
           <Link
-            href="/spine/proof"
+            href="/spine/why"
             className="font-mono text-[10px] uppercase tracking-widest text-amber hover:text-cream transition-colors duration-300"
           >
-            Scale proof
+            Why
+          </Link>
+          <Link
+            href="/spine/proof"
+            className="font-mono text-[10px] uppercase tracking-widest text-cream/45 hover:text-amber transition-colors duration-300 hidden sm:inline"
+          >
+            Proof
           </Link>
           <Link
             href="/spine/stats"
@@ -392,6 +398,9 @@ export default async function SpineLabs() {
           </div>
           <div className="flex flex-col md:items-end gap-2">
             <div className="flex flex-wrap gap-5 font-mono text-[10px] uppercase tracking-widest">
+              <Link href="/spine/why" className="text-cream/30 hover:text-amber transition-colors">
+                Why
+              </Link>
               <Link href="/spine/proof" className="text-cream/30 hover:text-amber transition-colors">
                 Proof
               </Link>

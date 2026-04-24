@@ -17,6 +17,14 @@ type Entry = {
 // Curated from git history. When a new Round lands, append here.
 const LOG: Entry[] = [
   {
+    round: 'Round 19',
+    date: '2026-04-24',
+    title: 'Real labels · /spine/why interactive explorer · leak audit',
+    body:
+      'Three moves to make the transparency moat visible. (1) Every recall logs the full candidate pool (not just top-5) with per-signal why to saas_spine_recall_candidates; a new /api/spine-feedback endpoint takes the user\'s next turn and infers which shown memories were cited via 5-gram / 7-gram overlap, writing was_used labels. Trainer retrained from real labels via a logistic regressor, persists AUC for drift tracking. Nightly cron at /api/cron/retrain-weights. (2) /spine/why — category-defining interactive explorer. Type a query, see ALL 20 candidates with 4 signal bars + cross-encoder score, drag sliders, top-5 reorders live client-side (no server round-trip). Save profile to your account, copy as JSON, or activate as your default weights. (3) scripts/leak-audit.mjs — 20 adversarial queries against /api/spine/search and /api/spine/candidates, asserts every result.user_id = SPINE_DEMO_USER_ID. Exits non-zero on any leak.',
+    commits: ['015 migration', 'recall-log', 'label-inference', 'spine-feedback', 'spine/candidates', 'spine/why', 'weight-profiles', 'cron/retrain-weights', 'leak-audit'],
+  },
+  {
     round: 'Round 18',
     date: '2026-04-24',
     title: 'Hybrid rerank v2 · 4-signal fusion · why trace on every recall',
