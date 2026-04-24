@@ -2,27 +2,47 @@
 
 import { useState, useRef } from 'react';
 
+type WhyTrace = {
+  bm25: number;
+  vec: number;
+  recency: number;
+  centrality: number;
+  final: number;
+  dominant: 'bm25' | 'vec' | 'recency' | 'centrality';
+};
+
 type Memory = {
   id: string;
   content: string;
   source: string;
   createdAt: string;
-  similarity: number;
+  why?: WhyTrace;
+  similarity?: number;
+};
+
+type Competitor = {
+  id: string;
+  content: string;
+  why: WhyTrace;
 };
 
 type DemoResp = {
   memories: Memory[];
+  competitors?: Competitor[];
   query: string;
-  total: number;
+  total?: number;
   latency_ms: number;
+  rerank_provider?: string | null;
+  rerank_cached?: boolean;
+  pool_size?: number;
   error?: string;
 };
 
 const SEEDS = [
-  'how do we use memory to make Claude the best',
-  'what is the compounding effect on my design work',
-  'where are the shader rules documented',
-  'what’s the MCP install command',
+  'what makes Spine different from ChatGPT Memory',
+  'what is the retrieval pipeline',
+  'what signals go into the ranker',
+  'how does the install work',
 ];
 
 function relativeDate(iso: string): string {
@@ -37,10 +57,48 @@ function relativeDate(iso: string): string {
   return `${Math.floor(d / 365)}y ago`;
 }
 
+function labelFor(k: WhyTrace['dominant']): string {
+  switch (k) {
+    case 'bm25': return 'keyword';
+    case 'vec': return 'semantic';
+    case 'recency': return 'recency';
+    case 'centrality': return 'graph';
+  }
+}
+
+function WhyBars({ why }: { why: WhyTrace }) {
+  const signals: Array<{ k: keyof Pick<WhyTrace, 'bm25' | 'vec' | 'recency' | 'centrality'>; label: string }> = [
+    { k: 'bm25', label: 'keyword' },
+    { k: 'vec', label: 'semantic' },
+    { k: 'recency', label: 'recency' },
+    { k: 'centrality', label: 'graph' },
+  ];
+  return (
+    <div className="mt-3 grid grid-cols-4 gap-2">
+      {signals.map((s) => {
+        const v = Math.max(0, Math.min(1, why[s.k]));
+        const isDom = why.dominant === s.k;
+        return (
+          <div key={s.k}>
+            <div className="h-1 bg-cream/[0.06] relative overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 ${isDom ? 'bg-amber' : 'bg-cream/25'}`}
+                style={{ width: `${v * 100}%` }}
+              />
+            </div>
+            <p className={`mt-1 font-mono text-[9px] uppercase tracking-widest ${isDom ? 'text-amber' : 'text-cream/35'}`}>
+              {s.label} · {v.toFixed(2)}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SpineLiveDemo() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Memory[] | null>(null);
-  const [latency, setLatency] = useState<number | null>(null);
+  const [resp, setResp] = useState<DemoResp | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error' | 'unconfigured'>('idle');
   const [err, setErr] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -53,9 +111,8 @@ export function SpineLiveDemo() {
     abortRef.current = ctrl;
     setStatus('loading');
     setErr(null);
-    const clientT0 = Date.now();
     try {
-      const res = await fetch(`/api/demo/search?q=${encodeURIComponent(trimmed)}&limit=3`, {
+      const res = await fetch(`/api/spine/search?q=${encodeURIComponent(trimmed)}&top_k=5&pool_k=20`, {
         signal: ctrl.signal,
       });
       const data = (await res.json()) as DemoResp;
@@ -69,8 +126,7 @@ export function SpineLiveDemo() {
         }
         return;
       }
-      setResults(data.memories);
-      setLatency(data.latency_ms ?? Date.now() - clientT0);
+      setResp(data);
       setStatus('ok');
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -80,8 +136,7 @@ export function SpineLiveDemo() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      {/* Input */}
+    <div className="w-full max-w-3xl mx-auto">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -92,7 +147,7 @@ export function SpineLiveDemo() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask Spine something about Roman’s work…"
+          placeholder="Ask Spine about itself — the demo corpus is 30 curated product memories."
           className="flex-1 bg-transparent border border-cream/15 focus:border-amber focus:outline-none px-4 py-3 text-base placeholder:text-cream/25 transition-colors duration-500"
           aria-label="Demo query"
         />
@@ -101,12 +156,11 @@ export function SpineLiveDemo() {
           disabled={status === 'loading' || !query.trim()}
           className="group inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber text-night hover:bg-cream disabled:opacity-50 disabled:hover:bg-amber transition-colors duration-500 font-mono text-[11px] uppercase tracking-widest"
         >
-          {status === 'loading' ? 'Retrieving…' : 'Recall'}
+          {status === 'loading' ? 'Ranking…' : 'Recall'}
           <span className="transition-transform duration-500 group-hover:translate-x-1">→</span>
         </button>
       </form>
 
-      {/* Seeds */}
       {status === 'idle' && (
         <div className="mt-4 flex flex-wrap gap-2">
           {SEEDS.map((s) => (
@@ -125,60 +179,83 @@ export function SpineLiveDemo() {
         </div>
       )}
 
-      {/* Status line / latency */}
-      {(status === 'ok' || status === 'loading') && (
-        <div className="mt-6 flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-cream/35">
-          <span>Live recall · pgvector + hybrid</span>
-          {latency !== null && status === 'ok' && (
-            <span className="inline-flex items-center gap-2 text-amber/80">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber ember" /> {latency}ms
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Errors */}
-      {status === 'error' && err && (
-        <p className="mt-6 font-mono text-[11px] text-amber/80">{err}</p>
-      )}
+      {status === 'error' && err && <p className="mt-6 font-mono text-[11px] text-amber/80">{err}</p>}
       {status === 'unconfigured' && (
         <p className="mt-6 font-mono text-[11px] text-cream/45 border border-cream/10 px-4 py-3">
-          Demo endpoint is live but no corpus is wired up yet. Set SPINE_DEMO_USER_ID on the server
-          and Spine will recall against the real 310-memory corpus.
+          Demo endpoint is live but SPINE_DEMO_USER_ID is not set.
         </p>
       )}
 
-      {/* Results */}
-      {status === 'ok' && results && (
-        <ul className="mt-4 space-y-3">
-          {results.length === 0 && (
-            <li className="font-mono text-[11px] text-cream/40">
-              No memories matched — try one of the seed queries above.
-            </li>
-          )}
-          {results.map((m, i) => (
-            <li
-              key={m.id}
-              className="rise border-l-2 border-amber/40 pl-4 py-2 bg-cream/[0.02]"
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
-              <p className="text-cream/85 leading-relaxed text-[15px]">
-                {m.content.length > 240 ? m.content.slice(0, 240) + '…' : m.content}
+      {status === 'ok' && resp && (
+        <div className="mt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-widest text-cream/40 mb-5">
+            <span>§ Rerank v2 · 4-signal fusion · pool {resp.pool_size ?? '?'} → top {resp.memories.length}</span>
+            <span className="inline-flex items-center gap-3">
+              {resp.rerank_provider && (
+                <span className="text-cream/50">
+                  rerank: <span className="text-amber">{resp.rerank_provider}</span>
+                  {resp.rerank_cached ? ' · cached' : ''}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-2 text-amber/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber ember" /> {resp.latency_ms}ms
+              </span>
+            </span>
+          </div>
+
+          <ul className="space-y-4">
+            {resp.memories.length === 0 && (
+              <li className="font-mono text-[11px] text-cream/40">No memories matched — try a different query.</li>
+            )}
+            {resp.memories.map((m, i) => (
+              <li
+                key={m.id}
+                className="rise border-l-2 border-amber/50 pl-4 py-3 bg-cream/[0.02]"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <p className="text-cream/90 leading-relaxed text-[15px]">
+                  {m.content.length > 280 ? m.content.slice(0, 280) + '…' : m.content}
+                </p>
+                {m.why && <WhyBars why={m.why} />}
+                <div className="mt-2 flex items-center gap-3 font-mono text-[10px] uppercase tracking-widest text-cream/40">
+                  <span>{relativeDate(m.createdAt)}</span>
+                  {m.source && (
+                    <>
+                      <span>·</span>
+                      <span>{m.source}</span>
+                    </>
+                  )}
+                  {m.why && (
+                    <>
+                      <span>·</span>
+                      <span className="text-amber">
+                        final {m.why.final.toFixed(2)} · {labelFor(m.why.dominant)} dominated
+                      </span>
+                    </>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {resp.competitors && resp.competitors.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-cream/[0.06]">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-cream/40 mb-4">
+                § It beat · top 3 competing candidates
               </p>
-              <div className="mt-2 flex items-center gap-3 font-mono text-[10px] uppercase tracking-widest text-cream/35">
-                <span>{relativeDate(m.createdAt)}</span>
-                <span>·</span>
-                <span>similarity {(m.similarity * 100).toFixed(0)}%</span>
-                {m.source && (
-                  <>
-                    <span>·</span>
-                    <span className="truncate max-w-[200px]">{m.source}</span>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+              <ul className="space-y-3">
+                {resp.competitors.map((c) => (
+                  <li key={c.id} className="text-[13px] text-cream/55 border-l border-cream/10 pl-3 py-1">
+                    <p className="leading-snug">{c.content}</p>
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-cream/30">
+                      final {c.why.final.toFixed(2)} · {labelFor(c.why.dominant)} dominated
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

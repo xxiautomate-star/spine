@@ -1,12 +1,13 @@
 // POST /api/search
 // Session-authenticated semantic search for the dashboard /search page.
-// Uses the same hybrid retrieval as /api/recall but authenticates via
-// Supabase session cookies (not API key) so the browser can call it directly.
+// Round 18: upgraded to v2 ranker (4-signal fusion + cross-encoder). Every
+// hit carries a why trace: {bm25, vec, recency, centrality, final, dominant}.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getServerUser } from '@/lib/supabase-server';
 import { getSupabase } from '@/lib/supabase';
-import { rankMemories } from '@/lib/retrieval';
+import { rankMemoriesV2 } from '@/lib/rerank-v2';
+import { crossEncoderRerank } from '@/lib/cross-encoder';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
-  let body: { query?: unknown; limit?: unknown; source?: unknown; tags?: unknown };
+  let body: { query?: unknown; limit?: unknown; source?: unknown; tags?: unknown; skip_rerank?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -43,40 +44,75 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   const plan = (profile?.plan as string | undefined) ?? 'free';
 
-  // Hybrid search for ALL plans — BM25 + vector RRF + recency decay.
-  // No gating: hybrid is strictly better and costs nothing extra.
-  let candidates;
+  let ranked;
   try {
-    candidates = await rankMemories(user.id, query, {
+    ranked = await rankMemoriesV2(user.id, query, {
       poolLimit: Math.min(limit * 3, 60),
       limit: Math.min(limit * 2, 50),
     });
-  } catch {
-    return NextResponse.json({ error: 'Search failed — check OPENAI_API_KEY.' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Search failed: ${err instanceof Error ? err.message : 'unknown'}` },
+      { status: 500 }
+    );
   }
 
-  let hits = candidates.map((c) => ({
+  let working = ranked.candidates;
+  if (sourceFilter) working = working.filter((c) => c.source === sourceFilter);
+  if (tagsFilter) {
+    working = working.filter((c) => c.tags && tagsFilter.some((t) => c.tags.includes(t)));
+  }
+
+  let rerankProvider: string | null = null;
+  if (!body.skip_rerank && working.length > 1) {
+    try {
+      const rr = await crossEncoderRerank(
+        query,
+        working.slice(0, 20).map((c) => ({
+          id: c.id,
+          content: c.content,
+          source: c.source,
+          createdAt: c.createdAt,
+        })),
+        { limit: Math.min(limit, 20) }
+      );
+      rerankProvider = rr.provider;
+      const scoreById = new Map(rr.picks.map((p) => [p.id, p.score]));
+      working = working.map((c) => {
+        const x = scoreById.get(c.id);
+        if (x === undefined) return c;
+        return { ...c, why: { ...c.why, final: x } };
+      });
+      working.sort((a, b) => b.why.final - a.why.final);
+    } catch {
+      // fall through — fused-only order is still good
+    }
+  }
+
+  const hits = working.slice(0, limit).map((c) => ({
     id: c.id,
     content: c.content,
     source: c.source,
     tags: c.tags,
     created_at: c.createdAt,
-    similarity: c.vecSimilarity,
-    fused_score: c.fusedScore,
+    fused_score: c.why.final,
+    why: c.why,
   }));
 
-  if (sourceFilter) hits = hits.filter((h) => h.source === sourceFilter);
-  if (tagsFilter) hits = hits.filter((h) => h.tags && tagsFilter.some((t) => h.tags!.includes(t)));
-  hits = hits.slice(0, limit);
-
   if (hits.length > 0) {
-    void sb.rpc('spine_touch_retrieved', { p_user: user.id, p_ids: hits.map((h) => h.id) }).then(
-      () => void 0,
-      () => void 0,
-    );
+    void sb
+      .rpc('spine_touch_retrieved', { p_user: user.id, p_ids: hits.map((h) => h.id) })
+      .then(() => void 0, () => void 0);
   }
 
-  return NextResponse.json({ memories: hits, query, plan, total: hits.length });
+  return NextResponse.json({
+    memories: hits,
+    query,
+    plan,
+    total: hits.length,
+    weights: ranked.weights,
+    rerank_provider: rerankProvider,
+  });
 }
 
 // GET /api/search/sources — return distinct sources for filter dropdown

@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
     type Pick = { id: string; score: number; reason?: string };
     let picks: Pick[] = [];
     let rerankCost = 0;
-    let rerankProvider: 'cohere' | 'jina' | 'haiku' | null = null;
+    let rerankProvider: 'together' | 'cohere' | 'jina' | 'haiku' | null = null;
 
     try {
       const result = await crossEncoderRerank(query, rerankPool, { limit });

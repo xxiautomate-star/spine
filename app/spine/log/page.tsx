@@ -17,6 +17,14 @@ type Entry = {
 // Curated from git history. When a new Round lands, append here.
 const LOG: Entry[] = [
   {
+    round: 'Round 18',
+    date: '2026-04-24',
+    title: 'Hybrid rerank v2 · 4-signal fusion · why trace on every recall',
+    body:
+      'Retrieval is no longer a black box. Four signals fused: BM25, vector cosine, recency decay, memory-graph centrality (personalized PageRank over memory_edges). Weights learned from Spine\'s own session-injection history via logistic regression — falls back to hand-tuned priors if the trainer has not run. Cross-encoder pass (BAAI/bge-reranker-v2-m3 via Together AI) on the top 20 before returning top 5. Cached by query + candidate-id hash for 10 min. Every response carries a per-memory why object {bm25, vec, recency, centrality, final, dominant} plus the top 3 competitors it beat. New /api/spine/search public endpoint runs the full stack against the curated 30-memory demo corpus so the landing page stops leaking real life. Head-to-head bench (scripts/bench-ranking.mjs) measures MRR@5 lift against vector-only.',
+    commits: ['014 migration', 'rerank-v2', 'cross-encoder+together', 'compute-centrality', 'train-rerank-weights', 'seed-demo-public', 'bench-ranking'],
+  },
+  {
     round: 'Round 17',
     date: '2026-04-24',
     title: 'Proof of a million memories · needle-in-haystack benchmark',

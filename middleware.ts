@@ -28,5 +28,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|api/capture|api/recall|api/timeline|api/forget|api/ping|api/waitlist|api/spine-waitlist|api/spine-stats|api/spine-bench|api/spine-events|api/demo).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|api/capture|api/recall|api/timeline|api/forget|api/ping|api/waitlist|api/spine-waitlist|api/spine-stats|api/spine-bench|api/spine-events|api/spine/|api/demo).*)'],
 };
