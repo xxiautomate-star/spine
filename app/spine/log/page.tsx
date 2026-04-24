@@ -17,6 +17,14 @@ type Entry = {
 // Curated from git history. When a new Round lands, append here.
 const LOG: Entry[] = [
   {
+    round: 'Round 17',
+    date: '2026-04-24',
+    title: 'Proof of a million memories · needle-in-haystack benchmark',
+    body:
+      'Reproducible scale benchmark. scripts/scale-seed.mjs inserts N synthetic memories (10k, 100k, 1M — your call) with real OpenAI embeddings. scripts/scale-bench.mjs hides uniquely-tokened needles in that haystack and asks Spine to find them. Every run writes to saas_spine_bench_runs; /spine/proof reads that table live. Latency-vs-scale SVG chart proves the logarithmic shape, not just a single point. The "infinite memory" promise is now a checked claim, not a marketing line.',
+    commits: ['013 migration', 'scale-corpus', 'scale-seed', 'scale-bench', '/spine/proof'],
+  },
+  {
     round: 'Round 16',
     date: '2026-04-24',
     title: 'v1.1 retrieval quality + rolling access',

@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { SpineEmailForm } from '@/components/SpineEmailForm';
 import { SpineLiveDemo } from '@/components/SpineLiveDemo';
 import { MetaPixel } from '@/components/MetaPixel';
+import type { BenchSummary } from '@/app/api/spine-bench/route';
 
 export const metadata: Metadata = {
   title: 'Spine — portable memory for any AI',
@@ -17,8 +19,28 @@ export const metadata: Metadata = {
 
 export const revalidate = 60;
 
-export default function SpineLabs() {
+async function fetchBench(): Promise<BenchSummary | null> {
+  try {
+    const h = await headers();
+    const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
+    const proto = h.get('x-forwarded-proto') ?? 'https';
+    const res = await fetch(`${proto}://${host}/api/spine-bench`, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    return (await res.json()) as BenchSummary;
+  } catch {
+    return null;
+  }
+}
+
+function fmtScale(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return n.toLocaleString();
+}
+
+export default async function SpineLabs() {
   const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  const bench = await fetchBench();
 
   return (
     <main className="relative bg-night text-cream overflow-x-hidden">
@@ -35,16 +57,22 @@ export default function SpineLabs() {
         </Link>
         <div className="flex items-center gap-4 md:gap-6">
           <Link
-            href="/spine/stats"
-            className="font-mono text-[10px] uppercase tracking-widest text-cream/45 hover:text-amber transition-colors duration-300"
+            href="/spine/proof"
+            className="font-mono text-[10px] uppercase tracking-widest text-amber hover:text-cream transition-colors duration-300"
           >
-            Live stats
+            Scale proof
+          </Link>
+          <Link
+            href="/spine/stats"
+            className="font-mono text-[10px] uppercase tracking-widest text-cream/45 hover:text-amber transition-colors duration-300 hidden sm:inline"
+          >
+            Stats
           </Link>
           <Link
             href="/spine/log"
             className="font-mono text-[10px] uppercase tracking-widest text-cream/45 hover:text-amber transition-colors duration-300 hidden sm:inline"
           >
-            Changelog
+            Log
           </Link>
           <a
             href="#waitlist"
@@ -108,6 +136,30 @@ export default function SpineLabs() {
           </div>
         </div>
       </section>
+
+      {/* Scale proof strip */}
+      {bench?.latest && (
+        <section className="relative px-5 md:px-10 py-12 md:py-16 border-t border-cream/[0.05] bg-amber/[0.02]">
+          <Link
+            href="/spine/proof"
+            className="group block max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6 hover:opacity-90 transition-opacity"
+          >
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-amber mb-3">
+                § Proof · latest benchmark · needle-in-haystack
+              </p>
+              <p className="font-serif text-2xl md:text-4xl text-cream leading-tight">
+                <span className="text-amber">{fmtScale(bench.latest.scale)} memories</span> indexed.{' '}
+                <em className="italic">{bench.latest.p99_latency_ms}ms p99.</em>{' '}
+                {(bench.latest.recall_accuracy * 100).toFixed(1)}% of needles found.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-cream/55 group-hover:text-amber transition-colors shrink-0">
+              See the method →
+            </span>
+          </Link>
+        </section>
+      )}
 
       {/* Live demo — the working moment, re-playable */}
       <section className="relative px-5 md:px-10 py-20 md:py-28 border-t border-cream/[0.05]">
@@ -340,6 +392,9 @@ export default function SpineLabs() {
           </div>
           <div className="flex flex-col md:items-end gap-2">
             <div className="flex flex-wrap gap-5 font-mono text-[10px] uppercase tracking-widest">
+              <Link href="/spine/proof" className="text-cream/30 hover:text-amber transition-colors">
+                Proof
+              </Link>
               <Link href="/spine/stats" className="text-cream/30 hover:text-amber transition-colors">
                 Stats
               </Link>

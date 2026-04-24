@@ -35,19 +35,19 @@ async function fetchStats(): Promise<SpineStats | null> {
 export default async function SpineStatsPage() {
   const stats = await fetchStats();
 
-  const tiles: Array<{ label: string; value: string; sub?: string }> =
+  const tiles: Array<{ label: string; value: string; sub?: string; href?: string }> =
     stats === null
       ? [
           { label: 'Total memories ingested', value: '—', sub: 'Stats endpoint unreachable' },
           { label: 'Cross-session recalls · 7d', value: '—' },
           { label: 'Avg retrieval latency', value: '—' },
-          { label: 'Memories per dollar of spend', value: '—' },
+          { label: 'Largest scale tested', value: '—' },
         ]
       : [
           {
             label: 'Total memories ingested',
             value: fmt(stats.total_memories),
-            sub: 'Append-only · never summarised',
+            sub: 'Real user data · append-only · never summarised',
           },
           {
             label: 'Cross-session recalls · 7d',
@@ -58,6 +58,18 @@ export default async function SpineStatsPage() {
             label: 'Avg retrieval latency',
             value: stats.avg_latency_ms === null ? '—' : `${stats.avg_latency_ms}ms`,
             sub: 'End-to-end · Supabase pgvector + BM25',
+          },
+          {
+            label: 'Largest scale tested',
+            value:
+              stats.largest_scale_tested === null
+                ? '—'
+                : fmt(stats.largest_scale_tested),
+            sub:
+              stats.largest_scale_p99_ms !== null && stats.largest_scale_accuracy !== null
+                ? `p99 ${stats.largest_scale_p99_ms}ms · ${(stats.largest_scale_accuracy * 100).toFixed(1)}% needles found`
+                : 'Run scripts/scale-bench.mjs to populate',
+            href: '/spine/proof',
           },
           {
             label: 'Memories per dollar of spend',
@@ -128,25 +140,44 @@ export default async function SpineStatsPage() {
       {/* Tiles */}
       <section className="px-5 md:px-10 pb-16 md:pb-24">
         <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-          {tiles.map((t, i) => (
-            <div
-              key={t.label}
-              className="rise p-6 md:p-8 border border-cream/[0.08] bg-cream/[0.015]"
-              style={{ animationDelay: `${0.1 + i * 0.07}s` }}
-            >
-              <p className="font-mono text-[10px] uppercase tracking-widest text-cream/40 mb-4">
-                {t.label}
-              </p>
-              <p className="font-serif text-5xl md:text-6xl text-cream tracking-tight leading-none">
-                {t.value}
-              </p>
-              {t.sub && (
-                <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-cream/35">
-                  {t.sub}
+          {tiles.map((t, i) => {
+            const inner = (
+              <>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-cream/40 mb-4">
+                  {t.label}
                 </p>
-              )}
-            </div>
-          ))}
+                <p className="font-serif text-5xl md:text-6xl text-cream tracking-tight leading-none">
+                  {t.value}
+                </p>
+                {t.sub && (
+                  <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-cream/35">
+                    {t.sub}
+                  </p>
+                )}
+              </>
+            );
+            const cls = `rise p-6 md:p-8 border border-cream/[0.08] bg-cream/[0.015] transition-colors duration-500 ${
+              t.href ? 'hover:border-amber/50 hover:bg-amber/[0.03]' : ''
+            }`;
+            return t.href ? (
+              <Link
+                key={t.label}
+                href={t.href}
+                className={cls}
+                style={{ animationDelay: `${0.1 + i * 0.07}s` }}
+              >
+                {inner}
+              </Link>
+            ) : (
+              <div
+                key={t.label}
+                className={cls}
+                style={{ animationDelay: `${0.1 + i * 0.07}s` }}
+              >
+                {inner}
+              </div>
+            );
+          })}
         </div>
       </section>
 
