@@ -1,0 +1,43 @@
+{
+  "name": "spine",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "mcp:build": "npm --workspace @spine/mcp run build",
+    "mcp:test": "npm --workspace @spine/mcp run test:e2e",
+    "extension:build": "npm --workspace @spine/extension run build",
+    "extension:package": "npm --workspace @spine/extension run package",
+    "extension:icons": "node packages/extension/scripts/make-icons.mjs",
+    "test:dashboard": "node scripts/test-dashboard.mjs",
+    "test:ext:unit": "npm --prefix extension-harness run test:unit",
+    "store:screenshots": "node scripts/capture-store-screenshots.mjs",
+    "spine:decay": "node scripts/spine-decay.mjs",
+    "spine:digest-test": "node scripts/spine-digest-test.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
+    "d3-force": "^3.0.0",
+    "next": "15.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "stripe": "^22.0.2"
+  },
+  "devDependencies": {
+    "@types/d3-force": "^3.0.10",
+    "@types/node": "^20.17.17",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "playwright": "^1.48.0",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  }
+}

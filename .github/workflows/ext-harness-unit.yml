@@ -1,0 +1,38 @@
+name: extension-harness unit tests
+
+# Vitest suite for the hygiene poll/storage/badge modules under
+# /extension-harness/. Playwright harness stays manual-fire and is
+# deliberately NOT wired into CI — those specs require storage-state
+# files and live AI accounts that have no place in a public workflow.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  vitest:
+    name: vitest (SPINE_EXT_HARNESS=1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: extension-harness
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extension-harness/package-lock.json
+
+      - name: Install harness deps
+        run: npm ci
+
+      - name: Run vitest
+        run: npm run test:unit
+        env:
+          SPINE_EXT_HARNESS: '1'

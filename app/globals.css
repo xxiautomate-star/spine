@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background: #0D0C0A;
+  color: #E8E4DD;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(232, 154, 60, 0.35);
+  color: #E8E4DD;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rise {
+  opacity: 0;
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.rise-1 { animation-delay: 0.05s; }
+.rise-2 { animation-delay: 0.2s; }
+.rise-3 { animation-delay: 0.4s; }
+.rise-4 { animation-delay: 0.6s; }
+.rise-5 { animation-delay: 0.8s; }
+
+@keyframes ember {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.04); }
+}
+
+.ember {
+  animation: ember 6s ease-in-out infinite;
+}
+
+details > summary::-webkit-details-marker { display: none; }
+details > summary { list-style: none; }
+
+/* Timeline thread — ambient amber candle pulse on the lamp bloom */
+@keyframes lamp {
+  0%, 100% { opacity: 0.055; }
+  50%       { opacity: 0.08; }
+}
+.lamp-bloom { animation: lamp 8s ease-in-out infinite; }
+
+/* Text: 22% opacity token Tailwind doesn't generate */
+.text-cream\/22  { color: rgba(232, 228, 221, 0.22); }
+.text-cream\/78  { color: rgba(232, 228, 221, 0.78); }
+.text-cream\/38  { color: rgba(232, 228, 221, 0.38); }
+.text-cream\/18  { color: rgba(232, 228, 221, 0.18); }
+.text-cream\/45  { color: rgba(232, 228, 221, 0.45); }
+.text-cream\/55  { color: rgba(232, 228, 221, 0.55); }
+.text-amber\/45  { color: rgba(232, 154, 60, 0.45); }
+.text-amber\/55  { color: rgba(232, 154, 60, 0.55); }
