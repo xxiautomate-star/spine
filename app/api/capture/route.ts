@@ -9,6 +9,7 @@ import { assignCluster } from '@/lib/clusters';
 import { scanDuplicatesForMemory } from '@/lib/hygiene';
 import { extractAndIndex } from '@/lib/entity-extractor';
 import { detectConflicts } from '@/lib/conflict-detector';
+import { extractDecision } from '@/lib/decision-extractor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -158,12 +159,21 @@ export async function POST(req: NextRequest) {
     void scanDuplicatesForMemory(supabase, auth.authed.userId, newId);
   }
 
-  // Fire-and-forget entity extraction + conflict detection for each new memory.
+  // Fire-and-forget entity extraction + conflict detection + decision
+  // extraction for each new memory. All three swallow their own errors —
+  // none of them block the response.
   for (let i = 0; i < ids.length; i++) {
     const content = augmented[i]?.content;
     if (content) {
       void extractAndIndex(supabase, auth.authed.userId, ids[i], content).catch(() => void 0);
       void detectConflicts(supabase, auth.authed.userId, ids[i], content).catch(() => void 0);
+      void extractDecision(
+        supabase,
+        auth.authed.userId,
+        auth.authed.orgId ?? null,
+        ids[i],
+        content
+      );
     }
   }
 
