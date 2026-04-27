@@ -22,7 +22,7 @@ export const PLAN_LIMITS: Record<Plan, PlanTier> = {
   free: {
     name: 'Free',
     priceMonthly: 0,
-    captureCap: 50,
+    captureCap: 200,
     priorityRerank: false,
     conflictDetection: false,
     decayRecovery: false,
@@ -32,7 +32,7 @@ export const PLAN_LIMITS: Record<Plan, PlanTier> = {
     maxSeats: 1,
     tagline: 'A quiet beginning.',
     features: [
-      '50 memories',
+      '200 memories',
       'Claude Code MCP + browser extension',
       'Vector recall',
       'Export to JSON any time',

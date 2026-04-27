@@ -2,12 +2,17 @@
 // ChatGPT renders each turn under [data-message-author-role] with a sibling
 // content container. The conversation is wrapped in a stable scroll container
 // (#main, with a 'main' role); we observe the document and scope per scan.
+//
+// Driver is exported for selector-regression unit tests in
+// extension-harness/src/drivers/. If a future ChatGPT redesign changes the
+// turn selector, those tests fail loudly — production capture would otherwise
+// silently drop to zero.
 
 import { start, type PlatformDriver, type Turn } from './common/capture.js';
 
 const TURN_SEL = '[data-message-author-role]';
 
-const driver: PlatformDriver = {
+export const chatgptDriver: PlatformDriver = {
   source: 'chatgpt',
   enabledKey: 'captureChatGPT',
 
@@ -60,4 +65,4 @@ function extractText(el: HTMLElement): string {
   return (node.innerText ?? node.textContent ?? '').trim();
 }
 
-start(driver);
+start(chatgptDriver);

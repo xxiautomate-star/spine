@@ -26,8 +26,9 @@ const TIERS: Tier[] = [
     period: 'forever',
     tagline: 'A quiet beginning. Enough to feel the shape of it.',
     features: [
-      '100 memories',
+      '200 memories',
       'Claude Code MCP integration',
+      'Browser extension (ChatGPT, Gemini, Cursor)',
       'Vector recall',
       'JSON export, any time',
       'No credit card',
@@ -37,35 +38,35 @@ const TIERS: Tier[] = [
   {
     plan: 'pro',
     name: 'Pro',
-    price: '$29',
+    price: '$19',
     period: 'per month',
-    tagline: 'Your daily archive. Across every AI you use.',
+    tagline: 'The relationship deepens.',
     features: [
-      '1,000 memories',
-      'Claude, ChatGPT, and Gemini',
-      'Chrome extension capture',
+      'Unlimited memories',
       'Hybrid vector + BM25 retrieval',
-      'Haiku 4.5 reranker',
-      'Priority support',
+      'Cross-encoder rerank',
+      'Conflict detection + resolution',
+      'Memory decay recovery',
+      'Required-context pins',
+      'Weekly retention digest',
     ],
     featured: true,
     cta: 'Start Pro',
   },
   {
     plan: 'team',
-    name: 'Power',
-    price: '$99',
-    period: 'per month',
-    tagline: 'Unlimited memory, forever. For the obsessively organised.',
+    name: 'Team',
+    price: '$59',
+    period: 'per month · 5 seats',
+    tagline: 'Shared memory. Collective clarity.',
     features: [
-      'Unlimited memories',
       'Everything in Pro',
-      'Priority Haiku reranker',
-      'Team-shared archives',
-      'Automation triggers',
-      'Dedicated support',
+      'Shared workspace (up to 5 members)',
+      'Team memory policies + enforcement',
+      'Org audit log',
+      'Priority support',
     ],
-    cta: 'Start Power',
+    cta: 'Start Team',
   },
 ];
 
@@ -94,8 +95,11 @@ const FAQS = [
 
 // ── Checkout logic ────────────────────────────────────────────────────────
 
+// Dashboards (/dashboard/billing, /billing) and the pricing page all share
+// LemonSqueezy as the live checkout. Stripe routes exist as scaffolding but
+// are dormant until KYC is in place — see /api/stripe/* for the dead path.
 async function startCheckout(plan: 'pro' | 'team'): Promise<void> {
-  const res = await fetch('/api/stripe/checkout', {
+  const res = await fetch('/api/ls/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plan }),

@@ -12,6 +12,8 @@ type SearchParams = Promise<{
   invite?: string;
   email?: string;
   next?: string;
+  signup?: string;
+  plan?: string;
 }>;
 
 type InviteStatus =
@@ -98,6 +100,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
               </h1>
               <p className="text-cream/60 leading-relaxed mb-10">
                 You can still sign in if you already have an account, or join the waitlist for a fresh invite.
+              </p>
+            </>
+          ) : params.signup === '1' ? (
+            <>
+              <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-6">
+                § Spine &middot; First memory
+              </p>
+              <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] text-cream mb-5">
+                Welcome in.
+              </h1>
+              <p className="text-cream/60 leading-relaxed mb-10">
+                Sign in with GitHub or your email — we&apos;ll send a link, no password. After that
+                you&apos;ll mint an API key and the dashboard prints a one-line install command.
               </p>
             </>
           ) : (
