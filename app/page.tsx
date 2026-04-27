@@ -113,7 +113,7 @@ export default function Home() {
               href="/login?signup=1"
               className="group inline-flex items-center gap-3 px-7 py-3.5 bg-[#E89A3C] text-[#0D0C0A] hover:bg-[#E8E4DD] transition-colors duration-500"
             >
-              <span className="font-serif text-lg">Install in 2 minutes</span>
+              <span className="font-serif text-lg">Install in 30 seconds</span>
               <span className="transition-transform duration-500 group-hover:translate-x-1 font-mono">→</span>
             </Link>
             <a
@@ -262,7 +262,7 @@ export default function Home() {
                   price: '$0',
                   period: 'forever',
                   blurb: 'A quiet beginning.',
-                  bullets: ['50 memories', 'Claude Code MCP', 'Browser extension', 'Export any time'],
+                  bullets: ['200 memories', 'Claude Code MCP', 'Browser extension', 'Export any time'],
                   cta: 'Start free',
                   href: '/login?signup=1',
                   featured: false,
@@ -361,7 +361,7 @@ export default function Home() {
         <div className="max-w-3xl">
           <h2 className="font-serif text-5xl md:text-7xl leading-[1.0] text-[#E8E4DD] mb-8">
             Install in{' '}
-            <em className="italic text-[#E89A3C]">two minutes.</em>
+            <em className="italic text-[#E89A3C]">thirty seconds.</em>
           </h2>
           <p className="text-[#E8E4DD]/55 text-lg leading-relaxed mb-10 max-w-xl">
             Free to start. One command. Your AI remembers from the next session onward.

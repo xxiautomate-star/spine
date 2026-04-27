@@ -13,6 +13,13 @@ type Node = {
   type: EntityType;
   mention_count: number;
   last_seen: string;
+  // Decision-only payload — the route fills these in for type='decision'
+  // nodes so hover / select / share can show the full statement instead of
+  // just the truncated label.
+  statement?: string;
+  confidence?: number;
+  status?: 'active' | 'superseded' | 'reverted' | 'pending_review';
+  source_memory_id?: string | null;
   // d3-force adds these:
   x?: number;
   y?: number;
@@ -26,7 +33,7 @@ type Edge = {
   id: string;
   from_node: string;
   to_node: string;
-  edge_type: 'MENTIONED_IN' | 'RELATED_TO' | 'SUPERSEDES';
+  edge_type: 'MENTIONED_IN' | 'RELATED_TO' | 'SUPERSEDES' | 'DECIDES_ABOUT';
   weight: number;
   // d3-force adds these:
   source?: Node | string;
@@ -61,9 +68,13 @@ const TYPE_LABELS: Record<EntityType, string> = {
 };
 
 const EDGE_COLORS: Record<string, string> = {
-  RELATED_TO:   'rgba(232,228,221,0.06)',
-  MENTIONED_IN: 'rgba(232,228,221,0.04)',
-  SUPERSEDES:   'rgba(232,154,60,0.20)',
+  RELATED_TO:    'rgba(232,228,221,0.06)',
+  MENTIONED_IN:  'rgba(232,228,221,0.04)',
+  SUPERSEDES:    'rgba(232,154,60,0.20)',
+  // Decisions are connected to the entities they decide about. Slightly
+  // brighter than RELATED_TO so the eye picks up the violet→entity bridges
+  // as the spine of the constellation rather than incidental wiring.
+  DECIDES_ABOUT: 'rgba(192,132,252,0.18)',
 };
 
 // ── d3-force simulation (loaded dynamically) ──────────────────────────────
@@ -86,7 +97,28 @@ type D3Simulation = {
 // ── Canvas graph renderer ──────────────────────────────────────────────────
 
 function nodeRadius(n: Node): number {
-  return Math.max(5, Math.min(22, 5 + Math.sqrt(n.mention_count) * 2.8));
+  // Decision nodes are ~30% larger by default so the diamond shape reads
+  // immediately as something distinct in the constellation. They are
+  // semantically "headlines" — the few decisions on the canvas should be
+  // visually-louder than the dozens of entities around them.
+  const base = Math.max(5, Math.min(22, 5 + Math.sqrt(n.mention_count) * 2.8));
+  return n.type === 'decision' ? base * 1.3 : base;
+}
+
+// Draws a four-corner diamond (square rotated 45°) instead of a circle. Used
+// for decision nodes so they read as a different category at a glance.
+function drawDiamond(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number
+): void {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx + r, cy);
+  ctx.lineTo(cx, cy + r);
+  ctx.lineTo(cx - r, cy);
+  ctx.closePath();
 }
 
 function drawGraph(
@@ -131,10 +163,23 @@ function drawGraph(
       ctx.shadowBlur = 20 * dpr;
     }
 
-    ctx.beginPath();
-    ctx.arc(n.x, n.y ?? 0, r, 0, Math.PI * 2);
+    if (n.type === 'decision') {
+      drawDiamond(ctx, n.x, n.y ?? 0, r);
+    } else {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y ?? 0, r, 0, Math.PI * 2);
+    }
     ctx.fillStyle = isActive ? color : color + '99';
     ctx.fill();
+
+    // Decisions get an extra subtle stroke so the diamond outline is
+    // legible even at small sizes — circles are unambiguous at any radius;
+    // diamonds need the edges to stay distinct.
+    if (n.type === 'decision') {
+      ctx.strokeStyle = isActive ? color : 'rgba(192,132,252,0.5)';
+      ctx.lineWidth = (isActive ? 1.5 : 1) * dpr;
+      ctx.stroke();
+    }
 
     if (isActive) ctx.restore();
 
@@ -535,7 +580,7 @@ export function GraphClient({ email }: { email: string }) {
               >
                 {t !== 'all' && (
                   <span
-                    className="w-[6px] h-[6px] rounded-full flex-shrink-0"
+                    className={`w-[6px] h-[6px] flex-shrink-0 ${t === 'decision' ? 'rotate-45' : 'rounded-full'}`}
                     style={{ background: TYPE_COLORS[t as EntityType] }}
                   />
                 )}
@@ -555,17 +600,51 @@ export function GraphClient({ email }: { email: string }) {
           {selected && (
             <div className="pt-3 border-t border-cream/[0.06] space-y-2">
               <p className="font-mono text-[9px] uppercase tracking-widest text-cream/25">Selected</p>
-              <div
-                className="w-[8px] h-[8px] rounded-full"
-                style={{ background: TYPE_COLORS[selected.type] }}
-              />
-              <p className="text-cream/85 text-sm font-medium">{selected.name}</p>
-              <p className="font-mono text-[10px] text-cream/35">
-                {TYPE_LABELS[selected.type]} · {selected.mention_count}×
-              </p>
+              {selected.type === 'decision' ? (
+                <span
+                  className="inline-block w-[10px] h-[10px] rotate-45"
+                  style={{ background: TYPE_COLORS[selected.type] }}
+                />
+              ) : (
+                <div
+                  className="w-[8px] h-[8px] rounded-full"
+                  style={{ background: TYPE_COLORS[selected.type] }}
+                />
+              )}
+              {selected.type === 'decision' && selected.statement ? (
+                <>
+                  <p className="font-serif text-base text-cream/90 leading-snug">
+                    {selected.statement}
+                  </p>
+                  <p className="font-mono text-[10px] text-cream/35">
+                    {TYPE_LABELS[selected.type]} · {selected.mention_count} link{selected.mention_count === 1 ? '' : 's'}
+                    {selected.confidence != null && (
+                      <> · {Math.round(selected.confidence * 100)}% conf</>
+                    )}
+                    {selected.status && selected.status !== 'active' && (
+                      <> · {selected.status}</>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-cream/85 text-sm font-medium">{selected.name}</p>
+                  <p className="font-mono text-[10px] text-cream/35">
+                    {TYPE_LABELS[selected.type]} · {selected.mention_count}×
+                  </p>
+                </>
+              )}
               <p className="font-mono text-[9px] text-cream/20">
                 {new Date(selected.last_seen).toLocaleDateString()}
               </p>
+              {selected.type === 'decision' && (
+                <Link
+                  href="/dashboard/decisions"
+                  className="font-mono text-[9px] uppercase tracking-wider text-amber/55 hover:text-amber transition-colors duration-300 border-b border-amber/20 hover:border-amber/50 pb-[1px]"
+                >
+                  Open in decisions →
+                </Link>
+              )}
               <button
                 onClick={() => setSelected(null)}
                 className="font-mono text-[9px] uppercase tracking-wider text-cream/25 hover:text-cream/50 transition-colors"
@@ -580,13 +659,23 @@ export function GraphClient({ email }: { email: string }) {
             <p className="font-mono text-[9px] uppercase tracking-widest text-cream/20 mb-1">Legend</p>
             {Object.entries(TYPE_COLORS).map(([type, color]) => (
               <div key={type} className="flex items-center gap-2">
-                <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: color }} />
-                <span className="font-mono text-[9px] text-cream/30 capitalize">{type}</span>
+                <span
+                  className={`w-[5px] h-[5px] flex-shrink-0 ${type === 'decision' ? 'rotate-45' : 'rounded-full'}`}
+                  style={{ background: color }}
+                />
+                <span className="font-mono text-[9px] text-cream/30 capitalize">
+                  {type}
+                  {type === 'decision' && <span className="text-cream/15 ml-1">◆</span>}
+                </span>
               </div>
             ))}
             <div className="flex items-center gap-2 pt-1">
               <span className="w-5 h-px bg-amber/30 flex-shrink-0" />
               <span className="font-mono text-[9px] text-cream/20">Supersedes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-px flex-shrink-0" style={{ background: 'rgba(192,132,252,0.45)' }} />
+              <span className="font-mono text-[9px] text-cream/20">Decides about</span>
             </div>
           </div>
         </aside>
@@ -733,18 +822,39 @@ export function GraphClient({ email }: { email: string }) {
             </button>
           )}
 
-          {/* Hover tooltip */}
+          {/* Hover tooltip — for decisions we show the full statement so a
+              passing hover is enough to read what was decided without
+              committing to a click. */}
           {hovered && !dragging.current && (
             <div
-              className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-night/90 border border-cream/[0.1] rounded-lg backdrop-blur-sm"
+              className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 max-w-md px-4 py-2.5 bg-night/90 border border-cream/[0.1] rounded-lg backdrop-blur-sm"
             >
-              <p className="font-mono text-[10px] text-cream/70">
-                <span style={{ color: TYPE_COLORS[hovered.type] }}>{hovered.name}</span>
-                <span className="text-cream/30 mx-1.5">·</span>
-                {TYPE_LABELS[hovered.type]}
-                <span className="text-cream/30 mx-1.5">·</span>
-                {hovered.mention_count}× mentioned
-              </p>
+              {hovered.type === 'decision' && hovered.statement ? (
+                <>
+                  <p className="font-serif text-sm text-cream/90 leading-snug mb-1">
+                    {hovered.statement}
+                  </p>
+                  <p className="font-mono text-[10px] text-cream/45">
+                    <span style={{ color: TYPE_COLORS[hovered.type] }}>Decision</span>
+                    <span className="text-cream/30 mx-1.5">·</span>
+                    {hovered.mention_count} link{hovered.mention_count === 1 ? '' : 's'}
+                    {hovered.confidence != null && (
+                      <>
+                        <span className="text-cream/30 mx-1.5">·</span>
+                        {Math.round(hovered.confidence * 100)}% conf
+                      </>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <p className="font-mono text-[10px] text-cream/70">
+                  <span style={{ color: TYPE_COLORS[hovered.type] }}>{hovered.name}</span>
+                  <span className="text-cream/30 mx-1.5">·</span>
+                  {TYPE_LABELS[hovered.type]}
+                  <span className="text-cream/30 mx-1.5">·</span>
+                  {hovered.mention_count}× mentioned
+                </p>
+              )}
             </div>
           )}
           </div>{/* end flex-1 relative inner */}
