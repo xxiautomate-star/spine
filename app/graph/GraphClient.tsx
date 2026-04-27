@@ -163,6 +163,9 @@ export function GraphClient({ email }: { email: string }) {
   const [filter, setFilter] = useState<EntityType | 'all'>('all');
   const [proposals, setProposals] = useState<MergeProposal[]>([]);
   const [mergingId, setMergingId] = useState<string | null>(null);
+  const [memoryCount, setMemoryCount] = useState<number | null>(null);
+  const [sharing, setSharing] = useState<'idle' | 'generating' | 'done'>('idle');
+  const [revealed, setRevealed] = useState(false); // cinematic fade-in
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const simRef = useRef<D3Simulation | null>(null);
@@ -171,23 +174,42 @@ export function GraphClient({ email }: { email: string }) {
   const hoveredRef = useRef<Node | null>(null);
   const selectedRef = useRef<Node | null>(null);
 
-  // Fetch graph data + merge proposals in parallel.
+  // Fetch graph data + merge proposals + usage in parallel. The usage call
+  // gives us the memory count for the share card — without it the stats
+  // overlay can show only entity/connection counts.
   useEffect(() => {
     Promise.all([
       fetch('/api/graph').then((r) => r.json()),
       fetch('/api/entity/proposals').then((r) => r.json()),
+      fetch('/api/usage').then((r) => r.json()).catch(() => ({ memoryCount: null })),
     ])
-      .then(([graphData, proposalData]: [GraphData | { error?: string }, { proposals?: MergeProposal[] }]) => {
+      .then(([graphData, proposalData, usage]: [
+        GraphData | { error?: string },
+        { proposals?: MergeProposal[] },
+        { memoryCount?: number | null },
+      ]) => {
         if ('error' in graphData && graphData.error) {
           setError(graphData.error as string);
         } else {
           setGraph(graphData as GraphData);
         }
         setProposals(proposalData.proposals ?? []);
+        if (typeof usage.memoryCount === 'number') setMemoryCount(usage.memoryCount);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // Reveal the canvas with a slow fade once data lands. Tiny detail, but it's
+  // what makes the constellation feel like it's *forming* rather than
+  // popping into existence — the difference between "screenshot fodder"
+  // and "another data viz."
+  useEffect(() => {
+    if (loading) return;
+    if (graph.nodes.length === 0) return;
+    const t = setTimeout(() => setRevealed(true), 80);
+    return () => clearTimeout(t);
+  }, [loading, graph.nodes.length]);
 
   async function handleMerge(proposal: MergeProposal, survivorId: string) {
     setMergingId(proposal.id);
@@ -367,6 +389,103 @@ export function GraphClient({ email }: { email: string }) {
   for (const n of graph.nodes) {
     typeCounts[n.type] = (typeCounts[n.type] ?? 0) + 1;
   }
+
+  // Render the on-screen canvas onto a 1200×1200 share canvas with the stats
+  // strip and watermark composited in. Returns a data URL the caller can
+  // hand to <a download> to trigger a save without leaving the page.
+  const buildShareImage = useCallback((): string | null => {
+    const live = canvasRef.current;
+    if (!live) return null;
+
+    const SIZE = 1200;
+    const off = document.createElement('canvas');
+    off.width = SIZE;
+    off.height = SIZE;
+    const ctx = off.getContext('2d');
+    if (!ctx) return null;
+
+    // Background. The radial vignette mirrors the night/amber palette of the
+    // app — keeps the share image consistent with what people will see when
+    // they click through to spine.xxiautomate.com.
+    ctx.fillStyle = '#0D0C0A';
+    ctx.fillRect(0, 0, SIZE, SIZE);
+    const vignette = ctx.createRadialGradient(SIZE / 2, SIZE / 2, SIZE * 0.15, SIZE / 2, SIZE / 2, SIZE * 0.7);
+    vignette.addColorStop(0, 'rgba(232,154,60,0.06)');
+    vignette.addColorStop(1, 'rgba(13,12,10,0)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // The graph itself, scaled and centred. We draw the live canvas (which
+    // already has the simulation rendered) into a 1024×1024 region with
+    // 88px of breathing room top + bottom for the title and watermark.
+    const GRAPH_PAD = 88;
+    const GRAPH_BOX = SIZE - GRAPH_PAD * 2;
+    ctx.drawImage(live, GRAPH_PAD, GRAPH_PAD, GRAPH_BOX, GRAPH_BOX);
+
+    // Title — Instrument Serif via system fallback (canvas can't load web
+    // fonts on demand, so we lean on a serif stack that approximates).
+    ctx.fillStyle = '#E8E4DD';
+    ctx.font = 'italic 56px "Instrument Serif", "Iowan Old Style", "Apple Garamond", Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('My Spine.', SIZE / 2, 48);
+
+    // Stats strip at the bottom — three numbers, monospaced, amber accent
+    // ahead of each. Reads as a footer ribbon under the constellation.
+    const statY = SIZE - 96;
+    ctx.font = '18px "JetBrains Mono", "Courier New", monospace';
+    ctx.fillStyle = 'rgba(232,228,221,0.55)';
+    ctx.textBaseline = 'middle';
+
+    const stats: Array<{ n: string | null; label: string }> = [
+      { n: memoryCount != null ? memoryCount.toLocaleString() : null, label: 'memories' },
+      { n: graph.nodes.length.toLocaleString(), label: 'entities' },
+      { n: graph.edges.length.toLocaleString(), label: 'connections' },
+    ].filter((s) => s.n !== null) as Array<{ n: string; label: string }>;
+
+    const visible = stats.filter((s): s is { n: string; label: string } => s.n != null);
+    const COL = SIZE / (visible.length + 1);
+    visible.forEach((s, i) => {
+      const x = COL * (i + 1);
+      ctx.fillStyle = '#E89A3C';
+      ctx.font = '600 36px "Instrument Serif", "Iowan Old Style", Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(s.n, x, statY - 12);
+      ctx.fillStyle = 'rgba(232,228,221,0.4)';
+      ctx.font = '11px "JetBrains Mono", monospace';
+      ctx.fillText(s.label.toUpperCase(), x, statY + 22);
+    });
+
+    // Watermark.
+    ctx.fillStyle = 'rgba(232,228,221,0.3)';
+    ctx.font = '12px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SPINE.XXIAUTOMATE.COM', SIZE / 2, SIZE - 28);
+
+    return off.toDataURL('image/png');
+  }, [graph.nodes.length, graph.edges.length, memoryCount]);
+
+  const handleShare = useCallback(async () => {
+    if (sharing === 'generating') return;
+    setSharing('generating');
+    try {
+      const url = buildShareImage();
+      if (!url) {
+        setSharing('idle');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `spine-constellation-${new Date().toISOString().slice(0, 10)}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setSharing('done');
+      setTimeout(() => setSharing('idle'), 1800);
+    } catch {
+      setSharing('idle');
+    }
+  }, [buildShareImage, sharing]);
 
   return (
     <>
@@ -557,7 +676,8 @@ export function GraphClient({ email }: { email: string }) {
           {!loading && graph.nodes.length > 0 && (
             <canvas
               ref={canvasRef}
-              className="w-full h-full"
+              className="w-full h-full transition-opacity duration-[1400ms] ease-out"
+              style={{ opacity: revealed ? 1 : 0 }}
               onMouseMove={(e) => {
                 handleMouseMove(e);
                 handleMouseDrag(e);
@@ -567,6 +687,50 @@ export function GraphClient({ email }: { email: string }) {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             />
+          )}
+
+          {/* Stats ribbon — top-right, fades in with the canvas. Reads as
+              part of the constellation, not part of the chrome. The numbers
+              here are what people screenshot. */}
+          {!loading && graph.nodes.length > 0 && (
+            <div
+              className="pointer-events-none absolute top-5 right-5 flex items-end gap-6 transition-opacity duration-[1400ms] ease-out"
+              style={{ opacity: revealed ? 1 : 0 }}
+              aria-hidden
+            >
+              {memoryCount != null && (
+                <Stat n={memoryCount.toLocaleString()} label="memories" />
+              )}
+              <Stat n={graph.nodes.length.toLocaleString()} label="entities" />
+              <Stat n={graph.edges.length.toLocaleString()} label="connections" />
+            </div>
+          )}
+
+          {/* Share button — bottom-right floater. Single press → PNG download.
+              The whole point of the visual upgrade. */}
+          {!loading && graph.nodes.length > 0 && (
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={sharing === 'generating'}
+              className={`absolute bottom-5 right-5 group flex items-center gap-2.5 px-4 py-3 rounded-lg border backdrop-blur-md transition-all duration-300 ${
+                sharing === 'done'
+                  ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
+                  : 'border-amber/40 bg-night/70 hover:bg-amber/[0.08] text-amber'
+              } disabled:opacity-60`}
+              title="Download a 1200×1200 PNG of your constellation"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-widest">
+                {sharing === 'generating'
+                  ? 'Rendering…'
+                  : sharing === 'done'
+                  ? 'Saved'
+                  : 'Share constellation'}
+              </span>
+              <span className="text-[14px] leading-none transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden>
+                {sharing === 'done' ? '✓' : '↓'}
+              </span>
+            </button>
           )}
 
           {/* Hover tooltip */}
@@ -587,5 +751,19 @@ export function GraphClient({ email }: { email: string }) {
         </div>
       </div>
     </>
+  );
+}
+
+// Stats ribbon item — large amber number on top, mono label below. Used by
+// the in-canvas overlay; the share-PNG path renders the same content via
+// canvas drawing primitives in buildShareImage.
+function Stat({ n, label }: { n: string; label: string }) {
+  return (
+    <div className="flex flex-col items-end leading-none">
+      <span className="font-serif text-3xl text-amber tabular-nums">{n}</span>
+      <span className="font-mono text-[9px] uppercase tracking-widest text-cream/35 mt-1">
+        {label}
+      </span>
+    </div>
   );
 }
