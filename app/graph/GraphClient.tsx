@@ -435,7 +435,7 @@ export function GraphClient({ email }: { email: string }) {
 
       <div className="relative flex h-[calc(100vh-73px)]">
         {/* Left sidebar */}
-        <aside className="w-60 flex-shrink-0 border-r border-cream/[0.06] p-5 flex flex-col gap-4 overflow-y-auto">
+        <aside className="hidden md:flex w-60 flex-shrink-0 border-r border-cream/[0.06] p-5 flex-col gap-4 overflow-y-auto">
           <div>
             <p className="font-mono text-[9px] uppercase tracking-widest text-amber/55 mb-3">Entity graph</p>
             <p className="font-serif text-2xl text-cream/85 leading-tight">

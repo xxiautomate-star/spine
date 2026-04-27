@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getServerUser, isAuthConfigured } from '@/lib/supabase-server';
 import { UpgradeOverlay } from '@/components/UpgradeOverlay';
+import { DashboardNav } from '@/components/DashboardNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,42 +32,32 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const email = user.email ?? 'anonymous';
 
+  // Email + signout form rendered server-side and passed into the client
+  // nav via the `tail` slot. Keeps the form's POST action in the static
+  // markup so it works without JavaScript.
+  const tail = (
+    <span className="flex items-center gap-4">
+      <span className="hidden md:inline text-cream/30 font-mono text-[11px]">{email}</span>
+      <span className="md:hidden block text-cream/30 font-mono text-[10px] truncate max-w-[200px]">{email}</span>
+      <form action="/auth/signout" method="post">
+        <button
+          type="submit"
+          className="text-cream/40 hover:text-amber font-mono text-[11px] uppercase tracking-widest"
+        >
+          Sign out
+        </button>
+      </form>
+    </span>
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="fixed top-0 inset-x-0 z-50 px-6 md:px-10 py-5 flex items-center justify-between backdrop-blur-md bg-night/70 border-b border-cream/5">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 flex-shrink-0">
           <span className="block w-2 h-2 rounded-full bg-amber ember" aria-hidden />
           <span className="font-serif text-xl">Spine</span>
         </Link>
-        <nav className="flex items-center gap-6 font-mono text-[11px] uppercase tracking-widest">
-          <Link href="/timeline" className="text-cream/60 hover:text-cream">
-            Timeline
-          </Link>
-          <Link href="/dashboard/memories" className="text-cream/60 hover:text-cream">
-            Archive
-          </Link>
-          <Link href="/dashboard/recall" className="text-cream/60 hover:text-cream">
-            Recall
-          </Link>
-          <Link href="/dashboard/keys" className="text-cream/60 hover:text-cream">
-            Keys
-          </Link>
-          <Link href="/dashboard/hygiene" className="text-cream/60 hover:text-cream">
-            Hygiene
-          </Link>
-          <Link href="/dashboard/health" className="text-cream/60 hover:text-cream">
-            Health
-          </Link>
-          <Link href="/dashboard/billing" className="text-cream/60 hover:text-cream">
-            Billing
-          </Link>
-          <span className="hidden md:inline text-cream/30">{email}</span>
-          <form action="/auth/signout" method="post">
-            <button type="submit" className="text-cream/40 hover:text-amber">
-              Sign out
-            </button>
-          </form>
-        </nav>
+        <DashboardNav tail={tail} />
       </header>
       <div className="flex-1 pt-[68px]">{children}</div>
       <UpgradeOverlay />
