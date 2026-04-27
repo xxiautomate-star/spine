@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getServerUser, isAuthConfigured } from '@/lib/supabase-server';
+import { UpgradeOverlay } from '@/components/UpgradeOverlay';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </nav>
       </header>
       <div className="flex-1 pt-[68px]">{children}</div>
+      <UpgradeOverlay />
     </div>
   );
 }
