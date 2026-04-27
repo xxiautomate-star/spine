@@ -145,24 +145,23 @@ export function RecallClient() {
             {data.final.length === 0 ? (
               <p className="text-cream/50">No reranked picks.</p>
             ) : (
-              <ul className="space-y-6">
+              <ul className="space-y-8">
                 {data.final.map(({ pick, memory }, i) => (
                   <li key={memory.id} className="border-l-2 border-amber/60 pl-6 py-1">
-                    <p className="font-mono text-[11px] uppercase tracking-widest text-cream/40 mb-2 flex gap-4">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-cream/40 mb-3 flex gap-4 flex-wrap">
                       <span>#{i + 1}</span>
                       <span className="text-amber">score {pick.score.toFixed(3)}</span>
-                      <span>vec {memory.vecSimilarity.toFixed(3)}</span>
-                      <span>bm25 {memory.bm25Rank.toFixed(3)}</span>
-                      <span>decay {memory.decay.toFixed(2)}</span>
+                      <span className="text-cream/30">age {Math.round(memory.ageDays)}d</span>
                     </p>
-                    <p className="font-serif text-lg text-cream/90 leading-relaxed mb-2">
+                    <p className="font-serif text-lg text-cream/90 leading-relaxed mb-3">
                       {memory.content}
                     </p>
                     {pick.reason && (
-                      <p className="font-mono text-[11px] text-cream/50 italic">
+                      <p className="font-mono text-[11px] text-cream/50 italic mb-4">
                         reason: {pick.reason}
                       </p>
                     )}
+                    <WhyBars memory={memory} pickScore={pick.score} />
                   </li>
                 ))}
               </ul>
@@ -258,6 +257,83 @@ function Section({
       </p>
       {children}
     </section>
+  );
+}
+
+// WhyBars — the "make Spine's technical depth visible" panel.
+//
+// Four horizontal bars per result, widths proportional to each signal's
+// normalised contribution. Hovering a bar shows the precise number. The
+// difference between "magic black box" and "I can SEE why this ranked
+// first" — when a result has a tall vector bar but flat BM25 bar, the
+// user understands "this matched semantically but not by keyword." That's
+// the moat made legible.
+function WhyBars({ memory, pickScore }: { memory: Candidate; pickScore: number }) {
+  // Normalise each signal to 0..1 for the bar widths. The numbers come from
+  // different ranges so we scale them sensibly:
+  //   vec       — already 0..1 (cosine similarity)
+  //   bm25      — Postgres ts_rank, typically 0..1, occasionally up to ~3
+  //   decay     — already 0..1 (exp(-days/30))
+  //   rerank    — pickScore from the cross-encoder, normalised here as the
+  //               share of pickScore over the result's fusedScore so it
+  //               reads as "the rerank's lift over the fused base"
+  const signals: Array<{ key: string; label: string; value: number; raw: string; color: string }> = [
+    {
+      key: 'vec',
+      label: 'Semantic',
+      value: Math.max(0, Math.min(1, memory.vecSimilarity)),
+      raw: memory.vecSimilarity.toFixed(3),
+      color: '#E89A3C',
+    },
+    {
+      key: 'bm25',
+      label: 'Keyword',
+      value: Math.max(0, Math.min(1, memory.bm25Rank / 1.5)),
+      raw: memory.bm25Rank.toFixed(3),
+      color: '#7AB3A0',
+    },
+    {
+      key: 'decay',
+      label: 'Recency',
+      value: Math.max(0, Math.min(1, memory.decay)),
+      raw: `${memory.decay.toFixed(2)} (${Math.round(memory.ageDays)}d old)`,
+      color: '#6B7FFF',
+    },
+    {
+      key: 'rerank',
+      label: 'Rerank',
+      value: Math.max(0, Math.min(1, pickScore / Math.max(memory.fusedScore || 1, 0.001) / 2)),
+      raw: pickScore.toFixed(3),
+      color: '#C084FC',
+    },
+  ];
+
+  return (
+    <div className="border border-cream/[0.06] rounded-lg p-4 bg-cream/[0.015]">
+      <p className="font-mono text-[10px] uppercase tracking-widest text-cream/40 mb-3">
+        Why this ranked
+      </p>
+      <ul className="space-y-2.5">
+        {signals.map((s) => (
+          <li key={s.key} className="grid grid-cols-[80px_1fr_88px] gap-3 items-center">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-cream/50">
+              {s.label}
+            </span>
+            <div className="h-2 bg-cream/[0.05] rounded-full overflow-hidden" title={s.raw}>
+              <div
+                className="h-full transition-[width] duration-700 ease-out rounded-full"
+                style={{ width: `${Math.round(s.value * 100)}%`, background: s.color }}
+              />
+            </div>
+            <span className="font-mono text-[10px] text-cream/45 text-right">{s.raw}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="font-mono text-[9px] text-cream/25 mt-3 leading-relaxed">
+        Spine fuses four signals plus a cross-encoder rerank. Most products only do the first.
+        That&apos;s why an exact-keyword query and a fuzzy-concept query both land the right memory.
+      </p>
+    </div>
   );
 }
 
