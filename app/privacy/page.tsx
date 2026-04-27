@@ -62,7 +62,7 @@ function ThirdPartyTable() {
           {[
             ['Supabase', 'Database, auth', 'supabase.com/privacy'],
             ['OpenAI', 'Generating embeddings for semantic search', 'openai.com/policies/privacy-policy'],
-            ['Stripe', 'Payment processing (Pro plan)', 'stripe.com/privacy'],
+            ['LemonSqueezy', 'Payment processing (Pro and Team plans)', 'lemonsqueezy.com/privacy'],
           ].map(([svc, purpose, url]) => (
             <tr key={svc} className="border-t border-cream/10">
               <td className="py-3 pr-6 align-top">
@@ -226,7 +226,7 @@ export default function PrivacyPage() {
               'You can delete any individual memory from your dashboard at any time.',
               'You can delete your entire account and all associated data from Settings → Account → Delete account.',
               'Deletion is permanent. We do not retain backups of deleted memories.',
-              'Stripe retains billing records as required by payment regulations; we have no control over that.',
+              'LemonSqueezy retains billing records as required by payment regulations; we have no control over that.',
             ].map((item) => (
               <li key={item} className="flex gap-3 text-cream/60 leading-relaxed text-sm">
                 <span className="text-amber/60 select-none flex-shrink-0 mt-px">—</span>

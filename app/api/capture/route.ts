@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { requireApiKey } from '@/lib/auth';
-import { embedMany } from '@/lib/openai';
+import { embedManyWithMeta } from '@/lib/embeddings';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
 import { captureCap, isUnlimited, PLAN_LIMITS } from '@/lib/plan-limits';
@@ -9,6 +9,8 @@ import { assignCluster } from '@/lib/clusters';
 import { scanDuplicatesForMemory } from '@/lib/hygiene';
 import { extractAndIndex } from '@/lib/entity-extractor';
 import { detectConflicts } from '@/lib/conflict-detector';
+import { extractDecision } from '@/lib/decision-extractor';
+import { logAuditBatchFireForget, type AuditEntry } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,17 +21,60 @@ export async function OPTIONS() {
 
 const VALID_TYPES = new Set(['decision', 'bug', 'feature', 'context', 'fact']);
 
+// Liberal mime check: accept any string that looks like a/b. Real validation
+// happens at the storage layer; we don't gatekeep what users archive.
+const MIME_RE = /^[\w.+-]+\/[\w.+-]+$/;
+
 type CaptureItem = {
   content?: unknown;
   source?: unknown;
   tags?: unknown;
   type?: unknown;
+  // v2 multi-modal
+  mime?: unknown;
+  content_url?: unknown;
+  content_size?: unknown;
+  caption?: unknown;
 };
 
 type Body = CaptureItem & { bulk?: CaptureItem[] };
 
-function coerceItem(item: CaptureItem): { content: string; source: string | null; tags: string[] | null; type: string } | null {
+type CleanItem = {
+  content: string;
+  source: string | null;
+  tags: string[] | null;
+  type: string;
+  mime: string;
+  contentUrl: string | null;
+  contentSize: number | null;
+  caption: string | null;
+  // The string that gets embedded. Either content (text) or caption (non-text).
+  embedText: string;
+};
+
+function coerceItem(item: CaptureItem): CleanItem | null {
   if (typeof item.content !== 'string' || !item.content.trim()) return null;
+
+  const rawMime = typeof item.mime === 'string' ? item.mime.trim() : 'text/plain';
+  const mime = MIME_RE.test(rawMime) ? rawMime : 'text/plain';
+
+  const contentUrl = typeof item.content_url === 'string' && item.content_url.trim()
+    ? item.content_url.trim()
+    : null;
+
+  const contentSize = typeof item.content_size === 'number' && Number.isFinite(item.content_size) && item.content_size >= 0
+    ? Math.floor(item.content_size)
+    : null;
+
+  const caption = typeof item.caption === 'string' && item.caption.trim()
+    ? item.caption.trim()
+    : null;
+
+  // For non-text rows we MUST embed something textual. Prefer caption, fall
+  // back to the content text (which the caller put there as a description).
+  const isText = mime === 'text/plain' || mime.startsWith('text/');
+  const embedText = isText ? item.content : (caption ?? item.content);
+
   return {
     content: item.content,
     source: typeof item.source === 'string' ? item.source : null,
@@ -37,6 +82,11 @@ function coerceItem(item: CaptureItem): { content: string; source: string | null
       ? item.tags.filter((t): t is string => typeof t === 'string')
       : null,
     type: typeof item.type === 'string' && VALID_TYPES.has(item.type) ? item.type : 'context',
+    mime,
+    contentUrl,
+    contentSize,
+    caption,
+    embedText,
   };
 }
 
@@ -62,15 +112,16 @@ export async function POST(req: NextRequest) {
       )
     );
   }
-  const clean = items as NonNullable<(typeof items)[number]>[];
+  const clean = items as CleanItem[];
 
-  let vectors: number[][];
+  let embedResult;
   try {
-    vectors = await embedMany(clean.map((c) => c.content));
+    embedResult = await embedManyWithMeta(clean.map((c) => c.embedText));
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Embedding failed.';
     return withCors(NextResponse.json({ error: message }, { status: 500 }));
   }
+  const { vectors, provider: embedProvider, model: embedModel, dims: embedDims } = embedResult;
 
   const supabase = getSupabase();
   if (!supabase)
@@ -119,6 +170,13 @@ export async function POST(req: NextRequest) {
     type: string;
     embedding: number[];
     cluster_id: string | null;
+    mime: string;
+    content_url: string | null;
+    content_size: number | null;
+    caption: string | null;
+    embed_provider: string;
+    embed_model: string;
+    embed_dims: number;
   }> = [];
   for (let i = 0; i < clean.length; i++) {
     const c = clean[i];
@@ -126,7 +184,7 @@ export async function POST(req: NextRequest) {
       supabase,
       auth.authed.userId,
       vectors[i],
-      c.content
+      c.embedText
     );
     const baseTags = c.tags ?? [];
     const tags = assignment && !baseTags.includes(assignment.label)
@@ -141,6 +199,13 @@ export async function POST(req: NextRequest) {
       type: c.type,
       embedding: vectors[i],
       cluster_id: assignment?.clusterId ?? null,
+      mime: c.mime,
+      content_url: c.contentUrl,
+      content_size: c.contentSize,
+      caption: c.caption,
+      embed_provider: embedProvider,
+      embed_model: embedModel,
+      embed_dims: embedDims,
     });
   }
 
@@ -158,14 +223,58 @@ export async function POST(req: NextRequest) {
     void scanDuplicatesForMemory(supabase, auth.authed.userId, newId);
   }
 
-  // Fire-and-forget entity extraction + conflict detection for each new memory.
+  // Fire-and-forget entity extraction + conflict detection + decision
+  // extraction. All three swallow their own errors — none block the
+  // response. Skip non-text captures: the extractors only know how to parse
+  // text, and a JPEG's caption is too thin a signal to seed the entity
+  // graph or extract a useful decision from.
   for (let i = 0; i < ids.length; i++) {
-    const content = augmented[i]?.content;
-    if (content) {
-      void extractAndIndex(supabase, auth.authed.userId, ids[i], content).catch(() => void 0);
-      void detectConflicts(supabase, auth.authed.userId, ids[i], content).catch(() => void 0);
+    const item = augmented[i];
+    if (item.mime === 'text/plain') {
+      void extractAndIndex(supabase, auth.authed.userId, ids[i], item.content).catch(() => void 0);
+      void detectConflicts(supabase, auth.authed.userId, ids[i], item.content).catch(() => void 0);
+      void extractDecision(
+        supabase,
+        auth.authed.userId,
+        auth.authed.orgId ?? null,
+        ids[i],
+        item.content
+      );
     }
   }
+
+  // Audit: one row per captured memory + one row per embed call (a single
+  // bulk capture is one OpenAI roundtrip but produces N rows of provenance).
+  const auditRows: AuditEntry[] = [];
+  for (let i = 0; i < ids.length; i++) {
+    auditRows.push({
+      userId: auth.authed.userId,
+      orgId: auth.authed.orgId ?? null,
+      op: 'write',
+      memoryId: ids[i],
+      caller: auth.authed.keyId,
+      mime: augmented[i].mime,
+      embedProvider,
+      metadata: {
+        source: augmented[i].source,
+        type: augmented[i].type,
+        has_url: augmented[i].content_url !== null,
+        embed_model: embedModel,
+      },
+    });
+  }
+  // One embed audit row covering the batch. Memory_id null → row-level reembeds
+  // (a different op) cite specific ids, but the initial write embed is
+  // shared across the batch.
+  auditRows.push({
+    userId: auth.authed.userId,
+    orgId: auth.authed.orgId ?? null,
+    op: 'embed',
+    caller: auth.authed.keyId,
+    embedProvider,
+    metadata: { batch_size: ids.length, embed_model: embedModel },
+  });
+  logAuditBatchFireForget(auditRows);
 
   // Invalidate cached hygiene summaries so the next /api/hygiene/summary
   // hit (from the extension or spine_hygiene tool) returns fresh counts.
@@ -174,6 +283,10 @@ export async function POST(req: NextRequest) {
   revalidateTag('hygiene');
 
   return withCors(
-    NextResponse.json(Array.isArray(body.bulk) ? { ids } : { id: ids[0] })
+    NextResponse.json(
+      Array.isArray(body.bulk)
+        ? { ids, embed_provider: embedProvider, embed_model: embedModel }
+        : { id: ids[0], embed_provider: embedProvider, embed_model: embedModel }
+    )
   );
 }

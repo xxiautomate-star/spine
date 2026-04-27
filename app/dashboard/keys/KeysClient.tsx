@@ -18,6 +18,7 @@ export function KeysClient({ initialKeys }: Props) {
   const [freshKey, setFreshKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [cmdCopied, setCmdCopied] = useState(false);
 
   async function handleMint(e: React.FormEvent) {
     e.preventDefault();
@@ -67,6 +68,17 @@ export function KeysClient({ initialKeys }: Props) {
     }
   }
 
+  async function handleCopyCmd() {
+    if (!freshKey) return;
+    try {
+      await navigator.clipboard.writeText(`npx -y @spine/mcp init --key ${freshKey}`);
+      setCmdCopied(true);
+      setTimeout(() => setCmdCopied(false), 2000);
+    } catch {
+      /* manual copy */
+    }
+  }
+
   return (
     <>
       <form onSubmit={handleMint} className="mb-16 border border-cream/10 p-6 md:p-8">
@@ -112,24 +124,45 @@ export function KeysClient({ initialKeys }: Props) {
               This is the only time we can show you the full key. Copy it into your MCP config — we
               only store a hash.
             </p>
-            <pre className="font-mono text-sm text-amber bg-cream/[0.04] border border-cream/10 px-4 py-4 break-all whitespace-pre-wrap mb-5">
+            <pre className="font-mono text-sm text-amber bg-cream/[0.04] border border-cream/10 px-4 py-4 break-all whitespace-pre-wrap mb-2">
               {freshKey}
             </pre>
-            <div className="flex items-center justify-between">
+            <button
+              onClick={handleCopy}
+              className="font-mono text-[10px] uppercase tracking-widest text-cream/50 hover:text-amber mb-6"
+            >
+              {copied ? 'Copied' : 'Copy key'}
+            </button>
+
+            <div className="border-t border-cream/10 pt-6 mb-6">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-cream/40 mb-3">
+                Install in 30 seconds
+              </p>
+              <p className="text-cream/60 text-sm leading-relaxed mb-4">
+                Paste this into your terminal. Spine will register itself with Claude Code and the
+                hooks will start firing on your next session.
+              </p>
+              <pre className="font-mono text-sm text-cream bg-cream/[0.04] border border-cream/10 px-4 py-4 break-all whitespace-pre-wrap mb-2">
+                npx -y @spine/mcp init --key {freshKey}
+              </pre>
               <button
-                onClick={handleCopy}
-                className="font-mono text-[12px] uppercase tracking-widest border border-cream/20 hover:border-cream/40 px-5 py-3 text-cream/80"
+                onClick={handleCopyCmd}
+                className="font-mono text-[10px] uppercase tracking-widest text-amber hover:text-cream"
               >
-                {copied ? 'Copied' : 'Copy'}
+                {cmdCopied ? 'Copied — paste in your terminal' : 'Copy install command'}
               </button>
+            </div>
+
+            <div className="flex items-center justify-end">
               <button
                 onClick={() => {
                   setFreshKey(null);
                   setCopied(false);
+                  setCmdCopied(false);
                 }}
                 className="font-mono text-[12px] uppercase tracking-widest text-cream/50 hover:text-cream"
               >
-                I have saved it
+                Done — I have saved it
               </button>
             </div>
           </div>
@@ -140,8 +173,8 @@ export function KeysClient({ initialKeys }: Props) {
         <div className="py-20 border border-cream/10 text-center">
           <p className="font-serif text-3xl md:text-4xl text-cream mb-3">No keys yet.</p>
           <p className="text-cream/50 max-w-md mx-auto">
-            Mint your first key above, then point Claude Code at it with{' '}
-            <code className="font-mono text-amber">spine login --key &lt;key&gt;</code>.
+            Mint your first key above, then install Spine into Claude Code with{' '}
+            <code className="font-mono text-amber">npx @spine/mcp init --key &lt;key&gt;</code>.
           </p>
         </div>
       ) : (

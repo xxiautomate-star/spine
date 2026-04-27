@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && npm run smoke",
+    "smoke": "node scripts/publish-smoke.mjs",
     "test:e2e": "npm run build && node dist/test/e2e.js",
     "start": "node dist/cli.js serve"
   },
