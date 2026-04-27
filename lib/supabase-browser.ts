@@ -1,15 +1,5 @@
-'use client';
+// Legacy entrypoint preserved for the existing client-component callers.
+// The real implementation lives at `lib/supabase/browser.ts`. New code
+// should import from `@/lib/supabase/browser` directly.
 
-import { createBrowserClient } from '@supabase/ssr';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-let cached: SupabaseClient | null = null;
-
-export function getBrowserSupabase(): SupabaseClient | null {
-  if (cached) return cached;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) return null;
-  cached = createBrowserClient(url, anon);
-  return cached;
-}
+export { getBrowserSupabase } from './supabase/browser';
