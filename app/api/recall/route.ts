@@ -7,6 +7,7 @@ import { touchRetrieved } from '@/lib/retrieval-touch';
 import { logRecallEvent } from '@/lib/recall-telemetry';
 import { fetchPriorInjections, applyDedup, logInjections } from '@/lib/session-dedup';
 import type { Turn } from '@/lib/thread-embed';
+import { logAuditBatchFireForget, type AuditEntry } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,8 @@ function parseSessionId(raw: unknown): string | null {
 
 async function freeRecall(
   userId: string,
+  keyId: string,
+  orgId: string | null,
   query: string,
   limit: number,
   includeBlock: boolean,
@@ -85,6 +88,27 @@ async function freeRecall(
     latencyMs: Date.now() - t0,
     plan: 'free',
   });
+  // Cross-cut audit: one row per recalled memory + one row marking the query
+  // itself. Lets the dashboard answer both "which queries hit memory X?" and
+  // "what did this API key recall today?".
+  const auditRows: AuditEntry[] = memories.map((m) => ({
+    userId,
+    orgId,
+    op: 'read',
+    memoryId: m.id,
+    query,
+    caller: keyId,
+    metadata: { plan: 'free', session_id: sessionId },
+  }));
+  auditRows.push({
+    userId,
+    orgId,
+    op: 'read',
+    query,
+    caller: keyId,
+    metadata: { plan: 'free', session_id: sessionId, hit_count: memories.length },
+  });
+  logAuditBatchFireForget(auditRows);
 
   const block = includeBlock
     ? buildInjectionBlock(
@@ -133,6 +157,8 @@ export async function POST(req: NextRequest) {
     try {
       const result = await freeRecall(
         auth.authed.userId,
+        auth.authed.keyId,
+        auth.authed.orgId ?? null,
         query,
         limit,
         includeBlock,
@@ -230,6 +256,34 @@ export async function POST(req: NextRequest) {
       rerankCostUsd: rerankCost,
       plan: auth.authed.plan,
     });
+    const paidUserId = auth.authed.userId;
+    const paidKeyId = auth.authed.keyId;
+    const paidOrgId = auth.authed.orgId ?? null;
+    const paidPlan = auth.authed.plan;
+    const paidAuditRows: AuditEntry[] = memories.map((m) => ({
+      userId: paidUserId,
+      orgId: paidOrgId,
+      op: 'read',
+      memoryId: m.id,
+      query,
+      caller: paidKeyId,
+      metadata: { plan: paidPlan, session_id: sessionId, rerank_provider: rerankProvider },
+    }));
+    paidAuditRows.push({
+      userId: paidUserId,
+      orgId: paidOrgId,
+      op: 'read',
+      query,
+      caller: paidKeyId,
+      metadata: {
+        plan: paidPlan,
+        session_id: sessionId,
+        rerank_provider: rerankProvider,
+        hit_count: memories.length,
+        rerank_cost_usd: rerankCost,
+      },
+    });
+    logAuditBatchFireForget(paidAuditRows);
 
     const block = includeBlock
       ? buildInjectionBlock(

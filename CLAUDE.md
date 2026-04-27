@@ -22,10 +22,10 @@
 
 **Customer:** Developers and AI power-users first (those already using Claude Code, Cursor, Claude Desktop daily). Normie market later via Chrome extension for ChatGPT.
 
-**Pricing:**
-- Free — 100 memories, 1 integration (Claude Code MCP only)
-- Pro $9/mo — unlimited memories, cross-AI (Claude + ChatGPT + Gemini), proactive context surfacing
-- Power $29/mo — team-shared memory, background agents, automation triggers
+**Pricing (canonical — `lib/plan-limits.ts` is the source of truth):**
+- Free — 200 memories, MCP + browser extension, vector recall, JSON export
+- Pro $19/mo — unlimited memories, hybrid vector+BM25, cross-encoder rerank, conflict detection, decay recovery, required-context pins, weekly digest
+- Team $59/mo · 5 seats — everything in Pro + shared workspace, policies, org audit log, priority support
 
 ---
 

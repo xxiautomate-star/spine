@@ -1,13 +1,16 @@
 // Content script for gemini.google.com.
 // Gemini wraps user turns in <user-query> and model turns in <model-response>.
 // The composer is a contenteditable rich-textarea inside <input-area>.
+//
+// Driver is exported for selector-regression unit tests in
+// extension-harness/src/drivers/. See content-chatgpt.ts for rationale.
 
 import { start, type PlatformDriver, type Turn } from './common/capture.js';
 
 const USER_SEL = 'user-query, [data-test-id="user-query"]';
 const MODEL_SEL = 'model-response, [data-test-id="model-response"]';
 
-const driver: PlatformDriver = {
+export const geminiDriver: PlatformDriver = {
   source: 'gemini',
   enabledKey: 'captureGemini',
 
@@ -59,4 +62,4 @@ function extractText(el: HTMLElement): string {
   return (el.innerText ?? el.textContent ?? '').trim();
 }
 
-start(driver);
+start(geminiDriver);
