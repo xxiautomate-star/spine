@@ -50,6 +50,64 @@ forgets.
 
 ---
 
+## Weekly digest — your build-in-public artifact
+
+Once you have at least one end-of-session digest, Spine writes one rollup
+per ISO week — automatically, idempotently. The rollup is a single JSON
+artifact (themes, decisions, open threads, commits referenced) suitable
+for posting on HN / Reddit / X as a build-in-public update.
+
+```bash
+# Roll up last complete week. Idempotent — second call returns cached row.
+npx @spine/mcp weekly-digest
+```
+
+```bash
+# A specific historical week. ISO 8601 (Monday-anchored, UTC).
+npx @spine/mcp weekly-digest --week=2026-W17
+```
+
+```bash
+# Force regenerate (costs an LLM call).
+npx @spine/mcp weekly-digest --week=2026-W17 --force
+```
+
+The output is paste-ready markdown:
+
+```markdown
+# Spine — week 2026-W17
+
+**6 sessions** · generated 2026-04-29
+
+## Themes
+- Vector-recall rewrite finally landed
+- Pricing page rebuilt from scratch
+- ...
+
+## Decisions
+- Locked Postgres 15 over MySQL — RLS + pgvector were the deciders
+- Killed the OAuth refresh helper, switched to Supabase magic link
+- ...
+
+## Commits
+- `a03a277 feat(spine): conversation capture + session digest + recall`
+- ...
+```
+
+Read it in the dashboard at [`/sessions/weekly`](https://spine.xxiautomate.com/sessions/weekly)
+— each card has a one-click "copy as markdown" button so the path from
+"Spine wrote it" → "post on HN" is a single click.
+
+The `Stop` hook writes the rollup automatically when it detects the first
+session of a new ISO week. State lives in `~/.spine/last-week.txt` and
+survives process restarts. Cloud-only — local installs receive a
+structured skip.
+
+**Cost:** ~$0.0001 per week (one Haiku-4.5 call, ≤1500 output tokens).
+Two-pass summarisation triggers if the input exceeds ~50k tokens.
+
+---
+
 ## Tools
 
 | Tool | What it does |
