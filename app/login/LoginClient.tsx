@@ -3,6 +3,19 @@
 import { useState, useEffect } from 'react';
 import { getBrowserSupabase } from '@/lib/supabase-browser';
 
+// Magic-link only auth.
+//
+// We dropped OAuth (signInWithOAuth) for the v2 launch. Reason: a
+// self-hosted GoTrue requires per-provider config (GitHub OAuth app,
+// callback URLs, client secrets) that is its own setup story. Magic-link
+// only needs SMTP, which we already wire via Resend in production.
+// OAuth comes back as a deliberate Pro-tier feature later — not as
+// latent code that ships before the configuration to support it does.
+//
+// `/auth/callback` (GET) handles `exchangeCodeForSession` which works
+// for both OTP and OAuth flows — leaving the callback intact means the
+// future OAuth re-add is a one-component change here, not a route change.
+
 type Props = {
   prefillEmail?: string;
   inviteCode?: string;
@@ -12,7 +25,6 @@ export function LoginClient({ prefillEmail, inviteCode }: Props) {
   const [email, setEmail] = useState(prefillEmail ?? '');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [githubBusy, setGithubBusy] = useState(false);
 
   useEffect(() => {
     // Stash invite code so it survives the magic-link round-trip.
@@ -53,40 +65,8 @@ export function LoginClient({ prefillEmail, inviteCode }: Props) {
     setStatus('sent');
   }
 
-  async function handleGithub() {
-    const supabase = getBrowserSupabase();
-    if (!supabase) {
-      setErrorMsg('Auth is not configured.');
-      return;
-    }
-    setGithubBusy(true);
-    const origin = window.location.origin;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}` },
-    });
-    if (error) {
-      setGithubBusy(false);
-      setErrorMsg(error.message);
-    }
-  }
-
   return (
-    <div className="space-y-8">
-      <button
-        onClick={handleGithub}
-        disabled={githubBusy}
-        className="w-full border border-cream/20 hover:border-cream/40 px-5 py-4 text-left font-mono text-[12px] uppercase tracking-widest text-cream/80 transition-colors disabled:opacity-40"
-      >
-        {githubBusy ? 'Opening GitHub…' : 'Continue with GitHub'}
-      </button>
-
-      <div className="flex items-center gap-4">
-        <span className="flex-1 h-px bg-cream/10" />
-        <span className="font-mono text-[10px] uppercase tracking-widest text-cream/30">or</span>
-        <span className="flex-1 h-px bg-cream/10" />
-      </div>
-
+    <div className="space-y-6">
       <form onSubmit={handleMagicLink} className="space-y-4">
         <label htmlFor="email" className="block font-mono text-[11px] uppercase tracking-widest text-cream/40">
           Email
@@ -119,7 +99,20 @@ export function LoginClient({ prefillEmail, inviteCode }: Props) {
         {status === 'error' && errorMsg && (
           <p className="font-mono text-[11px] text-amber">{errorMsg}</p>
         )}
+        {status === 'sent' && (
+          <p className="font-mono text-[10px] text-cream/40 leading-relaxed">
+            Link is good for one hour. Click it from any browser — you&apos;ll land
+            in your dashboard signed in.
+          </p>
+        )}
       </form>
+
+      <p className="font-mono text-[10px] text-cream/25 leading-relaxed">
+        Spine uses one-time email links. No passwords to remember, nothing to
+        leak. We never sell your address; the only emails you get are
+        sign-in links and the weekly retention digest you can disable in
+        settings.
+      </p>
     </div>
   );
 }
