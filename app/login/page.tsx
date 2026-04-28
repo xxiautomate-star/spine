@@ -111,7 +111,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
                 Welcome in.
               </h1>
               <p className="text-cream/60 leading-relaxed mb-10">
-                Sign in with GitHub or your email — we&apos;ll send a link, no password. After that
+                Enter your email — we&apos;ll send a one-time sign-in link, no password. After that
                 you&apos;ll mint an API key and the dashboard prints a one-line install command.
               </p>
             </>
