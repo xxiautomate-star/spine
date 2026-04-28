@@ -398,6 +398,137 @@ export const TOOL_DEFS = [
       },
     },
   },
+  // ── Conversation capture (brief 021) ─────────────────────────────────────
+  {
+    name: 'spine_capture_turn',
+    description:
+      'Append a single conversation turn to Spine. Designed for the Claude Code ' +
+      'UserPromptSubmit / Stop hooks: every user message, assistant reply, and tool ' +
+      'invocation can be captured as one row. Append-only — never deletes, never ' +
+      'summarises. Turns are stored WITHOUT embeddings by default to keep OpenAI ' +
+      'spend bounded on chatty sessions; pass embed_turns=true to opt in for power-' +
+      'user semantic search across every word.',
+    inputSchema: {
+      type: 'object',
+      required: ['session_id', 'role', 'content'],
+      properties: {
+        session_id: {
+          type: 'string',
+          description: 'Stable per-CLI-session id (Claude Code passes this on every hook).',
+        },
+        role: {
+          type: 'string',
+          enum: ['user', 'assistant', 'tool'],
+          description: 'Speaker for this turn.',
+        },
+        content: {
+          type: 'string',
+          description: 'Full text of the turn. No length cap. Never summarise.',
+        },
+        tool_name: {
+          type: 'string',
+          description: 'When role=tool, the name of the tool invoked (e.g. Read, Bash).',
+        },
+        files_touched: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'File paths touched by this turn — pulled from tool args when relevant.',
+        },
+        ts: {
+          type: 'string',
+          description: 'ISO 8601 timestamp. Defaults to now.',
+        },
+        embed_turns: {
+          type: 'boolean',
+          description:
+            'Set true to run OpenAI embedding on this turn so it surfaces in semantic search. ' +
+            'Default false: turns are recallable via recent-context and timeline, but not by ' +
+            'cosine similarity. Cost tradeoff — at ~$0.00002/embed, 1000 turns ≈ $0.02.',
+          default: false,
+        },
+        source: {
+          type: 'string',
+          description: 'Origin label, defaults to "claude-code".',
+        },
+      },
+    },
+  },
+  {
+    name: 'spine_session_digest',
+    description:
+      'Write the end-of-session digest as a single JSON-bodied memory. Called once at the ' +
+      'SessionEnd hook. Spine NEVER summarises mid-session — this digest is the user/assistant ' +
+      'pair telling Spine what mattered, written intentionally. Always embedded. Recalled at ' +
+      'next session start by spine_recall_recent. Returns the new memory id.',
+    inputSchema: {
+      type: 'object',
+      required: ['session_id'],
+      properties: {
+        session_id: {
+          type: 'string',
+          description: 'Same session id used for spine_capture_turn during this session.',
+        },
+        decisions: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Things locked, killed, or shipped this session — one per item.',
+        },
+        state: {
+          type: 'string',
+          description: 'One-paragraph project-state snapshot. What is the world like at session end?',
+        },
+        open_threads: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Unfinished work — paste these into the next session\'s SessionStart.',
+        },
+        mistakes: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Things to never repeat. One per item.',
+        },
+        files_touched: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Files edited/created/deleted this session.',
+        },
+        commits: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Commits shipped this session. Format: "<sha7> <message>".',
+        },
+        source: {
+          type: 'string',
+          description: 'Origin label, defaults to "claude-code".',
+        },
+      },
+    },
+  },
+  {
+    name: 'spine_recall_recent',
+    description:
+      'Returns a single context block summarising the last 1-3 session digests + the most ' +
+      'recent session\'s last 50 turns, formatted under a token budget. Drop the output into ' +
+      'a SessionStart hook so the next conversation begins where the last one ended. ' +
+      'Prioritises digests over turns: if budget is tight, every digest is included (or noted as ' +
+      'truncated) before any turn is dropped.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        namespace: {
+          type: 'string',
+          description: 'Reserved for multi-tenant scoping (single-tenant in v1; safe to omit).',
+        },
+        max_tokens: {
+          type: 'integer',
+          minimum: 200,
+          maximum: 32000,
+          default: 2000,
+          description: 'Approximate token cap on the returned context block.',
+        },
+      },
+    },
+  },
 ] as const;
 
 type ToolArgs = Record<string, unknown>;
@@ -731,6 +862,52 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
         tags: tags(args.tags),
       });
       return JSON.stringify({ id, stored: true });
+    }
+
+    case 'spine_capture_turn': {
+      const role = str(args.role, 'role');
+      if (role !== 'user' && role !== 'assistant' && role !== 'tool') {
+        throw new Error('role must be "user" | "assistant" | "tool"');
+      }
+      const filesTouched = Array.isArray(args.files_touched)
+        ? args.files_touched.filter((f): f is string => typeof f === 'string' && f.length > 0)
+        : undefined;
+      const id = await store.captureTurn({
+        sessionId: str(args.session_id, 'session_id'),
+        role,
+        content: str(args.content, 'content'),
+        toolName: typeof args.tool_name === 'string' ? args.tool_name : undefined,
+        filesTouched,
+        ts: typeof args.ts === 'string' ? args.ts : undefined,
+        embedTurns: args.embed_turns === true,
+        source: typeof args.source === 'string' ? args.source : undefined,
+      });
+      return JSON.stringify({ id, stored: true, role, embedded: args.embed_turns === true });
+    }
+
+    case 'spine_session_digest': {
+      const arr = (k: unknown): string[] | undefined =>
+        Array.isArray(k) ? k.filter((s): s is string => typeof s === 'string') : undefined;
+      const id = await store.captureDigest({
+        sessionId: str(args.session_id, 'session_id'),
+        decisions: arr(args.decisions),
+        state: typeof args.state === 'string' ? args.state : undefined,
+        openThreads: arr(args.open_threads),
+        mistakes: arr(args.mistakes),
+        filesTouched: arr(args.files_touched),
+        commits: arr(args.commits),
+        source: typeof args.source === 'string' ? args.source : undefined,
+      });
+      return JSON.stringify({ id, stored: true, kind: 'digest' });
+    }
+
+    case 'spine_recall_recent': {
+      const maxTokens = Math.max(200, Math.min(32000, num(args.max_tokens, 2000)));
+      const result = await store.recallRecent(maxTokens);
+      return JSON.stringify({
+        context: result.context,
+        sessions_recalled: result.sessionsRecalled,
+      });
     }
 
     default:

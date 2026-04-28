@@ -3,12 +3,30 @@ import { homedir } from 'node:os';
 import { OfflineQueue } from './offline-queue.js';
 import type {
   CaptureInput,
+  DigestPayload,
   HygieneSummary,
   Memory,
+  RecallRecentResult,
   Store,
   TimelineOpts,
+  TurnInput,
   UsageStats,
 } from './index.js';
+
+function captureInputToWire(input: CaptureInput): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    content: input.content,
+    source: input.source ?? null,
+    tags: input.tags,
+    type: input.type,
+  };
+  if (input.sessionId) out.session_id = input.sessionId;
+  if (input.kind) out.kind = input.kind;
+  if (input.toolName) out.tool_name = input.toolName;
+  if (input.filesTouched && input.filesTouched.length > 0) out.files_touched = input.filesTouched;
+  if (input.embedTurns) out.embed_turns = true;
+  return out;
+}
 
 export class CloudStore implements Store {
   private readonly queue: OfflineQueue;
@@ -67,7 +85,7 @@ export class CloudStore implements Store {
   async capture(input: CaptureInput): Promise<string> {
     await this.flushQueue();
     try {
-      const data = await this.req<{ id: string }>('/capture', input);
+      const data = await this.req<{ id: string }>('/capture', captureInputToWire(input));
       return data.id;
     } catch (err) {
       if (this.isNetworkError(err)) {
@@ -83,7 +101,9 @@ export class CloudStore implements Store {
     if (inputs.length === 0) return [];
     await this.flushQueue();
     try {
-      const data = await this.req<{ ids: string[] }>('/capture', { bulk: inputs });
+      const data = await this.req<{ ids: string[] }>('/capture', {
+        bulk: inputs.map(captureInputToWire),
+      });
       return data.ids;
     } catch (err) {
       if (this.isNetworkError(err)) {
@@ -93,6 +113,58 @@ export class CloudStore implements Store {
       }
       throw err;
     }
+  }
+
+  async captureTurn(input: TurnInput): Promise<string> {
+    const ts = input.ts ?? new Date().toISOString();
+    const tagBase = ['session-turn', `session:${input.sessionId.slice(0, 8)}`, `role:${input.role}`];
+    if (input.toolName) tagBase.push(`tool:${input.toolName}`);
+    return this.capture({
+      content: `[${input.role}${input.toolName ? `:${input.toolName}` : ''}] ${input.content}`,
+      source: input.source ?? 'claude-code',
+      tags: tagBase,
+      type: 'context',
+      sessionId: input.sessionId,
+      kind: 'turn',
+      toolName: input.toolName ?? null,
+      filesTouched: input.filesTouched,
+      embedTurns: input.embedTurns === true,
+    });
+  }
+
+  async captureDigest(input: DigestPayload): Promise<string> {
+    const body = JSON.stringify(
+      {
+        decisions: input.decisions ?? [],
+        state: input.state ?? '',
+        open_threads: input.openThreads ?? [],
+        mistakes: input.mistakes ?? [],
+        files_touched: input.filesTouched ?? [],
+        commits: input.commits ?? [],
+      },
+      null,
+      2
+    );
+    return this.capture({
+      content: body,
+      source: input.source ?? 'claude-code',
+      tags: ['session-digest', `session:${input.sessionId.slice(0, 8)}`, 'digest'],
+      type: 'context',
+      sessionId: input.sessionId,
+      kind: 'digest',
+      filesTouched: input.filesTouched,
+    });
+  }
+
+  async recallRecent(maxTokens: number): Promise<RecallRecentResult> {
+    const data = await this.req<{
+      context: string;
+      sessions_recalled: number;
+    }>('/recall/recent', { max_tokens: maxTokens });
+    return {
+      context: data.context,
+      sessionsRecalled: data.sessions_recalled,
+    };
   }
 
   async recall(query: string, limit: number): Promise<Memory[]> {

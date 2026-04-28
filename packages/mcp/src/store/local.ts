@@ -7,10 +7,13 @@ import { localEmbedder } from '../embed/local.js';
 import { getLicense, type LicenseStatus } from '../license.js';
 import type {
   CaptureInput,
+  DigestPayload,
   HygieneSummary,
   Memory,
+  RecallRecentResult,
   Store,
   TimelineOpts,
+  TurnInput,
   UsageStats,
 } from './index.js';
 
@@ -366,6 +369,135 @@ export class LocalStore implements Store {
     }));
   }
 
+  async captureTurn(input: TurnInput): Promise<string> {
+    const tags = ['session-turn', `session:${input.sessionId.slice(0, 8)}`, `role:${input.role}`];
+    if (input.toolName) tags.push(`tool:${input.toolName}`);
+    return this.capture({
+      content: `[${input.role}${input.toolName ? `:${input.toolName}` : ''}] ${input.content}`,
+      source: input.source ?? 'claude-code',
+      tags,
+      type: 'context',
+    });
+  }
+
+  async captureDigest(input: DigestPayload): Promise<string> {
+    const body = JSON.stringify(
+      {
+        decisions: input.decisions ?? [],
+        state: input.state ?? '',
+        open_threads: input.openThreads ?? [],
+        mistakes: input.mistakes ?? [],
+        files_touched: input.filesTouched ?? [],
+        commits: input.commits ?? [],
+      },
+      null,
+      2
+    );
+    return this.capture({
+      content: body,
+      source: input.source ?? 'claude-code',
+      tags: ['session-digest', `session:${input.sessionId.slice(0, 8)}`, 'digest'],
+      type: 'context',
+    });
+  }
+
+  /**
+   * Local-mode recall-recent: scans tags via JSON LIKE rather than indexed
+   * columns. Fine for the volumes a single-user local SQLite holds.
+   * Prioritises digests (always include all that fit), then turns of the
+   * most recent session reverse-chronologically.
+   */
+  async recallRecent(maxTokens: number): Promise<RecallRecentResult> {
+    const charBudget = Math.max(800, maxTokens * 4 - 200);
+
+    const digestRows = this.db
+      .prepare(
+        "select * from memories where deleted_at is null and tags like '%\"digest\"%' order by created_at desc limit 3"
+      )
+      .all() as Row[];
+
+    const latest = this.db
+      .prepare(
+        "select tags, created_at from memories where deleted_at is null and tags like '%\"session:%' order by created_at desc limit 1"
+      )
+      .get() as { tags: string; created_at: string } | undefined;
+    const latestSessionTag = latest ? extractSessionTag(safeParse(latest.tags)) : null;
+
+    let turnRows: Row[] = [];
+    if (latestSessionTag) {
+      const pattern = `%"${latestSessionTag}"%`;
+      turnRows = this.db
+        .prepare(
+          "select * from memories where deleted_at is null and tags like ? and tags like '%\"session-turn\"%' order by created_at desc limit 50"
+        )
+        .all(pattern) as Row[];
+    }
+
+    const sectionLines: string[] = [];
+    const includedSessions = new Set<string>();
+    let used = 0;
+
+    if (digestRows.length > 0) {
+      sectionLines.push('## Recent session digests', '');
+      let kept = 0;
+      for (const d of digestRows) {
+        const date = d.created_at.slice(0, 10);
+        const session = extractSessionTag(safeParse(d.tags)) ?? 'unknown';
+        const line = `- [${date} · ${session}]\n${d.content}`;
+        const cost = line.length + 2;
+        if (used + cost > charBudget && kept > 0) {
+          const remaining = digestRows.length - kept;
+          sectionLines.push(`- [${remaining} more digest${remaining === 1 ? '' : 's'} truncated, query timeline for full]`);
+          used += 80;
+          break;
+        }
+        sectionLines.push(line);
+        used += cost;
+        kept += 1;
+        if (session !== 'unknown') includedSessions.add(session);
+      }
+      sectionLines.push('');
+    }
+
+    if (latestSessionTag && turnRows.length > 0) {
+      const headerLine = `## Most recent session — ${turnRows.length} turn${turnRows.length === 1 ? '' : 's'} (${latestSessionTag})`;
+      sectionLines.push(headerLine, '');
+      used += headerLine.length + 2;
+
+      let turnsKept = 0;
+      for (const t of turnRows) {
+        const time = t.created_at.slice(11, 16);
+        const line = `${time} ${t.content}`;
+        const cost = line.length + 2;
+        if (used + cost > charBudget) break;
+        used += cost;
+        turnsKept += 1;
+      }
+      if (turnsKept > 0) {
+        const kept = turnRows.slice(0, turnsKept).reverse();
+        for (const t of kept) {
+          const time = t.created_at.slice(11, 16);
+          sectionLines.push(`${time} ${t.content}`);
+        }
+        includedSessions.add(latestSessionTag);
+        if (turnsKept < turnRows.length) {
+          const dropped = turnRows.length - turnsKept;
+          sectionLines.push('', `[${dropped} earlier turn${dropped === 1 ? '' : 's'} truncated to fit token budget]`);
+        }
+      } else {
+        sectionLines.splice(-2, 2);
+      }
+    }
+
+    const header = '# Spine — recent context';
+    const context =
+      sectionLines.length === 0
+        ? `${header}\n\n(no recent sessions yet — capture some turns and try again)`
+        : `${header}\n\n${sectionLines.join('\n').trim()}`;
+
+    return { context, sessionsRecalled: includedSessions.size };
+  }
+
   async forget(id: string): Promise<boolean> {
     // Forget is forget — hard delete. The row (and its embedding) is gone.
     const res = this.db.prepare('delete from memories where id = ?').run(id);
@@ -413,4 +545,11 @@ function safeParse(raw: string): string[] {
   } catch {
     return [];
   }
+}
+
+function extractSessionTag(tags: string[]): string | null {
+  for (const t of tags) {
+    if (t.startsWith('session:')) return t;
+  }
+  return null;
 }
