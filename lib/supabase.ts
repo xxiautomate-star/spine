@@ -1,12 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+// Legacy entrypoint preserved for the 60+ existing callers. The real
+// implementation lives at `lib/supabase/service.ts`. New code should import
+// from `@/lib/supabase/service` directly — this file is a re-export only.
 
-let cached: SupabaseClient | null = null;
-
-export function getSupabase(): SupabaseClient | null {
-  if (cached) return cached;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  cached = createClient(url, key, { auth: { persistSession: false } });
-  return cached;
-}
+export { getSupabase } from './supabase/service';
