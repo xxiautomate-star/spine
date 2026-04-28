@@ -15,11 +15,53 @@
  * Append-only. Never blocks the session.
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import { DEFAULT_API_BASE, readConfig, DB_PATH } from '../config.js';
 import { CloudStore } from '../store/cloud.js';
 import { LocalStore } from '../store/local.js';
 import type { DigestPayload } from '../store/index.js';
+
+const LAST_WEEK_FILE = join(homedir(), '.spine', 'last-week.txt');
+
+/**
+ * Convert a Date to ISO 8601 week string "YYYY-WW" in UTC. Mirror of the
+ * helper in lib/weekly-digest.ts so the CLI doesn't need to import the
+ * Next.js bundle.
+ */
+function isoWeekUtc(date: Date): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function lastCompleteWeekUtc(now: Date = new Date()): string {
+  return isoWeekUtc(new Date(now.getTime() - 7 * 86_400_000));
+}
+
+async function readLastWeek(): Promise<string | null> {
+  try {
+    const text = await readFile(LAST_WEEK_FILE, 'utf8');
+    const trimmed = text.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeLastWeek(week: string): Promise<void> {
+  try {
+    await mkdir(dirname(LAST_WEEK_FILE), { recursive: true });
+    await writeFile(LAST_WEEK_FILE, week + '\n', 'utf8');
+  } catch {
+    // Non-critical — worst case is the next session retriggers the rollup
+    // (idempotent — second call returns the cached row).
+  }
+}
 
 interface HookInput {
   session_id?: string;
@@ -138,15 +180,43 @@ export async function sessionDigestCommand(): Promise<void> {
     if (config.mode === 'cloud' && config.apiKey) {
       const store = new CloudStore(config.apiBase ?? DEFAULT_API_BASE, config.apiKey);
       await store.captureDigest(payload);
+      await maybeTriggerWeeklyRollup(store);
       return;
     }
     const store = new LocalStore(DB_PATH);
     try {
       await store.captureDigest(payload);
+      // Local mode: weekly digests are unsupported — skip the rollup trigger.
     } finally {
       store.close();
     }
   } catch {
     // Fire-and-forget; never block session end.
   }
+}
+
+/**
+ * If this session is the first one we've ended in a new ISO week, kick off
+ * the rollup for the *prior* (now-complete) week. Detection: compare the
+ * week we last rolled up against the current week. State lives in
+ * ~/.spine/last-week.txt — survives process restarts.
+ *
+ * The rollup endpoint is idempotent so even if this fires twice for the
+ * same week, the second call returns the cached row without an LLM
+ * roundtrip. We swallow errors — the rollup is opportunistic.
+ */
+async function maybeTriggerWeeklyRollup(store: CloudStore): Promise<void> {
+  const currentWeek = isoWeekUtc(new Date());
+  const lastSeen = await readLastWeek();
+  if (lastSeen === currentWeek) return;
+
+  // First end-of-session of a new ISO week — roll up the *previous* week.
+  const targetWeek = lastCompleteWeekUtc(new Date());
+  try {
+    await store.weeklyDigest({ week: targetWeek });
+  } catch {
+    // Network/LLM/etc — leave last-week.txt unchanged so we retry next session.
+    return;
+  }
+  await writeLastWeek(currentWeek);
 }

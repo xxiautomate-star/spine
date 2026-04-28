@@ -15,6 +15,7 @@ import type {
   TimelineOpts,
   TurnInput,
   UsageStats,
+  WeeklyDigestResult,
 } from './index.js';
 
 /**
@@ -496,6 +497,24 @@ export class LocalStore implements Store {
         : `${header}\n\n${sectionLines.join('\n').trim()}`;
 
     return { context, sessionsRecalled: includedSessions.size };
+  }
+
+  /**
+   * Local-mode weekly digest is intentionally a no-op: the rollup needs
+   * an Anthropic API call which a local-only install doesn't have wired.
+   * We return a structured skip rather than crash so callers can render a
+   * helpful message ("upgrade to cloud for weekly rollups") without
+   * special-casing the error.
+   */
+  async weeklyDigest(opts: { week?: string; force?: boolean }): Promise<WeeklyDigestResult> {
+    void opts;
+    return {
+      ok: false,
+      week: 'local',
+      skipped: 'local_unsupported',
+      error:
+        'Weekly digests run cloud-only — switch with `npx @spine/mcp init --key YOUR_KEY` and try again.',
+    };
   }
 
   async forget(id: string): Promise<boolean> {
