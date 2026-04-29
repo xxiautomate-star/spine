@@ -50,6 +50,32 @@ export type RecallRecentResult = {
   sessionsRecalled: number;
 };
 
+// Weekly multi-session digest rollup (brief 022).
+export type WeeklyDigestPayload = {
+  themes: string[];
+  decisions: string[];
+  open_threads: string[];
+  commits: string[];
+  session_count: number;
+  generated_at: string;
+};
+
+export type WeeklyDigestResult =
+  | {
+      ok: true;
+      id: string;
+      week: string;
+      cached: boolean;
+      payload: WeeklyDigestPayload;
+      markdown: string;
+    }
+  | {
+      ok: false;
+      week: string;
+      skipped: string;
+      error?: string;
+    };
+
 export type TimelineOpts = {
   from?: string;
   to?: string;
@@ -80,6 +106,7 @@ export interface Store {
   captureDigest(input: DigestPayload): Promise<string>;
   recall(query: string, limit: number): Promise<Memory[]>;
   recallRecent(maxTokens: number): Promise<RecallRecentResult>;
+  weeklyDigest(opts: { week?: string; force?: boolean }): Promise<WeeklyDigestResult>;
   timeline(opts: TimelineOpts): Promise<Memory[]>;
   replay(path: string, limit: number): Promise<Memory[]>;
   forget(id: string): Promise<boolean>;

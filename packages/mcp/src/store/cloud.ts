@@ -11,6 +11,8 @@ import type {
   TimelineOpts,
   TurnInput,
   UsageStats,
+  WeeklyDigestResult,
+  WeeklyDigestPayload,
 } from './index.js';
 
 function captureInputToWire(input: CaptureInput): Record<string, unknown> {
@@ -164,6 +166,33 @@ export class CloudStore implements Store {
     return {
       context: data.context,
       sessionsRecalled: data.sessions_recalled,
+    };
+  }
+
+  async weeklyDigest(opts: { week?: string; force?: boolean }): Promise<WeeklyDigestResult> {
+    const body: Record<string, unknown> = {};
+    if (opts.week) body.week = opts.week;
+    if (opts.force) body.force = true;
+    type WireOk = {
+      ok: true;
+      id: string;
+      week: string;
+      cached: boolean;
+      payload: WeeklyDigestPayload;
+      markdown: string;
+    };
+    type WireSkip = { ok: false; week: string; skipped: string; error?: string };
+    const data = await this.req<WireOk | WireSkip>('/recall/weekly-digest', body);
+    if (!data.ok) {
+      return { ok: false, week: data.week, skipped: data.skipped, error: data.error };
+    }
+    return {
+      ok: true,
+      id: data.id,
+      week: data.week,
+      cached: data.cached,
+      payload: data.payload,
+      markdown: data.markdown,
     };
   }
 

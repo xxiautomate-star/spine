@@ -529,6 +529,32 @@ export const TOOL_DEFS = [
       },
     },
   },
+  {
+    name: 'spine_weekly_digest',
+    description:
+      'Roll up every session digest from one ISO week into a single artifact (themes, ' +
+      'decisions, open threads, commits referenced) — paste-ready for HN/Reddit/X. ' +
+      'Idempotent: re-running for the same week returns the cached row. Always embedded — ' +
+      'this is the public artifact, not chatter. Cloud mode only (the rollup uses the cheap-' +
+      'tier Claude Haiku router; local-only installs receive a structured skip).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        week: {
+          type: 'string',
+          pattern: '^\\d{4}-W\\d{2}$',
+          description:
+            'ISO 8601 week, e.g. "2026-W17". Defaults to the most recent COMPLETE week — the ' +
+            'in-flight current week is never rolled up.',
+        },
+        force: {
+          type: 'boolean',
+          default: false,
+          description: 'Bypass the idempotency cache and regenerate. Costs an LLM call.',
+        },
+      },
+    },
+  },
 ] as const;
 
 type ToolArgs = Record<string, unknown>;
@@ -907,6 +933,30 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
       return JSON.stringify({
         context: result.context,
         sessions_recalled: result.sessionsRecalled,
+      });
+    }
+
+    case 'spine_weekly_digest': {
+      const week = typeof args.week === 'string' && /^\d{4}-W\d{2}$/.test(args.week)
+        ? args.week
+        : undefined;
+      const force = args.force === true;
+      const result = await store.weeklyDigest({ week, force });
+      if (!result.ok) {
+        return JSON.stringify({
+          ok: false,
+          week: result.week,
+          skipped: result.skipped,
+          error: result.error,
+        });
+      }
+      return JSON.stringify({
+        ok: true,
+        id: result.id,
+        week: result.week,
+        cached: result.cached,
+        markdown: result.markdown,
+        payload: result.payload,
       });
     }
 

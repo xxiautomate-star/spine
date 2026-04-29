@@ -9,6 +9,7 @@ import { syncCommand } from './commands/sync.js';
 import { recallRecentCommand } from './commands/recall-recent.js';
 import { captureTurnCommand } from './commands/capture-turn.js';
 import { sessionDigestCommand } from './commands/session-digest.js';
+import { weeklyDigestCommand } from './commands/weekly-digest.js';
 
 const USAGE = `@spine/mcp — the memory layer for your AI
 
@@ -27,6 +28,8 @@ Usage:
   npx @spine/mcp capture-turn        Claude Code UserPromptSubmit hook (single-turn append)
   npx @spine/mcp recall-recent       Claude Code SessionStart hook (recent-context block)
   npx @spine/mcp session-digest      Claude Code Stop hook (structured end-of-session digest)
+  npx @spine/mcp weekly-digest [--week=YYYY-WW] [--force]
+                                     Roll up the week's session digests; outputs paste-ready markdown
   npx @spine/mcp login --key KEY     Switch to cloud mode (alias for init --key)
   npx @spine/mcp --version           Print version
 
@@ -89,6 +92,8 @@ async function main() {
       return recallRecentCommand();
     case 'session-digest':
       return sessionDigestCommand();
+    case 'weekly-digest':
+      return weeklyDigestCommand(rest);
     case '-v':
     case '--version': {
       const pkg = JSON.parse(
