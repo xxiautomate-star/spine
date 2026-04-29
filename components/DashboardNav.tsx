@@ -12,6 +12,10 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
+// Brief: device flow obsoletes manual API keys for 95% of users. The
+// "Keys" link is moved to the Advanced submenu rather than removed —
+// CI / headless / power-user paths still need it. Promotes the nav
+// entries that actually matter for daily use.
 const LINKS: Array<{ href: string; label: string }> = [
   { href: '/timeline',             label: 'Timeline' },
   { href: '/sessions',             label: 'Sessions' },
@@ -19,11 +23,11 @@ const LINKS: Array<{ href: string; label: string }> = [
   { href: '/dashboard/recall',     label: 'Recall' },
   { href: '/dashboard/decisions',  label: 'Decisions' },
   { href: '/graph',                label: 'Constellation' },
-  { href: '/dashboard/keys',       label: 'Keys' },
   { href: '/dashboard/hygiene',    label: 'Hygiene' },
   { href: '/dashboard/health',     label: 'Health' },
   { href: '/dashboard/audit',      label: 'Audit' },
   { href: '/dashboard/billing',    label: 'Billing' },
+  { href: '/dashboard/keys',       label: 'Keys (advanced)' },
 ];
 
 export function DashboardNav({ tail }: { tail: React.ReactNode }) {

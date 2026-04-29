@@ -9,25 +9,37 @@ export const metadata = {
 const STEPS = [
   {
     n: '01',
-    title: 'Install in 30 seconds',
-    body: 'One command wires Spine into Claude Code, Claude Desktop, Cursor, or any MCP-compatible AI. No account required to begin.',
+    title: 'One command. Browser opens. Click approve.',
+    body: 'Run the install. A browser tab opens. Sign in via magic link, click approve. Spine is wired into Claude Code, Claude Desktop, Cursor — any MCP client. Zero copy-paste. Zero config files. Thirty seconds, end-to-end.',
     code: 'npx @spine/mcp init',
   },
   {
     n: '02',
-    title: 'Your AI remembers',
-    body: "Work as you normally do. Facts worth keeping are quietly filed by the assistant itself — your stack, your goals, every decision that shapes the thing you're building.",
+    title: 'Spine learns the difference between signal and noise.',
+    body: "Every capture gets scored at write-time. \"We use Postgres\" lands as high-signal. \"lol the deploy failed\" lands as filtered chatter — stored forever, but kept out of semantic search. Your AI doesn't surface noise when you ask a real question.",
     code: null,
   },
   {
     n: '03',
-    title: 'Context compounds',
-    body: 'Each session begins where the last one ended. Over weeks, contradictions surface, stale knowledge ages out, and what remains is an increasingly accurate model of you.',
+    title: 'The memories you actually use rise to the top.',
+    body: 'Memories you recall often promote up a ladder — fact, then pinned. Pinned memories always inject. Stale memories age out into your archive (recoverable, not deleted). The system curates itself, week over week, without ever throwing your data away.',
     code: null,
   },
 ];
 
 const FAQS = [
+  {
+    q: 'How is this different from Mem.ai or ChatGPT memory?',
+    a: 'Mem.ai is a personal knowledge app — you write into it manually. ChatGPT memory is locked to ChatGPT. Spine is the layer beneath every AI you use — Claude, ChatGPT, Cursor — capturing automatically, ranking signal vs noise, surfacing the right context at the right moment without you typing into a dashboard.',
+  },
+  {
+    q: 'Why is install really only 30 seconds?',
+    a: 'Because device flow. You run one command, a browser opens, you sign in (magic link, no password), click Approve. The CLI receives the key and writes config invisibly. No copy-paste, no dashboard hunt, no API key fumbling. Same UX as the Stripe CLI or GitHub CLI.',
+  },
+  {
+    q: 'How does Spine know what is "signal" vs "noise"?',
+    a: 'Every capture is scored 0–1 by a small model at write-time. High-signal memories embed normally; low-signal ones store in the timeline but stay out of semantic search. Then memories you actually re-read often promote up — "fact" tier, then "pinned." So the search corpus stays clean automatically.',
+  },
   {
     q: 'Is my data private?',
     a: 'Yes. Your memories live in your own isolated workspace, encrypted at rest. We do not train on them. Export or delete in one click — no ceremony.',
@@ -37,18 +49,27 @@ const FAQS = [
     a: 'Claude Code and Claude Desktop via MCP from day one. ChatGPT and Gemini via the browser extension. Any MCP-compatible client (Cursor, Windsurf) works the same day.',
   },
   {
-    q: 'What is conflict detection?',
-    a: 'When you capture something that contradicts a prior memory — "we use Stripe" then "we switched to PayPal" — Spine creates a conflict and surfaces it as an overlay in your browser. You keep the latest, both, or resolve manually.',
-  },
-  {
     q: 'What happens to old memories?',
-    a: 'Memories not accessed in 60 days are soft-archived — still recoverable from your timeline, just not injected into context. The weekly digest flags stale memories with a one-click revive.',
+    a: 'Memories not retrieved in 60 days surface in a quarterly digest — keep, archive, or let them auto-archive after 90 days of inaction. Soft-archive only — fully recoverable from your timeline. Spine never deletes.',
   },
   {
     q: 'Can my team share a Spine?',
     a: 'Yes. The Team plan gives up to 5 members a shared memory workspace with policy enforcement and an audit log.',
   },
 ];
+
+const COMPARISON = {
+  rows: [
+    ['One-command install (no key paste)',     true,  false, false, false],
+    ['Works across Claude / Cursor / ChatGPT', true,  false, true,  false],
+    ['Quality scoring at write-time',          true,  false, false, false],
+    ['Auto-promotion of frequently used',      true,  false, false, false],
+    ['Append-only — nothing summarised',       true,  true,  false, true ],
+    ['Self-hostable',                          true,  false, true,  true ],
+    ['Free tier with real cap',                true,  true,  false, false],
+  ] as Array<[string, boolean, boolean, boolean, boolean]>,
+  cols: ['Spine', 'Mem.ai', 'Zep', 'Letta'] as const,
+};
 
 export default function Home() {
   return (
@@ -190,57 +211,143 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Features callout ──────────────────────────────────────────────── */}
+      {/* ── The lifecycle — three pillars ─────────────────────────────────── */}
       <section className="px-6 md:px-16 py-28 border-t border-[#E8E4DD]/[0.05]">
         <div className="max-w-6xl">
           <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C] mb-10">
-            § 004 · Beyond simple memory
+            § 004 · A librarian, not a vault
           </p>
+          <h2 className="font-serif text-4xl md:text-5xl leading-[1.1] text-[#E8E4DD] max-w-3xl mb-16">
+            Most memory tools are databases that grow forever.
+            <br />
+            <em className="italic text-[#E89A3C]">Spine curates.</em>
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            {[
+              {
+                stage: 'Write-time',
+                title: 'Quality gate',
+                body: 'Every capture scored 0–1 for signal quality. High-signal embeds, surfaces in semantic search, counts toward your cap. Low-signal still stored — just kept out of the search corpus. Noise never pollutes recall.',
+              },
+              {
+                stage: 'Read-time',
+                title: 'Promotion ladder',
+                body: 'Memories you recall ≥ 3 times in 30 days promote to "fact" tier — small ranking bonus. Recall ≥ 8 in 60 days promotes to "pinned" — always injected, never decays. The system actively rewards what you use.',
+              },
+              {
+                stage: 'Maintenance-time',
+                title: 'Active pruning',
+                body: 'Quarterly digest surfaces the noise pile. Click keep or archive. Anything ignored auto-archives after 90 days — soft-delete, fully recoverable. Your archive grows on quality, not volume.',
+              },
+            ].map((f) => (
+              <div key={f.title} className="p-7 border border-[#E89A3C]/[0.18] rounded-xl bg-[#E89A3C]/[0.025] hover:bg-[#E89A3C]/[0.04] transition-colors duration-300">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C]/70 mb-3">
+                  {f.stage}
+                </p>
+                <h3 className="font-serif text-2xl text-[#E8E4DD] mb-4 leading-snug">{f.title}</h3>
+                <p className="text-[#E8E4DD]/55 text-[13.5px] leading-relaxed">{f.body}</p>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#E8E4DD]/35 mb-8 mt-20">
+            And the supporting cast —
+          </h3>
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: '⚡',
                 title: 'Conflict detection',
-                body: 'When a new capture contradicts a prior memory, Spine surfaces both versions in an inline HUD. Keep latest, keep both, or resolve manually. Unresolved conflicts show in your daily digest.',
+                body: 'When a new capture contradicts a prior memory — "we use Stripe" then "we switched to PayPal" — Spine surfaces both, asks which is current.',
               },
               {
-                icon: '⏳',
-                title: 'Memory decay',
-                body: 'Memories not accessed in 60 days are soft-archived — still recoverable, just quiet. Your archive stays sharp, not cluttered. Revive any memory in one click from the weekly digest.',
-              },
-              {
-                icon: '📌',
                 title: 'Required-context pins',
-                body: 'Pin a memory to force it into every retrieval, regardless of similarity score. For facts that must always be present: allergies, hard technical constraints, non-negotiables.',
+                body: 'Force a memory into every retrieval regardless of similarity. For non-negotiables: hard constraints, allergies, locked decisions.',
               },
               {
-                icon: '🔍',
                 title: 'Entity knowledge graph',
-                body: 'Every person, project, tool, and decision you mention is extracted and linked. The /graph view shows how your work connects. Fuzzy-matched entities are automatically proposed for merging.',
+                body: 'Every person, project, tool you mention is auto-extracted + linked. /graph view shows how your work connects.',
               },
               {
-                icon: '👥',
+                title: 'Append-only by design',
+                body: 'Spine never overwrites. Never compresses. Never summarises. Vector + BM25 retrieval surfaces what is relevant; the full corpus is always there.',
+              },
+              {
                 title: 'Team shared memory',
-                body: 'On the Team plan, every workspace member shares the same memory graph. Required-context pins apply org-wide. Policy changes are logged in the org audit trail.',
+                body: 'On Team plan, every member shares the same memory graph. Org-wide pins. Audit trail on every policy change.',
               },
               {
-                icon: '📬',
                 title: 'Weekly retention digest',
-                body: 'Every Monday morning: how many memories you captured, conflicts resolved, which are going stale, and a histogram of your memory archive by age. The digest arrives in your inbox.',
+                body: 'Monday morning: captures this week, conflicts resolved, what is going stale. One-click revive any archived memory.',
               },
             ].map((f) => (
               <div key={f.title} className="p-6 border border-[#E8E4DD]/[0.07] rounded-xl hover:border-[#E8E4DD]/[0.15] transition-colors duration-300">
-                <p className="text-2xl mb-4">{f.icon}</p>
-                <h3 className="font-serif text-xl text-[#E8E4DD]/85 mb-3">{f.title}</h3>
+                <h4 className="font-serif text-lg text-[#E8E4DD]/90 mb-3">{f.title}</h4>
                 <p className="text-[#E8E4DD]/45 text-[13px] leading-relaxed">{f.body}</p>
               </div>
             ))}
           </div>
-          <div className="mt-8 text-center">
-            <Link href="/features" className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C]/60 hover:text-[#E89A3C] transition-colors border-b border-[#E89A3C]/25 hover:border-[#E89A3C]/60 pb-px">
-              Full feature list →
-            </Link>
+        </div>
+      </section>
+
+      {/* ── Comparison table ──────────────────────────────────────────────── */}
+      <section className="px-6 md:px-16 py-28 md:py-36 border-t border-[#E8E4DD]/[0.05]">
+        <div className="max-w-5xl">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C] mb-10">
+            § 005 · How Spine compares
+          </p>
+          <h2 className="font-serif text-4xl md:text-5xl leading-[1.1] text-[#E8E4DD] max-w-3xl mb-12">
+            We picked the four products that came up the most in user research.
+          </h2>
+
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-left border-collapse min-w-[640px]">
+              <thead>
+                <tr className="border-b border-[#E8E4DD]/[0.12]">
+                  <th className="py-4 pr-4 font-mono text-[10px] uppercase tracking-widest text-[#E8E4DD]/40 font-medium">
+                    Capability
+                  </th>
+                  {COMPARISON.cols.map((c, i) => (
+                    <th
+                      key={c}
+                      className={`py-4 px-4 text-center font-serif text-base ${
+                        i === 0 ? 'text-[#E89A3C]' : 'text-[#E8E4DD]/55'
+                      }`}
+                    >
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON.rows.map(([label, ...cells]) => (
+                  <tr key={label} className="border-b border-[#E8E4DD]/[0.06]">
+                    <td className="py-4 pr-4 text-[#E8E4DD]/75 text-[14px]">{label}</td>
+                    {cells.map((on, i) => (
+                      <td key={i} className="py-4 px-4 text-center">
+                        {on ? (
+                          <span
+                            className={i === 0 ? 'text-[#E89A3C]' : 'text-[#E8E4DD]/65'}
+                            aria-label="yes"
+                          >
+                            ●
+                          </span>
+                        ) : (
+                          <span className="text-[#E8E4DD]/15" aria-label="no">
+                            ○
+                          </span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
+          <p className="mt-10 font-mono text-[10px] uppercase tracking-widest text-[#E8E4DD]/30">
+            Numbers from each vendor's public docs, October 2026. We will update this table when they update theirs.
+          </p>
         </div>
       </section>
 
@@ -248,7 +355,7 @@ export default function Home() {
       <section className="px-6 md:px-16 py-28 md:py-40 border-t border-[#E8E4DD]/[0.05]">
         <div className="max-w-6xl">
           <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C] mb-10">
-            § 005 · Pricing
+            § 006 · Pricing
           </p>
           <h2 className="font-serif text-4xl md:text-6xl leading-[1.05] text-[#E8E4DD] max-w-3xl mb-16">
             Start free. Pay when it matters.
@@ -339,7 +446,7 @@ export default function Home() {
       <section className="px-6 md:px-16 py-28 md:py-40 border-t border-[#E8E4DD]/[0.05]">
         <div className="max-w-3xl">
           <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C] mb-10">
-            § 006 · Questions
+            § 007 · Questions
           </p>
           <h2 className="font-serif text-4xl text-[#E8E4DD] mb-14">Things people ask.</h2>
           <div className="border-t border-[#E8E4DD]/[0.08]">
