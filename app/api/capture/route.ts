@@ -11,6 +11,7 @@ import { extractAndIndex } from '@/lib/entity-extractor';
 import { detectConflicts } from '@/lib/conflict-detector';
 import { extractDecision } from '@/lib/decision-extractor';
 import { logAuditBatchFireForget, type AuditEntry } from '@/lib/audit';
+import { scoreSignals, type SignalScore, type SignalTier, fallbackScore } from '@/lib/signal-scorer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,6 +64,9 @@ type CleanItem = {
   // True = skip the OpenAI embed call for this item (always for turn rows
   // unless embed_turns=true). Digests + non-conversation rows always embed.
   skipEmbed: boolean;
+  // Pre-scorer override (brief 023). When set, the signal-quality scorer is
+  // skipped and this score is used directly. Null → run the scorer.
+  preOverrideScore: SignalScore | null;
 };
 
 function coerceItem(item: CaptureItem): CleanItem | null {
@@ -114,6 +118,20 @@ function coerceItem(item: CaptureItem): CleanItem | null {
   const embedTurnsOptIn = item.embed_turns === true;
   const skipEmbed = kind === 'turn' && !embedTurnsOptIn;
 
+  // Brief 023 — pre-scorer override:
+  //   - turn (no embed_turns) → tier='low' regardless of content
+  //   - digest → tier='high' (intentional artifact)
+  //   - non-text mime → tier='standard' (we don't Haiku-score images)
+  // Anything else falls through to the scorer.
+  let preOverrideScore: SignalScore | null = null;
+  if (kind === 'turn' && !embedTurnsOptIn) {
+    preOverrideScore = { score: 0.0, tier: 'low', reason: 'conversation turn (chatter by default)' };
+  } else if (kind === 'digest') {
+    preOverrideScore = { score: 1.0, tier: 'high', reason: 'session digest — intentional artifact' };
+  } else if (!isText) {
+    preOverrideScore = { score: 0.5, tier: 'standard', reason: 'non-text mime (' + mime + ')' };
+  }
+
   return {
     content: item.content,
     source: typeof item.source === 'string' ? item.source : null,
@@ -131,6 +149,7 @@ function coerceItem(item: CaptureItem): CleanItem | null {
     filesTouched: filesTouched && filesTouched.length > 0 ? filesTouched : null,
     embedText,
     skipEmbed,
+    preOverrideScore,
   };
 }
 
@@ -158,49 +177,101 @@ export async function POST(req: NextRequest) {
   }
   const clean = items as CleanItem[];
 
-  // Embed only items that don't opt out. Turn rows skip by default to keep
-  // OpenAI spend bounded — digests + non-conversation rows always embed.
+  // Embed targets: items not pre-overridden to skip embed (i.e. not turns).
+  // The scorer can later flag standard-track items as 'low' — those embeds
+  // get discarded post-score (~2-5% waste rate, acceptable to keep latency
+  // = max(scorer, embed) instead of sum).
   const embedTargets: { idx: number; text: string }[] = [];
   for (let i = 0; i < clean.length; i++) {
     if (!clean[i].skipEmbed) embedTargets.push({ idx: i, text: clean[i].embedText });
   }
 
+  // Scorer targets: items WITHOUT a pre-override. The scorer decides their
+  // tier; pre-overridden items skip the Haiku call entirely.
+  const scoreTargets: { idx: number; text: string }[] = [];
+  for (let i = 0; i < clean.length; i++) {
+    if (!clean[i].preOverrideScore) scoreTargets.push({ idx: i, text: clean[i].embedText });
+  }
+
+  // Run scorer + embed in parallel — total latency = max(scorer, embed),
+  // not sum. Embed failures abort the request; scorer failures fall back
+  // to 'standard' per item (never blocks a write).
   let embedProvider = '';
   let embedModel = '';
   let embedDims = 0;
   const vectorByIdx = new Map<number, number[]>();
-  if (embedTargets.length > 0) {
-    let embedResult;
-    try {
-      embedResult = await embedManyWithMeta(embedTargets.map((t) => t.text));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Embedding failed.';
-      return withCors(NextResponse.json({ error: message }, { status: 500 }));
+  const scoreByIdx = new Map<number, SignalScore>();
+
+  // Seed pre-override scores into the result map immediately.
+  for (let i = 0; i < clean.length; i++) {
+    const pre = clean[i].preOverrideScore;
+    if (pre) scoreByIdx.set(i, pre);
+  }
+
+  try {
+    const [embedResult, scoredArr] = await Promise.all([
+      embedTargets.length > 0
+        ? embedManyWithMeta(embedTargets.map((t) => t.text))
+        : Promise.resolve(null),
+      scoreTargets.length > 0
+        ? scoreSignals(scoreTargets.map((t) => t.text))
+        : Promise.resolve([] as SignalScore[]),
+    ]);
+
+    if (embedResult) {
+      embedProvider = embedResult.provider;
+      embedModel = embedResult.model;
+      embedDims = embedResult.dims;
+      embedTargets.forEach((t, j) => vectorByIdx.set(t.idx, embedResult.vectors[j]));
     }
-    embedProvider = embedResult.provider;
-    embedModel = embedResult.model;
-    embedDims = embedResult.dims;
-    embedTargets.forEach((t, j) => vectorByIdx.set(t.idx, embedResult!.vectors[j]));
+
+    // Defensive: scorer should always return scoreTargets.length items. If
+    // it returns fewer (truncated JSON, etc.), per-item fallback.
+    scoreTargets.forEach((t, j) => {
+      const s = scoredArr[j];
+      scoreByIdx.set(t.idx, s ?? fallbackScore('scorer returned fewer items than requested'));
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Embedding failed.';
+    return withCors(NextResponse.json({ error: message }, { status: 500 }));
+  }
+
+  // Finalize: if a scored (non-overridden) item came back as 'low', discard
+  // its precomputed embedding so the row stores embedding=null. The
+  // OpenAI roundtrip is wasted but the corpus stays clean.
+  for (let i = 0; i < clean.length; i++) {
+    const score = scoreByIdx.get(i);
+    if (score && score.tier === 'low') vectorByIdx.delete(i);
   }
 
   const supabase = getSupabase();
   if (!supabase)
     return withCors(NextResponse.json({ error: 'Server not configured.' }, { status: 500 }));
 
-  // Plan cap: count live memories for this user, reject if inserting this
-  // batch would exceed the configured cap. Power plan bypasses entirely.
+  // Plan cap: count live memories for this user, EXCLUDING low-signal rows
+  // (filtered noise doesn't count toward the user's quota — that's brief 023's
+  // promise). Reject if inserting this batch's high+standard items would
+  // exceed the cap. Power plan bypasses entirely.
   if (!isUnlimited(auth.authed.plan)) {
+    // Count current high+standard+null (pre-023 rows) — exclude tier='low'.
     const { count, error: countErr } = await supabase
       .from('memories')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', auth.authed.userId)
-      .is('deleted_at', null);
+      .is('deleted_at', null)
+      .or('signal_tier.is.null,signal_tier.neq.low');
     if (countErr) {
       return withCors(NextResponse.json({ error: countErr.message }, { status: 500 }));
     }
     const current = count ?? 0;
     const limit = captureCap(auth.authed.plan);
-    if (current + clean.length > limit) {
+    // Only count THIS batch's non-low items toward the cap.
+    let incoming = 0;
+    for (let i = 0; i < clean.length; i++) {
+      const s = scoreByIdx.get(i);
+      if (!s || s.tier !== 'low') incoming++;
+    }
+    if (current + incoming > limit) {
       return withCors(
         NextResponse.json(
           {
@@ -209,7 +280,8 @@ export async function POST(req: NextRequest) {
             plan: auth.authed.plan,
             count: current,
             limit,
-            attempted: clean.length,
+            attempted: incoming,
+            filtered_skipped: clean.length - incoming,
           },
           { status: 402 }
         )
@@ -242,10 +314,14 @@ export async function POST(req: NextRequest) {
     kind: 'turn' | 'digest' | null;
     tool_name: string | null;
     files_touched: string[] | null;
+    signal_score: number | null;
+    signal_tier: SignalTier | null;
+    signal_reason: string | null;
   }> = [];
   for (let i = 0; i < clean.length; i++) {
     const c = clean[i];
     const vec = vectorByIdx.get(i) ?? null;
+    const score = scoreByIdx.get(i) ?? fallbackScore('no score available');
     const assignment = vec
       ? await assignCluster(supabase, auth.authed.userId, vec, c.embedText)
       : null;
@@ -273,6 +349,9 @@ export async function POST(req: NextRequest) {
       kind: c.kind,
       tool_name: c.toolName,
       files_touched: c.filesTouched,
+      signal_score: score.score,
+      signal_tier: score.tier,
+      signal_reason: score.reason,
     });
   }
 
@@ -297,12 +376,13 @@ export async function POST(req: NextRequest) {
   // extraction. All three swallow their own errors — none block the
   // response. Skip non-text captures: the extractors only know how to parse
   // text, and a JPEG's caption is too thin a signal. Skip turn rows too —
-  // they're high-volume conversation chatter, not stable facts; running
-  // these on every turn is expensive and produces noise in the entity
-  // graph. Digests + non-conversation rows still flow through.
+  // they're high-volume conversation chatter, not stable facts. Brief 023
+  // adds: skip low-signal rows (the scorer already said this content is
+  // chatter — running 3 more LLM passes on it would burn money + add noise
+  // to the entity graph and decisions layer).
   for (let i = 0; i < ids.length; i++) {
     const item = augmented[i];
-    if (item.mime === 'text/plain' && item.kind !== 'turn') {
+    if (item.mime === 'text/plain' && item.kind !== 'turn' && item.signal_tier !== 'low') {
       void extractAndIndex(supabase, auth.authed.userId, ids[i], item.content).catch(() => void 0);
       void detectConflicts(supabase, auth.authed.userId, ids[i], item.content).catch(() => void 0);
       void extractDecision(
@@ -336,6 +416,8 @@ export async function POST(req: NextRequest) {
         kind: a.kind,
         session_id: a.session_id,
         embedded: a.embedding !== null,
+        signal_tier: a.signal_tier,
+        signal_score: a.signal_score,
       },
     });
   }
@@ -364,12 +446,21 @@ export async function POST(req: NextRequest) {
   // head counts per user and a capture is a rare event.
   revalidateTag('hygiene');
 
-  const embedded = embedTargets.length;
+  const embedded = vectorByIdx.size;
+  // Tier counts for the response — useful for debugging + dashboard live
+  // updates without a separate query.
+  let tierHigh = 0, tierStandard = 0, tierLow = 0;
+  for (const a of augmented) {
+    if (a.signal_tier === 'high') tierHigh++;
+    else if (a.signal_tier === 'standard') tierStandard++;
+    else if (a.signal_tier === 'low') tierLow++;
+  }
   const responseBase = {
     embed_provider: embedded > 0 ? embedProvider : null,
     embed_model: embedded > 0 ? embedModel : null,
     embedded,
     skipped: ids.length - embedded,
+    tiers: { high: tierHigh, standard: tierStandard, low: tierLow },
   };
   return withCors(
     NextResponse.json(
