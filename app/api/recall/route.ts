@@ -18,7 +18,65 @@ type RecallBody = {
   include_block?: unknown;
   session_id?: unknown;
   thread_turns?: unknown;
+  // Brief 023 — power-user flag. When true, the recall response also
+  // includes low-signal rows matched via BM25 only (their embedding is null
+  // so they're invisible to the default semantic path). Marked with
+  // `filtered_match: true` in the result so callers can render them
+  // distinctly. Default: false.
+  include_filtered?: unknown;
 };
+
+type FilteredHit = {
+  id: string;
+  content: string;
+  source: string | null;
+  tags: string[];
+  createdAt: string;
+  signalTier: 'low';
+  filtered_match: true;
+};
+
+async function fetchFilteredMatches(
+  userId: string,
+  query: string,
+  limit: number
+): Promise<FilteredHit[]> {
+  const { getSupabase } = await import('@/lib/supabase');
+  const sb = getSupabase();
+  if (!sb) return [];
+  const safeQuery = query.trim().slice(0, 500);
+  if (!safeQuery) return [];
+  // FTS over content_tsv (already-indexed, GIN) for low-signal rows. We
+  // explicitly filter by user_id because the bearer-auth route uses the
+  // service-role client (RLS bypassed). Supabase's textSearch builds a
+  // websearch_to_tsquery — "spine.xxiautomate.com" or "deploy failed"
+  // both work without hand-tokenizing.
+  const { data, error } = await sb
+    .from('memories')
+    .select('id, content, source, tags, created_at')
+    .eq('user_id', userId)
+    .eq('signal_tier', 'low')
+    .is('deleted_at', null)
+    .textSearch('content_tsv', safeQuery, { type: 'websearch' })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !Array.isArray(data)) return [];
+  return (data as Array<{
+    id: string;
+    content: string;
+    source: string | null;
+    tags: string[] | null;
+    created_at: string;
+  }>).map((r) => ({
+    id: r.id,
+    content: r.content,
+    source: r.source,
+    tags: r.tags ?? [],
+    createdAt: r.created_at,
+    signalTier: 'low',
+    filtered_match: true,
+  }));
+}
 
 function parseThreadTurns(raw: unknown): Turn[] | undefined {
   if (!Array.isArray(raw)) return undefined;
@@ -150,8 +208,15 @@ export async function POST(req: NextRequest) {
   const requested = typeof body.limit === 'number' ? body.limit : 5;
   const limit = Math.max(1, Math.min(20, Math.floor(requested)));
   const includeBlock = body.include_block === true;
+  const includeFiltered = body.include_filtered === true;
   const sessionId = parseSessionId(body.session_id);
   const threadTurns = parseThreadTurns(body.thread_turns);
+
+  // Run the filtered-match (low-signal BM25) query in parallel with the
+  // main rank when the flag is set. Cheap — single GIN-indexed query.
+  const filteredPromise: Promise<FilteredHit[]> = includeFiltered
+    ? fetchFilteredMatches(auth.authed.userId, query, Math.min(limit, 10))
+    : Promise.resolve([]);
 
   if (auth.authed.plan === 'free') {
     try {
@@ -165,7 +230,10 @@ export async function POST(req: NextRequest) {
         sessionId,
         threadTurns
       );
-      return NextResponse.json(result);
+      const filtered = await filteredPromise;
+      return NextResponse.json(
+        filtered.length > 0 ? { ...result, filtered_matches: filtered } : result
+      );
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : 'Recall failed.' },
@@ -184,6 +252,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (candidates.length === 0) {
+      const filtered = await filteredPromise;
       return NextResponse.json({
         memories: [],
         block: includeBlock ? '' : undefined,
@@ -191,6 +260,7 @@ export async function POST(req: NextRequest) {
         rerank_cost_usd: 0,
         rerank_provider: null,
         deduped_ids: 0,
+        ...(filtered.length > 0 ? { filtered_matches: filtered } : {}),
       });
     }
 
@@ -299,9 +369,11 @@ export async function POST(req: NextRequest) {
         )
       : undefined;
 
+    const filtered = await filteredPromise;
     return NextResponse.json({
       memories,
       ...(includeBlock ? { block } : {}),
+      ...(filtered.length > 0 ? { filtered_matches: filtered } : {}),
       plan: auth.authed.plan,
       rerank_cost_usd: rerankCost,
       rerank_provider: rerankProvider,

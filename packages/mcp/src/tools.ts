@@ -7,7 +7,9 @@ export const TOOL_DEFS = [
       'Append a single memory to the Spine. Storage is append-only: Spine never overwrites ' +
       'or summarises what you capture. Returns the new memory id. Use this whenever you ' +
       'learn a stable fact about the user, their preferences, their stack, or their ongoing ' +
-      'work — one memory per fact, as the user said it.',
+      'work — one memory per fact, as the user said it. Spine scores every capture for ' +
+      'signal quality; chatter lands in the timeline but stays out of semantic search, so ' +
+      'capture freely.',
     inputSchema: {
       type: 'object',
       required: ['content'],
@@ -240,7 +242,9 @@ export const TOOL_DEFS = [
       'forever, verbatim, and searchable across all future sessions and AI tools. Returns the ' +
       'new memory id. Use this to remember: architectural decisions, bug fixes and their causes, ' +
       'user preferences, project conventions, API keys or endpoints, anything the user says they ' +
-      'want remembered. One memory per fact. Never summarise — store it as the user said it.',
+      'want remembered. One memory per fact. Never summarise — store it as the user said it. ' +
+      'Spine scores every capture for signal quality, so noise stays out of semantic search ' +
+      'automatically — capture freely without self-censoring.',
     inputSchema: {
       type: 'object',
       required: ['content'],
@@ -381,7 +385,8 @@ export const TOOL_DEFS = [
       'Store a memory permanently. Spine is append-only — every memory is kept forever, ' +
       'verbatim, and searchable across all future sessions and AI tools. Use this to remember ' +
       'facts, decisions, preferences, or anything the user wants to persist. One memory per fact. ' +
-      'Do not summarise. Returns the new memory id.',
+      'Do not summarise. Returns the new memory id. Spine scores each capture for signal — ' +
+      'noise gets filed quietly without polluting search.',
     inputSchema: {
       type: 'object',
       required: ['body'],
