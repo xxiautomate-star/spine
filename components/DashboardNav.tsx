@@ -14,6 +14,7 @@ import { usePathname } from 'next/navigation';
 
 const LINKS: Array<{ href: string; label: string }> = [
   { href: '/timeline',             label: 'Timeline' },
+  { href: '/sessions',             label: 'Sessions' },
   { href: '/dashboard/memories',   label: 'Archive' },
   { href: '/dashboard/recall',     label: 'Recall' },
   { href: '/dashboard/decisions',  label: 'Decisions' },

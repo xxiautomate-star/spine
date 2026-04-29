@@ -6,6 +6,9 @@ import { serveCommand } from './commands/serve.js';
 import { hookStopCommand } from './commands/hook-stop.js';
 import { injectCommand } from './commands/inject.js';
 import { syncCommand } from './commands/sync.js';
+import { recallRecentCommand } from './commands/recall-recent.js';
+import { captureTurnCommand } from './commands/capture-turn.js';
+import { sessionDigestCommand } from './commands/session-digest.js';
 
 const USAGE = `@spine/mcp — the memory layer for your AI
 
@@ -19,8 +22,11 @@ Usage:
   npx @spine/mcp sync --force        Re-ingest all files (ignore already-synced check)
   npx @spine/mcp sync --dry-run      Preview what would be ingested without writing
   npx @spine/mcp serve               Start MCP server on stdio
-  npx @spine/mcp hook-stop           Claude Code Stop hook (call via hooks config)
+  npx @spine/mcp hook-stop           Claude Code Stop hook (raw transcript chunking)
   npx @spine/mcp inject              Claude Code UserPromptSubmit hook (proactive injection)
+  npx @spine/mcp capture-turn        Claude Code UserPromptSubmit hook (single-turn append)
+  npx @spine/mcp recall-recent       Claude Code SessionStart hook (recent-context block)
+  npx @spine/mcp session-digest      Claude Code Stop hook (structured end-of-session digest)
   npx @spine/mcp login --key KEY     Switch to cloud mode (alias for init --key)
   npx @spine/mcp --version           Print version
 
@@ -77,6 +83,12 @@ async function main() {
       return hookStopCommand();
     case 'inject':
       return injectCommand();
+    case 'capture-turn':
+      return captureTurnCommand();
+    case 'recall-recent':
+      return recallRecentCommand();
+    case 'session-digest':
+      return sessionDigestCommand();
     case '-v':
     case '--version': {
       const pkg = JSON.parse(
