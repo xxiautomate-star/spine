@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { InstallDemoLoop } from '@/components/InstallDemoLoop';
+import { LaunchFilm } from '@/components/LaunchFilm';
 
 export const metadata = {
   title: 'Spine — Your AI remembers every word',
@@ -151,10 +151,17 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Right: "first capture in 30 seconds" demo */}
+        {/* Right: launch film — replaces the old InstallDemoLoop demo.
+            On mobile (lg breakpoint) the film moves below the copy via
+            its own section, so the hero still fits one viewport. */}
         <div className="relative hidden lg:flex items-center justify-center pr-12 py-16">
-          <InstallDemoLoop />
+          <LaunchFilm />
         </div>
+      </section>
+
+      {/* ── Launch film (mobile only — lg+ shows it inside the hero) ─────── */}
+      <section className="lg:hidden px-6 pt-4 pb-2">
+        <LaunchFilm />
       </section>
 
       {/* ── Problem statement ─────────────────────────────────────────────── */}
