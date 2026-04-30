@@ -1,7 +1,18 @@
-import { pipeline, env } from '@huggingface/transformers';
 import type { Embedder } from './index.js';
 
-env.allowLocalModels = true;
+// `@huggingface/transformers` (via `onnxruntime-node`) ships a prebuilt native
+// binary that links against glibc. On musl-libc systems (Alpine) the dlopen
+// fails at top-level import — meaning even `spine-mcp --version` would crash
+// just because store/local.ts transitively imports this file.
+//
+// Fix: lazy-load. The transformers pipeline only matters once a user actually
+// runs in local-store mode AND captures something. Cloud-store users (the
+// device-flow happy path we just shipped) never hit it. Defer the require to
+// the first embed() call so:
+//   - boot is free of native-binary constraints
+//   - alpine + cloud-mode works
+//   - alpine + local-mode still fails, but with a clear error at the call
+//     site rather than a cryptic dlopen during CLI startup
 
 type FeatureOutput = { data: Float32Array; dims: number[] };
 type Extractor = (
@@ -11,9 +22,23 @@ type Extractor = (
 
 let cached: Promise<Extractor> | null = null;
 
-function getPipe(): Promise<Extractor> {
+async function getPipe(): Promise<Extractor> {
   if (!cached) {
-    cached = pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5') as unknown as Promise<Extractor>;
+    cached = (async () => {
+      const transformers = await import('@huggingface/transformers');
+      transformers.env.allowLocalModels = true;
+      const pipe = await transformers.pipeline(
+        'feature-extraction',
+        'Xenova/bge-small-en-v1.5'
+      );
+      return pipe as unknown as Extractor;
+    })();
+    // If the underlying load fails, drop the cache so the next call retries
+    // with a fresh import — otherwise a transient failure would brick the
+    // process for the rest of its lifetime.
+    cached.catch(() => {
+      cached = null;
+    });
   }
   return cached;
 }
