@@ -10,6 +10,7 @@ import { recallRecentCommand } from './commands/recall-recent.js';
 import { captureTurnCommand } from './commands/capture-turn.js';
 import { sessionDigestCommand } from './commands/session-digest.js';
 import { weeklyDigestCommand } from './commands/weekly-digest.js';
+import { dogfoodCommand } from './commands/dogfood.js';
 
 const USAGE = `@spine/mcp — the memory layer for your AI
 
@@ -30,6 +31,8 @@ Usage:
   npx @spine/mcp session-digest      Claude Code Stop hook (structured end-of-session digest)
   npx @spine/mcp weekly-digest [--week=YYYY-WW] [--force]
                                      Roll up the week's session digests; outputs paste-ready markdown
+  npx @spine/mcp dogfood [--db PATH] Same as serve, but records every tool call to ~/.spine/dogfood.db
+                                     Used for the self-audit diary (see docs/DOGFOOD_PROTOCOL.md)
   npx @spine/mcp login --key KEY     Switch to cloud mode (alias for init --key)
   npx @spine/mcp --version           Print version
 
@@ -94,6 +97,8 @@ async function main() {
       return sessionDigestCommand();
     case 'weekly-digest':
       return weeklyDigestCommand(rest);
+    case 'dogfood':
+      return dogfoodCommand(rest);
     case '-v':
     case '--version': {
       const pkg = JSON.parse(
