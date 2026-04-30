@@ -107,3 +107,59 @@ export function planHas(plan: Plan, feature: keyof PlanTier): boolean {
   const val = PLAN_LIMITS[plan][feature];
   return typeof val === 'boolean' ? val : typeof val === 'number' ? val > 0 : false;
 }
+
+// Suggest the next paid tier when a user hits their plan cap. Free users
+// upgrade to Pro; Pro users go to Team. Team has no cap, so this is a
+// theoretical fallback — return Team to itself rather than throw.
+export function nextPaidPlan(plan: Plan): Exclude<Plan, 'free'> {
+  return plan === 'free' ? 'pro' : 'team';
+}
+
+// Build the deep-link the MCP client / dashboard should open when a capture
+// is rejected for plan-cap. /billing renders the LemonSqueezy upgrade
+// buttons; ?upgrade= preselects the suggested tier. Returns the URL only —
+// the caller wraps it in their JSON response.
+export function buildUpgradeUrl(plan: Plan, baseUrlOverride?: string): string {
+  const base =
+    baseUrlOverride ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    'https://spine.xxiautomate.com';
+  return `${base}/billing?upgrade=${nextPaidPlan(plan)}`;
+}
+
+export type PlanCapError = {
+  error: string;
+  error_code: 'plan_upgrade_required';
+  plan: Plan;
+  count: number;
+  limit: number;
+  attempted: number;
+  filtered_skipped: number;
+  upgrade_url: string;
+  next_plan: Exclude<Plan, 'free'>;
+};
+
+// Single source of truth for the 402 body shape. Used by /api/capture and
+// any future write endpoint that enforces caps. Pure — no Next dependency,
+// no env reads beyond buildUpgradeUrl.
+export function buildPlanCapError(input: {
+  plan: Plan;
+  count: number;
+  limit: number;
+  attempted: number;
+  filteredSkipped: number;
+  baseUrlOverride?: string;
+}): PlanCapError {
+  const { plan, count, limit, attempted, filteredSkipped } = input;
+  return {
+    error: `Plan cap reached: ${PLAN_LIMITS[plan].name} allows ${limit} memories. Upgrade to add more.`,
+    error_code: 'plan_upgrade_required',
+    plan,
+    count,
+    limit,
+    attempted,
+    filtered_skipped: filteredSkipped,
+    upgrade_url: buildUpgradeUrl(plan, input.baseUrlOverride),
+    next_plan: nextPaidPlan(plan),
+  };
+}

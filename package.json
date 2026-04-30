@@ -20,6 +20,7 @@
     "test:e2e": "playwright test",
     "test:tenant": "playwright test multi-tenant-isolation.spec.ts",
     "test:recall-quality": "playwright test recall-quality.spec.ts",
+    "test:plan-caps": "playwright test plan-caps.spec.ts",
     "store:screenshots": "node scripts/capture-store-screenshots.mjs",
     "spine:decay": "node scripts/spine-decay.mjs",
     "spine:digest-test": "node scripts/spine-digest-test.mjs"

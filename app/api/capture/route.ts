@@ -4,7 +4,7 @@ import { requireApiKey } from '@/lib/auth';
 import { embedManyWithMeta } from '@/lib/embeddings';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
-import { captureCap, isUnlimited, PLAN_LIMITS } from '@/lib/plan-limits';
+import { captureCap, isUnlimited, buildPlanCapError } from '@/lib/plan-limits';
 import { assignCluster } from '@/lib/clusters';
 import { scanDuplicatesForMemory } from '@/lib/hygiene';
 import { extractAndIndex } from '@/lib/entity-extractor';
@@ -274,15 +274,13 @@ export async function POST(req: NextRequest) {
     if (current + incoming > limit) {
       return withCors(
         NextResponse.json(
-          {
-            error: `Plan cap reached: ${PLAN_LIMITS[auth.authed.plan].name} allows ${limit} memories. Upgrade to add more.`,
-            error_code: 'plan_upgrade_required',
+          buildPlanCapError({
             plan: auth.authed.plan,
             count: current,
             limit,
             attempted: incoming,
-            filtered_skipped: clean.length - incoming,
-          },
+            filteredSkipped: clean.length - incoming,
+          }),
           { status: 402 }
         )
       );
