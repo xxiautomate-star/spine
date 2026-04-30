@@ -395,6 +395,11 @@ async function fetchCandidates(
   }>;
 
   // Fetch retrieval_count + last_retrieved_at for the matched IDs.
+  // Defense-in-depth: explicit user_id filter even though spine_match_memories
+  // already scopes by user at the SQL level. Spine uses the service-role
+  // client (RLS bypassed); without this filter, an RPC bug or future schema
+  // change could leak cross-tenant rows via this metadata fetch. Gate-1
+  // audit fix.
   const ids = rows.map((r) => r.id);
   let retrievalMeta: Map<string, { retrieval_count: number; last_retrieved_at: string | null }>;
 
@@ -403,6 +408,7 @@ async function fetchCandidates(
       .from('memories')
       .select('id, retrieval_count, last_retrieved_at')
       .in('id', ids)
+      .eq('user_id', userId)
       .is('deleted_at', null);
 
     retrievalMeta = new Map(

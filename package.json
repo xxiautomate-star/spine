@@ -16,6 +16,9 @@
     "extension:icons": "node packages/extension/scripts/make-icons.mjs",
     "test:dashboard": "node scripts/test-dashboard.mjs",
     "test:ext:unit": "npm --prefix extension-harness run test:unit",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:tenant": "playwright test multi-tenant-isolation.spec.ts",
     "store:screenshots": "node scripts/capture-store-screenshots.mjs",
     "spine:decay": "node scripts/spine-decay.mjs",
     "spine:digest-test": "node scripts/spine-digest-test.mjs"
@@ -30,6 +33,7 @@
     "stripe": "^22.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/d3-force": "^3.0.10",
     "@types/node": "^20.17.17",
     "@types/react": "^19.0.8",
@@ -38,6 +42,7 @@
     "playwright": "^1.48.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }
