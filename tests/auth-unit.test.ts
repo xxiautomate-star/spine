@@ -13,8 +13,12 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-// Mock the supabase singleton before importing auth.
+// Mock the supabase singleton before importing auth. The mock supports both
+// chained `.from(...).select().eq().maybeSingle()` reads and the
+// fire-and-forget `.from(...).update(...).eq(...).then(...)` plus
+// `.rpc(...).then(...)` writes used by the auth helper.
 const mockMaybeSingle = vi.fn();
+const thenable = { then: (cb: (v: unknown) => unknown) => Promise.resolve(undefined).then(cb) };
 const mockSb = {
   from: vi.fn(() => ({
     select: vi.fn(() => ({
@@ -22,8 +26,11 @@ const mockSb = {
         maybeSingle: mockMaybeSingle,
       })),
     })),
+    update: vi.fn(() => ({
+      eq: vi.fn(() => thenable),
+    })),
   })),
-  rpc: vi.fn(),
+  rpc: vi.fn(() => thenable),
 };
 
 vi.mock('@/lib/supabase', () => ({
@@ -120,21 +127,17 @@ describe('requireApiKey — accept path tenant binding', () => {
     expect(result.authed?.plan).toBe('pro');
   });
 
-  it('rejects when key has no user_id (orphan row — should never happen, defend anyway)', async () => {
-    // Defensive: if an orphan api_keys row exists with user_id=null,
-    // requireApiKey must NOT return a session with userId=null|undefined.
-    // If this assertion fails, we have a path that lets a "phantom"
-    // bearer create memories with no owner.
+  it('rejects orphan api_keys row with null user_id', async () => {
+    // Defensive: if a row exists for this key_hash but its user_id is null
+    // (deleted user, or schema bug), requireApiKey must NOT return an
+    // authed session with a null userId — that would let a "phantom" bearer
+    // write memories with no owner, bypassing every tenant filter downstream.
     mockMaybeSingle.mockResolvedValueOnce({
       data: { id: 'key-orphan', user_id: null },
       error: null,
     });
     const result = await requireApiKey(fakeReq('Bearer spine_live_orphan'));
-    // Either the function rejects (preferred) OR userId is non-null. We
-    // accept both as "safe"; we fail only if userId is null/undefined
-    // AND authed is non-null (the dangerous combination).
-    if (result.authed) {
-      expect(result.authed.userId).toBeTruthy();
-    }
+    expect(result.authed).toBeNull();
+    expect(result.status).toBe(401);
   });
 });

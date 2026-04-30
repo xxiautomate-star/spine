@@ -39,7 +39,14 @@ export async function requireApiKey(req: NextRequest): Promise<AuthResult> {
   if (error || !data) {
     return { authed: null, error: 'Unknown API key.', status: 401 };
   }
-  const userId = data.user_id as string;
+  // Defensive: if an api_keys row exists but has a null user_id (orphaned
+  // row from a deleted user, or schema bug), reject. Without this, downstream
+  // routes would attribute writes to user_id=null which bypasses every
+  // tenant-scoping filter.
+  const userId = data.user_id as string | null;
+  if (!userId) {
+    return { authed: null, error: 'Unknown API key.', status: 401 };
+  }
 
   // Fetch plan + default org in parallel
   const [profileRes, orgRes] = await Promise.all([
