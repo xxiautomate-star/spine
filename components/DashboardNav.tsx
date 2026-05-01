@@ -18,6 +18,7 @@ import { usePathname } from 'next/navigation';
 // entries that actually matter for daily use.
 const LINKS: Array<{ href: string; label: string }> = [
   { href: '/timeline',             label: 'Timeline' },
+  { href: '/dashboard/timeline',   label: 'Diff' },
   { href: '/sessions',             label: 'Sessions' },
   { href: '/dashboard/memories',   label: 'Archive' },
   { href: '/dashboard/recall',     label: 'Recall' },
