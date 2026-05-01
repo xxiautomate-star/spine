@@ -108,6 +108,24 @@ export function planHas(plan: Plan, feature: keyof PlanTier): boolean {
   return typeof val === 'boolean' ? val : typeof val === 'number' ? val > 0 : false;
 }
 
+// Daily recall rate limits — Gate B of the launch stress-test brief.
+// Soft = the threshold beyond which we throttle to keep COGS sane;
+// hard = the absolute ceiling beyond which we 429 outright. Free has no
+// soft tier (every recall costs us inference) — soft == hard. Team
+// effectively has no hard ceiling (Number.POSITIVE_INFINITY) so a power
+// org can run an audit job without paging support.
+export type RecallLimit = { soft: number; hard: number };
+
+export const RECALL_LIMITS: Record<Plan, RecallLimit> = {
+  free: { soft: 50, hard: 50 },
+  pro: { soft: 1000, hard: 5000 },
+  team: { soft: 50000, hard: Number.POSITIVE_INFINITY },
+};
+
+export function recallLimits(plan: Plan): RecallLimit {
+  return RECALL_LIMITS[plan];
+}
+
 // Suggest the next paid tier when a user hits their plan cap. Free users
 // upgrade to Pro; Pro users go to Team. Team has no cap, so this is a
 // theoretical fallback — return Team to itself rather than throw.

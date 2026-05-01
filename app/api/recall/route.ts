@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireApiKey } from '@/lib/auth';
 import { rankMemories } from '@/lib/retrieval';
+import { checkAndCount, SOFT_THROTTLE_DELAY_SECONDS } from '@/lib/recall-rate-limit';
 import { crossEncoderRerank } from '@/lib/cross-encoder';
 import { buildInjectionBlock } from '@/lib/context-block';
 import { touchRetrieved } from '@/lib/retrieval-touch';
@@ -205,6 +206,31 @@ export async function POST(req: NextRequest) {
 
   const query = typeof body.query === 'string' ? body.query.trim() : '';
   if (!query) return NextResponse.json({ error: 'query is required' }, { status: 400 });
+
+  // Daily recall rate limit (Gate B). Always increments — over-limit
+  // calls 429 with Retry-After until UTC midnight, soft-limit calls
+  // proceed but carry an advisory header so cooperative clients back off.
+  const verdict = await checkAndCount(auth.authed.userId, auth.authed.plan);
+  if (!verdict.allowed) {
+    return NextResponse.json(
+      {
+        error: `Daily recall cap reached: ${verdict.limit} recalls/day on ${auth.authed.plan}. Resets at UTC midnight.`,
+        error_code: 'recall_rate_limit',
+        plan: auth.authed.plan,
+        count: verdict.count,
+        limit: verdict.limit,
+        retry_after_seconds: verdict.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(verdict.retryAfterSeconds),
+          'X-Spine-Recall-Count': String(verdict.count),
+          'X-Spine-Recall-Limit': String(verdict.limit),
+        },
+      }
+    );
+  }
   const requested = typeof body.limit === 'number' ? body.limit : 5;
   const limit = Math.max(1, Math.min(20, Math.floor(requested)));
   const includeBlock = body.include_block === true;

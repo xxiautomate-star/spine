@@ -22,6 +22,7 @@
     "test:recall-quality": "playwright test recall-quality.spec.ts",
     "test:plan-caps": "playwright test plan-caps.spec.ts",
     "test:real-conversation": "playwright test real-conversation-harness.spec.ts",
+    "spine:token-audit": "node --experimental-strip-types scripts/token-audit.ts",
     "store:screenshots": "node scripts/capture-store-screenshots.mjs",
     "spine:decay": "node scripts/spine-decay.mjs",
     "spine:digest-test": "node scripts/spine-digest-test.mjs"
