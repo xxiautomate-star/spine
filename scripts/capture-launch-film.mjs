@@ -67,9 +67,13 @@ const SOURCES = [
     file: '16x9.html',
     canvas_w: 1920,
     canvas_h: 1080,
+    // Bumped 2026-05-02: hero film perceived quality matters more than
+    // load time. 720p at 4500k → ~25MB visibly crisper, still well under
+    // the 5-second-on-4G start budget.
     out_w: 1280,
     out_h: 720,
-    bitrate: '2200k',
+    bitrate: '4500k',
+    crf: '20',
   },
   {
     key: '9x16',
@@ -79,7 +83,8 @@ const SOURCES = [
     canvas_h: 1920,
     out_w: 720,
     out_h: 1280,
-    bitrate: '2000k',
+    bitrate: '3500k',
+    crf: '21',
   },
 ].filter((s) => !ONLY || s.key === ONLY);
 
@@ -252,7 +257,7 @@ for (const cfg of SOURCES) {
       '-preset', 'slower',
       '-tune', 'animation',
       '-profile:v', 'high',
-      '-crf', '24',
+      '-crf', cfg.crf ?? '22',
       '-maxrate', cfg.bitrate,
       '-bufsize', String(parseInt(cfg.bitrate) * 2) + 'k',
       '-pix_fmt', 'yuv420p',
@@ -277,7 +282,7 @@ for (const cfg of SOURCES) {
       '-deadline', 'good',
       '-cpu-used', '2',
       '-row-mt', '1',
-      '-crf', '32',
+      '-crf', '28',
       '-b:v', cfg.bitrate,
       '-pix_fmt', 'yuv420p',
       '-an',

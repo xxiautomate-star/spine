@@ -106,56 +106,166 @@ export default function Home() {
       </nav>
 
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
-      <section id="top" className="relative min-h-[100svh] grid lg:grid-cols-[1fr,1fr] items-center pt-20">
-        {/* Atmosphere */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-          <div className="absolute top-1/4 left-[10%] w-[500px] h-[500px] rounded-full bg-[#E89A3C]/[0.07] blur-[180px]" />
-          <div className="absolute bottom-0 right-[5%] w-[400px] h-[300px] rounded-full bg-[#4A5E7A]/[0.08] blur-[160px]" />
+      <section
+        id="top"
+        className="relative min-h-[100svh] pt-24 lg:pt-32 pb-20 lg:pb-28 overflow-hidden"
+      >
+        {/* Atmosphere — film grain + vignette + amber wash. The grain
+            kills the "generic SaaS" look; the vignette frames the page
+            like a print spread. */}
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          <div className="absolute -top-1/4 -left-[10%] w-[60vw] h-[60vw] max-w-[820px] max-h-[820px] rounded-full bg-[#E89A3C]/[0.08] blur-[200px]" />
+          <div className="absolute -bottom-[20%] -right-[5%] w-[55vw] h-[40vw] max-w-[720px] max-h-[520px] rounded-full bg-[#4A5E7A]/[0.10] blur-[180px]" />
+          <div
+            className="absolute inset-0 opacity-[0.18] mix-blend-overlay"
+            style={{
+              backgroundImage:
+                'url("data:image/svg+xml;utf8,<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"160\\" height=\\"160\\"><filter id=\\"n\\"><feTurbulence type=\\"fractalNoise\\" baseFrequency=\\"0.85\\" numOctaves=\\"2\\" stitchTiles=\\"stitch\\"/><feColorMatrix values=\\"0 0 0 0 0.91  0 0 0 0 0.89  0 0 0 0 0.86  0 0 0 0.6 0\\"/></filter><rect width=\\"100%\\" height=\\"100%\\" filter=\\"url(%23n)\\" opacity=\\"0.65\\"/></svg>")',
+            }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.55) 100%)',
+            }}
+          />
         </div>
 
-        {/* Left: copy */}
-        <div className="relative px-6 md:px-16 py-20 lg:py-0 max-w-2xl">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C] mb-8 animate-[fadeUp_0.6s_0.1s_both]">
-            § 001 · Spine · Memory layer for AI
-          </p>
-          <h1 className="font-serif text-[2.8rem] leading-[1.0] md:text-[4.5rem] md:leading-[0.98] lg:text-[5.5rem] text-[#E8E4DD] tracking-tight animate-[fadeUp_0.7s_0.2s_both]">
-            Your AI{' '}
-            <em className="italic text-[#E89A3C]">forgets you</em>
-            <br />
-            every morning.
-          </h1>
-          <p className="mt-8 text-lg text-[#E8E4DD]/60 leading-relaxed max-w-lg animate-[fadeUp_0.7s_0.35s_both]">
-            Spine is a quiet memory layer beneath your assistant. It captures what matters across every
-            conversation and returns it when it counts — so your AI stops being a stranger.
-          </p>
+        {/* Editorial frame — corner annotations top-left + top-right */}
+        <div className="absolute top-6 md:top-10 left-6 md:left-10 z-10 font-mono text-[10px] uppercase tracking-[0.18em] text-[#E8E4DD]/35 leading-relaxed pointer-events-none">
+          <p className="text-[#E89A3C]/80">§ 001</p>
+          <p>Spine — memory layer</p>
+          <p className="text-[#E8E4DD]/25">v0.1.0 · est. 2026</p>
+        </div>
+        <div className="absolute top-6 md:top-10 right-6 md:right-10 z-10 hidden md:block font-mono text-[10px] uppercase tracking-[0.18em] text-[#E8E4DD]/30 text-right leading-relaxed pointer-events-none">
+          <p>spine.xxiautomate.com</p>
+          <p className="text-[#E8E4DD]/20">— issue 01 —</p>
+        </div>
 
-          <div className="mt-10 flex flex-wrap items-center gap-5 animate-[fadeUp_0.7s_0.5s_both]">
-            <Link
-              href="/login?signup=1"
-              className="group inline-flex items-center gap-3 px-7 py-3.5 bg-[#E89A3C] text-[#0D0C0A] hover:bg-[#E8E4DD] transition-colors duration-500"
-            >
-              <span className="font-serif text-lg">Install in 30 seconds</span>
-              <span className="transition-transform duration-500 group-hover:translate-x-1 font-mono">→</span>
-            </Link>
-            <a
-              href="/docs/mcp"
-              className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[#E8E4DD]/50 hover:text-[#E89A3C] transition-colors duration-300"
-            >
-              <span className="block w-1.5 h-1.5 rounded-full bg-[#E89A3C]" />
-              Read the docs
-            </a>
+        {/* Hero grid — asymmetric 7/5 split (Fibonacci-ish, not 50/50).
+            Film commands attention because the right column is narrower
+            and tighter. Vertical hairline anchors the left edge. */}
+        <div className="relative px-6 md:px-10 lg:px-16 grid lg:grid-cols-12 gap-x-8 gap-y-16 lg:gap-y-0 items-end lg:items-center">
+          {/* Vertical hairline — drops down the left margin like a column rule */}
+          <div
+            className="hidden lg:block absolute left-16 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-[#E8E4DD]/[0.08] to-transparent"
+            aria-hidden
+          />
+
+          {/* Left: copy. Asymmetric — col-span 7. */}
+          <div className="lg:col-span-7 relative">
+            {/* Compaction-thesis kicker — the locked launch frame.
+                Sits above the emotional H1 as the architectural promise:
+                Spine's moat in one line, before the page asks anything
+                of the reader. */}
+            <p className="font-serif text-[#E8E4DD]/80 text-xl md:text-2xl lg:text-[1.7rem] leading-snug mb-7 md:mb-9 animate-[fadeUp_0.6s_0.05s_both]">
+              Most AI compacts.{' '}
+              <em className="italic text-[#E89A3C]">Spine doesn&apos;t.</em>
+            </p>
+
+            {/* Drop-bracket H1 — mixed weights, italic anchor word, scale contrast */}
+            <h1 className="font-serif text-[#E8E4DD] tracking-[-0.025em] animate-[fadeUp_0.7s_0.15s_both]">
+              <span className="block text-[2.6rem] leading-[1.0] md:text-[4.2rem] md:leading-[0.95] lg:text-[5.3rem] font-light">
+                Your AI
+              </span>
+              <span className="block italic text-[#E89A3C] text-[3.2rem] leading-[0.98] md:text-[5.2rem] md:leading-[0.92] lg:text-[6.6rem] mt-[-0.05em] tracking-[-0.04em]">
+                forgets you
+              </span>
+              <span className="block text-[2.2rem] leading-[1.05] md:text-[3.6rem] md:leading-[1.0] lg:text-[4.5rem] text-[#E8E4DD]/85 mt-1 md:mt-2 tracking-[-0.03em]">
+                every morning.
+              </span>
+            </h1>
+
+            {/* Body — drop cap + restrained measure */}
+            <div className="mt-10 md:mt-12 max-w-[540px] animate-[fadeUp_0.7s_0.4s_both]">
+              <p className="text-[#E8E4DD]/65 text-[17px] leading-[1.65]">
+                <span className="float-left mr-3 -mt-1 font-serif italic text-[3.5rem] leading-none text-[#E89A3C]">
+                  S
+                </span>
+                pine is a quiet memory layer beneath your assistant. It captures what matters across every conversation and returns it when it counts — so your AI stops being a stranger.
+              </p>
+            </div>
+
+            {/* CTA row */}
+            <div className="mt-10 flex flex-wrap items-center gap-5 animate-[fadeUp_0.7s_0.55s_both]">
+              <Link
+                href="/login?signup=1"
+                className="group relative inline-flex items-center gap-3 px-7 py-3.5 bg-[#E89A3C] text-[#0D0C0A] hover:bg-[#E8E4DD] transition-colors duration-500"
+              >
+                <span className="font-serif text-lg">Install in 30 seconds</span>
+                <span className="transition-transform duration-500 group-hover:translate-x-1 font-mono">→</span>
+              </Link>
+              <a
+                href="/docs/mcp"
+                className="group inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-[#E8E4DD]/50 hover:text-[#E89A3C] transition-colors duration-300"
+              >
+                <span className="block w-1.5 h-1.5 rounded-full bg-[#E89A3C] ember" />
+                Read the docs
+              </a>
+            </div>
+
+            {/* Terminal command — the "this is a real product" signal.
+                Static for now (no copy interaction in server component);
+                styled to read like a typed prompt. */}
+            <div className="mt-7 max-w-[440px] animate-[fadeUp_0.7s_0.7s_both]">
+              <div className="flex items-center gap-3 px-4 py-2.5 border border-[#E89A3C]/20 bg-[#E89A3C]/[0.04] rounded-sm">
+                <span className="font-mono text-[12px] text-[#E8E4DD]/30 select-none">$</span>
+                <code className="font-mono text-[13px] text-[#E89A3C]/90 truncate">
+                  npx @spine/mcp init
+                </code>
+                <span className="ml-auto font-mono text-[9px] uppercase tracking-widest text-[#E8E4DD]/30">
+                  &nbsp;copy
+                </span>
+              </div>
+              <p className="mt-2.5 font-mono text-[10px] uppercase tracking-widest text-[#E8E4DD]/25">
+                Free · No credit card · Claude · ChatGPT · Cursor
+              </p>
+            </div>
           </div>
 
-          <p className="mt-10 font-mono text-[10px] uppercase tracking-widest text-[#E8E4DD]/25 animate-[fadeUp_0.7s_0.6s_both]">
-            Free plan · No credit card · Claude · ChatGPT · Gemini · Cursor
-          </p>
+          {/* Right: launch film with editorial corner brackets.
+              Hidden on mobile — film moves below in its own section. */}
+          <div className="lg:col-span-5 hidden lg:flex items-center justify-center relative animate-[fadeUp_0.8s_0.3s_both]">
+            <div className="relative w-full max-w-[560px]">
+              {/* Editorial corner brackets — replace the rounded-frame "AI-template" look */}
+              <span className="pointer-events-none absolute -top-3 -left-3 w-5 h-5 border-t border-l border-[#E89A3C]/55" aria-hidden />
+              <span className="pointer-events-none absolute -top-3 -right-3 w-5 h-5 border-t border-r border-[#E89A3C]/55" aria-hidden />
+              <span className="pointer-events-none absolute -bottom-3 -left-3 w-5 h-5 border-b border-l border-[#E89A3C]/55" aria-hidden />
+              <span className="pointer-events-none absolute -bottom-3 -right-3 w-5 h-5 border-b border-r border-[#E89A3C]/55" aria-hidden />
+              {/* Slate annotation above the film — prints what's inside */}
+              <p className="absolute -top-9 left-0 font-mono text-[10px] uppercase tracking-[0.18em] text-[#E8E4DD]/35">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#E89A3C] mr-2 align-[2px]" />
+                FILM 01 · Spine in motion · 00:45
+              </p>
+              <LaunchFilm />
+            </div>
+          </div>
         </div>
 
-        {/* Right: launch film — replaces the old InstallDemoLoop demo.
-            On mobile (lg breakpoint) the film moves below the copy via
-            its own section, so the hero still fits one viewport. */}
-        <div className="relative hidden lg:flex items-center justify-center pr-12 py-16">
-          <LaunchFilm />
+        {/* Sub-hero strip — three values, hairline-separated, mono.
+            Sets the editorial bar before the page scrolls into the
+            problem statement. */}
+        <div className="relative mt-20 lg:mt-28 px-6 md:px-10 lg:px-16">
+          <div className="max-w-6xl mx-auto grid grid-cols-3 gap-6 md:gap-12 border-t border-[#E8E4DD]/[0.08] pt-8">
+            {[
+              { kicker: '01', title: 'Append-only', body: 'Every word kept. Never compacted, never summarised.' },
+              { kicker: '02', title: 'Hybrid recall', body: 'Vector + BM25 + cross-encoder. Right context, every prompt.' },
+              { kicker: '03', title: 'Cross-session', body: 'Claude, Cursor, ChatGPT. One memory layer beneath all of them.' },
+            ].map((c) => (
+              <div key={c.kicker} className="relative">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#E89A3C]/70 mb-2">
+                  § {c.kicker}
+                </p>
+                <p className="font-serif text-lg md:text-xl text-[#E8E4DD] leading-snug">
+                  {c.title}
+                </p>
+                <p className="mt-1.5 text-[12.5px] text-[#E8E4DD]/45 leading-relaxed max-w-[320px]">
+                  {c.body}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
