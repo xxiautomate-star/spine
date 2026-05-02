@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { revalidateTag } from 'next/cache';
-import { requireApiKey } from '@/lib/auth';
+import { requireApiKeyWithScope, logKeyReceipt } from '@/lib/auth';
 import { embedManyWithMeta } from '@/lib/embeddings';
 import { getSupabase } from '@/lib/supabase';
 import { withCors, preflight } from '@/lib/cors';
@@ -154,9 +154,17 @@ function coerceItem(item: CaptureItem): CleanItem | null {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireApiKey(req);
+  const auth = await requireApiKeyWithScope(req, 'write');
   if (!auth.authed)
     return withCors(NextResponse.json({ error: auth.error }, { status: auth.status }));
+  // Receipt: fire-and-forget. See /api/recall for the same pattern + rationale.
+  logKeyReceipt({
+    keyId: auth.authed.keyId,
+    userId: auth.authed.userId,
+    route: '/api/capture',
+    scopeRequired: 'write',
+    statusCode: 200,
+  });
 
   let body: Body;
   try {

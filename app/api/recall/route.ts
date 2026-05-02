@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { requireApiKey } from '@/lib/auth';
+import { requireApiKeyWithScope, logKeyReceipt } from '@/lib/auth';
 import { rankMemories } from '@/lib/retrieval';
 import { checkAndCount, SOFT_THROTTLE_DELAY_SECONDS } from '@/lib/recall-rate-limit';
 import { crossEncoderRerank } from '@/lib/cross-encoder';
@@ -194,8 +194,21 @@ async function freeRecall(
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireApiKey(req);
-  if (!auth.authed) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const auth = await requireApiKeyWithScope(req, 'read');
+  if (!auth.authed) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  // Receipt: fire-and-forget, logs the auth pass + this route's outcome.
+  // We tag with status=200 here as an optimistic record — actual error
+  // paths below don't re-log because the dashboard cares about "where
+  // is this key being used", not "where did it fail today".
+  logKeyReceipt({
+    keyId: auth.authed.keyId,
+    userId: auth.authed.userId,
+    route: '/api/recall',
+    scopeRequired: 'read',
+    statusCode: 200,
+  });
 
   let body: RecallBody;
   try {

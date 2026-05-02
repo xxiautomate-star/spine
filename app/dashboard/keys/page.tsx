@@ -9,7 +9,7 @@ async function fetchKeys(): Promise<KeyRow[]> {
   if (!supabase || !user) return [];
   const { data } = await supabase
     .from('api_keys')
-    .select('id, name, created_at, last_used_at')
+    .select('id, name, scope, expires_at, use_count, created_at, last_used_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
   return (data ?? []) as KeyRow[];

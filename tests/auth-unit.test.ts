@@ -113,7 +113,12 @@ describe('requireApiKey — accept path tenant binding', () => {
     // request beyond the prefix check + the row's user_id field.
     mockMaybeSingle
       .mockResolvedValueOnce({
-        data: { id: 'key-123', user_id: 'eve-uuid-aaaa' },
+        data: {
+          id: 'key-123',
+          user_id: 'eve-uuid-aaaa',
+          scope: 'full',
+          expires_at: null,
+        },
         error: null,
       })
       // profile + org lookups
@@ -125,6 +130,8 @@ describe('requireApiKey — accept path tenant binding', () => {
     expect(result.authed?.userId).toBe('eve-uuid-aaaa');
     expect(result.authed?.keyId).toBe('key-123');
     expect(result.authed?.plan).toBe('pro');
+    expect(result.authed?.scope).toBe('full');
+    expect(result.authed?.expiresAt).toBeNull();
   });
 
   it('rejects orphan api_keys row with null user_id', async () => {
@@ -133,11 +140,51 @@ describe('requireApiKey — accept path tenant binding', () => {
     // authed session with a null userId — that would let a "phantom" bearer
     // write memories with no owner, bypassing every tenant filter downstream.
     mockMaybeSingle.mockResolvedValueOnce({
-      data: { id: 'key-orphan', user_id: null },
+      data: { id: 'key-orphan', user_id: null, scope: 'full', expires_at: null },
       error: null,
     });
     const result = await requireApiKey(fakeReq('Bearer spine_live_orphan'));
     expect(result.authed).toBeNull();
     expect(result.status).toBe(401);
+  });
+
+  it('rejects a key past its expiry', async () => {
+    // Gate E: keys with expires_at <= now must 401 even when the row
+    // is otherwise valid.
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'key-stale',
+        user_id: 'user-uuid',
+        scope: 'full',
+        expires_at: yesterday,
+      },
+      error: null,
+    });
+    const result = await requireApiKey(fakeReq('Bearer spine_live_stale'));
+    expect(result.authed).toBeNull();
+    expect(result.status).toBe(401);
+    expect(result.error).toMatch(/expired/i);
+  });
+
+  it('coerces unknown scope values to "full" rather than failing closed', async () => {
+    // If the DB ever returns a scope value not in our enum (legacy data,
+    // schema drift), we fall back to 'full' so existing keys keep
+    // working. The CHECK constraint in migration 029 prevents fresh
+    // bad writes; this is purely a forward-compat safety.
+    mockMaybeSingle
+      .mockResolvedValueOnce({
+        data: {
+          id: 'key-legacy',
+          user_id: 'user-uuid',
+          scope: 'admin', // not in our enum
+          expires_at: null,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: { plan: 'free' }, error: null })
+      .mockResolvedValueOnce({ data: { default_org_id: null }, error: null });
+    const result = await requireApiKey(fakeReq('Bearer spine_live_legacy'));
+    expect(result.authed?.scope).toBe('full');
   });
 });
