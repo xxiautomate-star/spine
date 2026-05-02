@@ -29,7 +29,7 @@
 // this package. The shape is forward-compat: if the SDK's event payload
 // structure changes, only the `extractTurns` adapter needs updating.
 
-import { spineCapture } from './_capture-client';
+import { spineCapture } from './_capture-client.js';
 
 /**
  * Minimal interface we expect from an Anthropic Agent SDK instance.
