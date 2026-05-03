@@ -65,77 +65,135 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   const prefillEmail = invite && invite.ok ? invite.email : params.email ?? '';
 
   return (
-    <main className="min-h-screen flex flex-col">
-      <header className="px-6 md:px-10 py-5 flex items-center justify-between">
+    <main
+      className="relative marble-bg min-h-screen flex flex-col overflow-x-hidden"
+      style={{ color: 'var(--s-ink)' }}
+    >
+      {/* Marble texture overlays */}
+      <div className="marble-vein" style={{ position: 'fixed', zIndex: 0 }} />
+      <div className="marble-grain" style={{ position: 'fixed', zIndex: 0 }} />
+
+      {/* Gold-foil top edge */}
+      <div className="gold-foil-top fixed top-0 inset-x-0 h-[1.5px] z-50" style={{ opacity: 0.95 }} />
+
+      <header
+        className="relative px-6 md:px-10 py-5 flex items-center justify-between"
+        style={{ zIndex: 10, borderBottom: '1px solid var(--s-vein)' }}
+      >
         <Link href="/" className="flex items-center gap-3">
-          <span className="block w-2 h-2 rounded-full bg-amber ember" aria-hidden />
-          <span className="font-serif text-xl">Spine</span>
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
+            <defs>
+              <linearGradient id="spineLoginGold" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#e8c769" />
+                <stop offset="55%" stopColor="#b8924a" />
+                <stop offset="100%" stopColor="#7a5f2a" />
+              </linearGradient>
+            </defs>
+            <circle cx="16" cy="16" r="14.5" stroke="url(#spineLoginGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
+            <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spineLoginGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+          </svg>
+          <span className="font-serif text-xl" style={{ color: 'var(--s-ink)' }}>Spine</span>
         </Link>
-        <Link href="/" className="font-mono text-[11px] uppercase tracking-widest text-cream/40 hover:text-cream/70">
+        <Link
+          href="/"
+          className="font-mono text-[11px] uppercase tracking-widest transition-colors duration-300 hover:[color:var(--s-gold-deep)]"
+          style={{ color: 'var(--s-ink-faint)' }}
+        >
           Back
         </Link>
       </header>
 
-      <section className="flex-1 flex items-center justify-center px-6 py-16">
-        <div className="w-full max-w-md">
+      <section className="relative flex-1 flex items-center justify-center px-6 py-16" style={{ zIndex: 1 }}>
+        <div className="w-full max-w-md rise rise-1">
           {invite && invite.ok ? (
             <>
-              <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-6">
-                § Rolling access · {invite.plan.toUpperCase()} seat
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-6" style={{ color: 'var(--s-gold-deep)' }}>
+                <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§</span>
+                Rolling access · {invite.plan.toUpperCase()} seat
               </p>
-              <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] text-cream mb-5">
-                Welcome in.
+              <h1
+                className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-[-0.025em] mb-5"
+                style={{ color: 'var(--s-ink)' }}
+              >
+                Welcome <em className="italic" style={{ color: 'var(--s-gold-deep)' }}>in.</em>
               </h1>
-              <p className="text-cream/60 leading-relaxed mb-10">
+              <p className="leading-relaxed mb-10" style={{ color: 'var(--s-ink-soft)' }}>
                 Your invite is valid. Sign in with {invite.email.replace(/(.{2}).+(@.+)/, '$1…$2')} to claim it.
               </p>
             </>
           ) : invite && !invite.ok ? (
             <>
-              <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-6">
-                § Invite · {invite.reason}
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-6" style={{ color: 'var(--s-gold-deep)' }}>
+                <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§</span>
+                Invite · {invite.reason}
               </p>
-              <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] text-cream mb-5">
-                That invite is {humanReason(invite.reason)}.
+              <h1
+                className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-[-0.025em] mb-5"
+                style={{ color: 'var(--s-ink)' }}
+              >
+                That invite is{' '}
+                <em className="italic" style={{ color: 'var(--s-gold-deep)' }}>{humanReason(invite.reason)}.</em>
               </h1>
-              <p className="text-cream/60 leading-relaxed mb-10">
+              <p className="leading-relaxed mb-10" style={{ color: 'var(--s-ink-soft)' }}>
                 You can still sign in if you already have an account, or join the waitlist for a fresh invite.
               </p>
             </>
           ) : params.signup === '1' ? (
             <>
-              <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-6">
-                § Spine &middot; First memory
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-6" style={{ color: 'var(--s-gold-deep)' }}>
+                <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ 001</span>
+                Spine &middot; First memory
               </p>
-              <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] text-cream mb-5">
-                Welcome in.
+              <h1
+                className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-[-0.025em] mb-5"
+                style={{ color: 'var(--s-ink)' }}
+              >
+                Welcome <em className="italic" style={{ color: 'var(--s-gold-deep)' }}>in.</em>
               </h1>
-              <p className="text-cream/60 leading-relaxed mb-10">
+              <p className="leading-relaxed mb-10" style={{ color: 'var(--s-ink-soft)' }}>
                 Enter your email — we&apos;ll send a one-time sign-in link, no password. After that
                 you&apos;ll mint an API key and the dashboard prints a one-line install command.
               </p>
             </>
           ) : (
             <>
-              <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-6">
-                § 002 &middot; Sign in
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-6" style={{ color: 'var(--s-gold-deep)' }}>
+                <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ 002</span>
+                Sign in
               </p>
-              <h1 className="font-serif text-5xl md:text-6xl leading-[0.98] text-cream mb-5">
-                Welcome back.
+              <h1
+                className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-[-0.025em] mb-5"
+                style={{ color: 'var(--s-ink)' }}
+              >
+                Welcome <em className="italic" style={{ color: 'var(--s-gold-deep)' }}>back.</em>
               </h1>
-              <p className="text-cream/60 leading-relaxed mb-10">
+              <p className="leading-relaxed mb-10" style={{ color: 'var(--s-ink-soft)' }}>
                 Your archive is waiting. Sign in to mint an API key or browse what your AI remembers.
               </p>
             </>
           )}
 
           {params.error && (
-            <div className="mb-6 border border-amber/40 bg-amber/5 px-4 py-3 text-sm text-cream/80">
+            <div
+              className="mb-6 px-4 py-3 text-sm rounded-md"
+              style={{
+                border: '1px solid var(--s-vein-strong)',
+                background: 'rgba(201, 125, 59, 0.08)',
+                color: 'var(--s-ink-strong)',
+              }}
+            >
               {prettyError(params.error)}
             </div>
           )}
           {params.sent && (
-            <div className="mb-6 border border-cream/20 bg-cream/[0.03] px-4 py-3 text-sm text-cream/80">
+            <div
+              className="mb-6 px-4 py-3 text-sm rounded-md"
+              style={{
+                border: '1px solid var(--s-vein)',
+                background: 'rgba(255, 253, 247, 0.65)',
+                color: 'var(--s-ink-strong)',
+              }}
+            >
               Check your inbox — the link is good for one hour.
             </div>
           )}
@@ -146,10 +204,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
               inviteCode={invite && invite.ok ? invite.code : undefined}
             />
           ) : (
-            <div className="border border-cream/10 px-5 py-6 text-sm text-cream/60">
+            <div
+              className="px-5 py-6 text-sm rounded-md"
+              style={{
+                border: '1px solid var(--s-vein)',
+                background: 'rgba(255, 253, 247, 0.65)',
+                color: 'var(--s-ink-soft)',
+              }}
+            >
               Auth is not configured on this deployment yet. Set{' '}
-              <code className="font-mono text-amber">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-              <code className="font-mono text-amber">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to enable sign-in.
+              <code className="font-mono" style={{ color: 'var(--s-gold-deep)' }}>NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+              <code className="font-mono" style={{ color: 'var(--s-gold-deep)' }}>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to enable sign-in.
             </div>
           )}
         </div>

@@ -74,79 +74,232 @@ const SECTIONS = [
 
 export default function FeaturesPage() {
   return (
-    <div className="min-h-screen bg-[#0D0C0A] text-[#E8E4DD]">
-      <header className="sticky top-0 z-50 px-6 md:px-12 py-5 flex items-center justify-between backdrop-blur-md bg-[#0D0C0A]/80 border-b border-[#E8E4DD]/[0.05]">
+    <main className="relative marble-bg min-h-screen overflow-x-hidden" style={{ color: 'var(--s-ink)' }}>
+      {/* Marble texture overlays */}
+      <div className="marble-vein" style={{ position: 'fixed', zIndex: 0 }} />
+      <div className="marble-grain" style={{ position: 'fixed', zIndex: 0 }} />
+
+      {/* Gold-foil top edge */}
+      <div className="gold-foil-top fixed top-0 inset-x-0 h-[1.5px] z-50" style={{ opacity: 0.95 }} />
+
+      {/* Nav */}
+      <header
+        className="sticky top-0 z-40 px-6 md:px-12 py-5 flex items-center justify-between"
+        style={{
+          background: 'rgba(255, 253, 247, 0.78)',
+          backdropFilter: 'blur(20px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(150%)',
+          borderBottom: '1px solid var(--s-vein)',
+        }}
+      >
         <Link href="/" className="flex items-center gap-3">
-          <span className="block w-[7px] h-[7px] rounded-full bg-[#E89A3C]" />
-          <span className="font-serif text-xl">Spine</span>
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
+            <defs>
+              <linearGradient id="spineFeaturesGold" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#e8c769" />
+                <stop offset="55%" stopColor="#b8924a" />
+                <stop offset="100%" stopColor="#7a5f2a" />
+              </linearGradient>
+            </defs>
+            <circle cx="16" cy="16" r="14.5" stroke="url(#spineFeaturesGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
+            <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spineFeaturesGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+          </svg>
+          <span className="font-serif text-xl" style={{ color: 'var(--s-ink)' }}>Spine</span>
         </Link>
         <nav className="flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest">
-          <Link href="/pricing" className="text-[#E8E4DD]/35 hover:text-[#E8E4DD]/65 transition-colors hidden sm:block">Pricing</Link>
-          <Link href="/docs/mcp" className="text-[#E8E4DD]/35 hover:text-[#E8E4DD]/65 transition-colors hidden sm:block">Docs</Link>
-          <Link href="/login?signup=1" className="text-[#E89A3C]/70 hover:text-[#E89A3C] transition-colors">Start free →</Link>
+          <Link
+            href="/pricing"
+            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
+            style={{ color: 'var(--s-ink-faint)' }}
+          >
+            Pricing
+          </Link>
+          <Link
+            href="/proof"
+            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
+            style={{ color: 'var(--s-ink-faint)' }}
+          >
+            Proof
+          </Link>
+          <Link
+            href="/docs/mcp"
+            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
+            style={{ color: 'var(--s-ink-faint)' }}
+          >
+            Docs
+          </Link>
+          <Link
+            href="/login?signup=1"
+            className="transition-colors duration-300 hover:[color:var(--s-ink)]"
+            style={{ color: 'var(--s-gold-deep)' }}
+          >
+            Start free →
+          </Link>
         </nav>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-20">
-        <div className="mb-20">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C]/55 mb-4">Features</p>
-          <h1 className="font-serif text-5xl md:text-6xl text-[#E8E4DD] leading-tight mb-6">
+      <div className="relative max-w-4xl mx-auto px-6 py-20" style={{ zIndex: 1 }}>
+        <div className="mb-20 rise rise-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-5" style={{ color: 'var(--s-gold-deep)' }}>
+            <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ 001</span>
+            Features
+          </p>
+          <h1 className="font-serif text-5xl md:text-6xl leading-tight tracking-[-0.025em] mb-6" style={{ color: 'var(--s-ink)' }}>
             Every word remembered.
             <br />
-            <span className="text-[#E8E4DD]/40">Every contradiction caught.</span>
+            <em className="italic" style={{ color: 'var(--s-gold-deep)' }}>Every contradiction caught.</em>
           </h1>
-          <p className="text-[#E8E4DD]/50 text-lg leading-relaxed max-w-2xl">
+          <p className="text-lg leading-relaxed max-w-2xl" style={{ color: 'var(--s-ink-soft)' }}>
             Spine is not a notes app. It is a living archive — capture, recall, conflict resolution,
             knowledge graph, and decay management working together as a single system beneath your AI.
           </p>
         </div>
 
         <div className="space-y-24">
-          {SECTIONS.map((s, i) => (
-            <section key={s.tag} className="border-t border-[#E8E4DD]/[0.06] pt-16">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C]/55 mb-5">{s.tag}</p>
-              <div className="grid md:grid-cols-[1fr,1.4fr] gap-12 mb-10">
-                <div>
-                  <h2 className="font-serif text-3xl text-[#E8E4DD] leading-snug mb-4">{s.title}</h2>
-                  <p className="text-[#E8E4DD]/50 text-[14px] leading-relaxed">{s.body}</p>
-                </div>
-                <div className="space-y-4">
-                  {s.features.map((f) => (
-                    <div key={f.name} className="flex gap-4">
-                      <span className="text-[#E89A3C]/40 flex-shrink-0 font-mono text-[12px] mt-0.5">—</span>
-                      <div>
-                        <p className="text-[#E8E4DD]/75 text-[13px] font-medium mb-0.5">{f.name}</p>
-                        <p className="text-[#E8E4DD]/35 text-[12px] leading-relaxed">{f.desc}</p>
+          {SECTIONS.map((s, i) => {
+            const sectionN = String(i + 2).padStart(3, '0');
+            return (
+              <section
+                key={s.tag}
+                className="pt-16 rise rise-2"
+                style={{ borderTop: '1px solid var(--s-vein)' }}
+              >
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-5" style={{ color: 'var(--s-gold-deep)' }}>
+                  <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ {sectionN}</span>
+                  {s.tag}
+                </p>
+                <div className="grid md:grid-cols-[1fr,1.4fr] gap-12 mb-10">
+                  <div>
+                    <h2 className="font-serif text-3xl leading-snug mb-4" style={{ color: 'var(--s-ink)' }}>
+                      {s.title}
+                    </h2>
+                    <p className="text-[14px] leading-relaxed" style={{ color: 'var(--s-ink-soft)' }}>
+                      {s.body}
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    {s.features.map((f) => (
+                      <div key={f.name} className="flex gap-4">
+                        <span
+                          className="flex-shrink-0 font-mono text-[12px] mt-0.5"
+                          style={{ color: 'var(--s-gold)' }}
+                        >
+                          —
+                        </span>
+                        <div>
+                          <p className="text-[13px] font-medium mb-0.5" style={{ color: 'var(--s-ink-strong)' }}>
+                            {f.name}
+                          </p>
+                          <p className="text-[12px] leading-relaxed" style={{ color: 'var(--s-ink-soft)' }}>
+                            {f.desc}
+                          </p>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+                {i === 0 && (
+                  <div
+                    className="relative mt-6 p-5 rounded-xl overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(180deg, #ffffff 0%, #fdfaf2 100%)',
+                      border: '1px solid var(--s-vein-strong)',
+                      boxShadow: 'var(--s-shadow-1)',
+                    }}
+                  >
+                    <div className="gold-foil-top absolute top-0 inset-x-0 h-[1.5px]" style={{ opacity: 0.85 }} />
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="font-mono text-[12px] select-none" style={{ color: 'var(--s-ink-ghost)' }}>$</span>
+                      <code className="font-mono text-[13px]" style={{ color: 'var(--s-gold-deep)' }}>
+                        npx @spine/mcp init
+                      </code>
+                      <span className="font-mono text-[11px] ml-4" style={{ color: 'var(--s-ink-faint)' }}>
+                        — one command, any MCP client
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-              {i === 0 && (
-                <div className="mt-6 p-4 bg-[#E89A3C]/[0.04] border border-[#E89A3C]/[0.15] rounded-xl">
-                  <code className="font-mono text-[12px] text-[#E89A3C]/70">
-                    $ npx @spine/mcp init
-                  </code>
-                  <span className="font-mono text-[11px] text-[#E8E4DD]/25 ml-4">— one command, any MCP client</span>
-                </div>
-              )}
-            </section>
-          ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
 
-        <div className="mt-24 pt-16 border-t border-[#E8E4DD]/[0.06] flex flex-col sm:flex-row gap-4">
+        <div
+          className="mt-24 pt-16 flex flex-col sm:flex-row gap-4"
+          style={{ borderTop: '1px solid var(--s-vein)' }}
+        >
           <Link
             href="/login?signup=1"
-            className="group inline-flex items-center gap-3 px-7 py-3.5 bg-[#E89A3C] text-[#0D0C0A] font-mono text-[11px] uppercase tracking-widest hover:bg-[#E8E4DD] transition-colors duration-300"
+            className="group inline-flex items-center gap-3 px-7 py-3.5 transition-all duration-500 rounded-md"
+            style={{
+              background: 'linear-gradient(180deg, #fdfaf2 0%, #f0e3c4 100%)',
+              color: 'var(--s-ink-strong)',
+              border: '1px solid var(--s-vein-strong)',
+              boxShadow: '0 2px 6px rgba(60,45,20,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
+            }}
           >
-            Start free
-            <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+            <span className="font-serif text-lg">Start free</span>
+            <span
+              className="font-mono transition-transform duration-300 group-hover:translate-x-1"
+              style={{ color: 'var(--s-gold-deep)' }}
+            >
+              →
+            </span>
           </Link>
-          <Link href="/pricing" className="inline-flex items-center gap-2 px-7 py-3.5 border border-[#E8E4DD]/[0.12] text-[#E8E4DD]/50 font-mono text-[11px] uppercase tracking-widest hover:border-[#E8E4DD]/30 hover:text-[#E8E4DD]/80 transition-all duration-300">
+          <Link
+            href="/pricing"
+            className="inline-flex items-center justify-center gap-2 px-7 py-3.5 font-mono text-[11px] uppercase tracking-widest transition-all duration-300 rounded-md"
+            style={{
+              border: '1px solid var(--s-vein-strong)',
+              color: 'var(--s-ink-soft)',
+              background: 'transparent',
+            }}
+          >
             View pricing
           </Link>
         </div>
-      </main>
-    </div>
+      </div>
+
+      {/* Footer */}
+      <footer
+        className="relative px-6 md:px-10 py-12 mt-12"
+        style={{ zIndex: 1, borderTop: '1px solid var(--s-vein)' }}
+      >
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
+              <defs>
+                <linearGradient id="spineFeaturesFootGold" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#e8c769" />
+                  <stop offset="55%" stopColor="#b8924a" />
+                  <stop offset="100%" stopColor="#7a5f2a" />
+                </linearGradient>
+              </defs>
+              <circle cx="16" cy="16" r="14.5" stroke="url(#spineFeaturesFootGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
+              <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spineFeaturesFootGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+            </svg>
+            <span className="font-serif text-lg" style={{ color: 'var(--s-ink)' }}>Spine</span>
+          </div>
+          <div className="flex gap-6 font-mono text-[10px] uppercase tracking-widest">
+            {[
+              ['/', 'Home'],
+              ['/pricing', 'Pricing'],
+              ['/proof', 'Proof'],
+              ['/privacy', 'Privacy'],
+              ['/docs/mcp', 'Docs'],
+            ].map(([href, label]) => (
+              <Link
+                key={href}
+                href={href}
+                className="transition-colors duration-300 hover:[color:var(--s-gold-deep)]"
+                style={{ color: 'var(--s-ink-faint)' }}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </footer>
+    </main>
   );
 }

@@ -68,7 +68,11 @@ export function LoginClient({ prefillEmail, inviteCode }: Props) {
   return (
     <div className="space-y-6">
       <form onSubmit={handleMagicLink} className="space-y-4">
-        <label htmlFor="email" className="block font-mono text-[11px] uppercase tracking-widest text-cream/40">
+        <label
+          htmlFor="email"
+          className="block font-mono text-[11px] uppercase tracking-widest"
+          style={{ color: 'var(--s-ink-faint)' }}
+        >
           Email
         </label>
         <input
@@ -81,12 +85,23 @@ export function LoginClient({ prefillEmail, inviteCode }: Props) {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@somewhere.com"
           readOnly={Boolean(inviteCode && prefillEmail)}
-          className="w-full bg-transparent border-b border-cream/20 focus:border-cream/60 focus:outline-none py-3 text-lg placeholder:text-cream/25 read-only:text-cream/70"
+          className="w-full bg-transparent focus:outline-none py-3 text-lg"
+          style={{
+            borderBottom: '1px solid var(--s-vein-strong)',
+            color: 'var(--s-ink)',
+          }}
         />
         <button
           type="submit"
           disabled={status === 'sending'}
-          className="w-full bg-amber text-night font-mono text-[12px] uppercase tracking-widest px-5 py-4 transition-opacity disabled:opacity-50"
+          className="w-full font-mono text-[12px] uppercase tracking-widest px-5 py-4 transition-all duration-300 disabled:opacity-50 rounded-md"
+          style={{
+            background: 'linear-gradient(180deg, #fdfaf2 0%, #f0e3c4 100%)',
+            color: 'var(--s-ink-strong)',
+            border: '1px solid var(--s-vein-strong)',
+            boxShadow: '0 2px 6px rgba(60,45,20,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
+            fontWeight: 600,
+          }}
         >
           {status === 'sending'
             ? 'Sending…'
@@ -97,17 +112,17 @@ export function LoginClient({ prefillEmail, inviteCode }: Props) {
             : 'Email me a link'}
         </button>
         {status === 'error' && errorMsg && (
-          <p className="font-mono text-[11px] text-amber">{errorMsg}</p>
+          <p className="font-mono text-[11px]" style={{ color: 'var(--s-amber-warm)' }}>{errorMsg}</p>
         )}
         {status === 'sent' && (
-          <p className="font-mono text-[10px] text-cream/40 leading-relaxed">
+          <p className="font-mono text-[10px] leading-relaxed" style={{ color: 'var(--s-ink-faint)' }}>
             Link is good for one hour. Click it from any browser — you&apos;ll land
             in your dashboard signed in.
           </p>
         )}
       </form>
 
-      <p className="font-mono text-[10px] text-cream/25 leading-relaxed">
+      <p className="font-mono text-[10px] leading-relaxed" style={{ color: 'var(--s-ink-faint)' }}>
         Spine uses one-time email links. No passwords to remember, nothing to
         leak. We never sell your address; the only emails you get are
         sign-in links and the weekly retention digest you can disable in
