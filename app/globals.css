@@ -2,16 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * SPINE — warm marble palette (locked 2026-05-04)
+ *
+ * Site-wide palette aligned with the XXIautomate dashboard marble shell.
+ * Kept the warm graphite ink + antique gold instead of pure white + harsh
+ * gold so it still reads "library at dusk" — the original Spine soul —
+ * just translated to a marble surface instead of deep night.
+ */
+:root {
+  --s-bg:           #f3ede1;           /* warm marble base */
+  --s-bg-deep:      #eae2cf;           /* deeper cream pool */
+  --s-bg-cool:      #f7f3e9;           /* the cleanest cream */
+  --s-surface:      #ffffff;
+  --s-surface-warm: #fdfaf2;
+
+  --s-ink:          #1a1410;           /* warm graphite — never pure black */
+  --s-ink-strong:   #2a221b;
+  --s-ink-soft:     #5e564b;
+  --s-ink-faint:    #9d9486;
+  --s-ink-ghost:    #c8bfae;
+
+  --s-gold:         #b8924a;           /* antique gold (architecture) */
+  --s-gold-rich:    #d4af37;           /* highlight */
+  --s-gold-deep:    #7a5f2a;           /* shadow */
+  --s-gold-bright:  #e8c769;           /* spark */
+  --s-amber-warm:   #c97d3b;           /* preserved nod to original Spine ember */
+  --s-vein:         rgba(184,146,74,0.18);
+  --s-vein-strong:  rgba(184,146,74,0.32);
+
+  --s-shadow-1:     0 1px 2px rgba(60,45,20,0.04), 0 6px 18px rgba(60,45,20,0.06);
+  --s-shadow-2:     0 2px 4px rgba(60,45,20,0.05), 0 16px 36px rgba(60,45,20,0.10);
+}
+
 html, body {
-  background: #0D0C0A;
-  color: #E8E4DD;
+  background: var(--s-bg);
+  color: var(--s-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: rgba(232, 154, 60, 0.35);
-  color: #E8E4DD;
+  background: rgba(184, 146, 74, 0.32);
+  color: var(--s-ink);
+}
+
+/* === Marble texture layers (used by .marble-bg + .marble-vein) === */
+.marble-bg {
+  background-color: var(--s-bg);
+  background-image:
+    radial-gradient(ellipse 1100px 700px at 12% 8%, #fdfaf2 0%, rgba(253,250,242,0) 60%),
+    radial-gradient(ellipse 900px 600px at 88% 30%, rgba(232,199,105,0.10) 0%, rgba(232,199,105,0) 65%),
+    radial-gradient(ellipse 1200px 800px at 60% 105%, var(--s-bg-deep) 0%, rgba(234,226,207,0) 55%);
+}
+
+.marble-vein {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 1000' preserveAspectRatio='none'><defs><filter id='r'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='3' seed='7'/><feDisplacementMap in='SourceGraphic' scale='80'/></filter></defs><g fill='none' stroke='%23b8924a' stroke-opacity='0.10' stroke-width='1' filter='url(%23r)'><path d='M-50,180 Q400,140 720,260 T1650,220'/><path d='M-50,420 Q380,360 690,470 T1650,440'/><path d='M-50,640 Q420,580 740,700 T1650,660'/><path d='M-50,820 Q360,780 680,860 T1650,830'/></g><g fill='none' stroke='%23b8924a' stroke-opacity='0.05' stroke-width='0.6' filter='url(%23r)'><path d='M-50,300 Q500,250 800,380 T1650,330'/><path d='M-50,520 Q520,460 820,580 T1650,540'/><path d='M-50,720 Q460,680 780,790 T1650,750'/></g></svg>");
+  background-size: cover;
+  opacity: 0.85;
+  mix-blend-mode: multiply;
+}
+
+.marble-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4  0 0 0 0 0.32  0 0 0 0 0.18  0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+}
+
+/* gold-foil edge for premium cards */
+.gold-foil-top {
+  background-image: linear-gradient(90deg,
+    transparent 0%,
+    rgba(184,146,74,0.0) 6%,
+    rgba(184,146,74,0.55) 22%,
+    rgba(232,199,105,0.85) 50%,
+    rgba(184,146,74,0.55) 78%,
+    rgba(184,146,74,0.0) 94%,
+    transparent 100%);
 }
 
 @keyframes rise {
@@ -30,30 +103,25 @@ html, body {
 .rise-5 { animation-delay: 0.8s; }
 
 @keyframes ember {
-  0%, 100% { opacity: 0.35; transform: scale(1); }
-  50%      { opacity: 0.55; transform: scale(1.04); }
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.85; transform: scale(1.06); }
 }
 
 .ember {
   animation: ember 6s ease-in-out infinite;
 }
 
-details > summary::-webkit-details-marker { display: none; }
-details > summary { list-style: none; }
-
-/* Timeline thread — ambient amber candle pulse on the lamp bloom */
 @keyframes lamp {
   0%, 100% { opacity: 0.055; }
   50%       { opacity: 0.08; }
 }
 .lamp-bloom { animation: lamp 8s ease-in-out infinite; }
 
-/* Text: 22% opacity token Tailwind doesn't generate */
-.text-cream\/22  { color: rgba(232, 228, 221, 0.22); }
-.text-cream\/78  { color: rgba(232, 228, 221, 0.78); }
-.text-cream\/38  { color: rgba(232, 228, 221, 0.38); }
-.text-cream\/18  { color: rgba(232, 228, 221, 0.18); }
-.text-cream\/45  { color: rgba(232, 228, 221, 0.45); }
-.text-cream\/55  { color: rgba(232, 228, 221, 0.55); }
-.text-amber\/45  { color: rgba(232, 154, 60, 0.45); }
-.text-amber\/55  { color: rgba(232, 154, 60, 0.55); }
+@keyframes count-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.78; }
+}
+.count-pulse { animation: count-pulse 3s ease-in-out infinite; }
+
+details > summary::-webkit-details-marker { display: none; }
+details > summary { list-style: none; }

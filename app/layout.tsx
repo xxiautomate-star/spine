@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0D0C0A',
+  themeColor: '#f3ede1',
   width: 'device-width',
   initialScale: 1,
 };
@@ -43,7 +43,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${instrument.variable} ${inter.variable} ${jetbrains.variable}`}>
-      <body className="font-sans bg-night text-cream min-h-screen">{children}</body>
+      <body className="font-sans min-h-screen" style={{ background: 'var(--s-bg)', color: 'var(--s-ink)' }}>{children}</body>
     </html>
   );
 }
