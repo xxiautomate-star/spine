@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { MarketingNav } from '@/components/MarketingNav';
+import { MarketingFooter } from '@/components/MarketingFooter';
 
 // ── Plan data ─────────────────────────────────────────────────────────────
 
@@ -155,7 +157,10 @@ function TierCard({
   function handleCta() {
     if (tier.plan === 'free') return; // handled by Link
     if (!userId) {
-      window.location.href = `/login?next=/pricing`;
+      // Preserve signup intent + plan choice through the magic-link round-trip.
+      // /login reads `signup=1` to render the "Welcome in." copy, and `plan=`
+      // routes the post-auth redirect into LemonSqueezy checkout.
+      window.location.href = `/login?signup=1&plan=${tier.plan}&next=${encodeURIComponent(`/pricing?upgrade=${tier.plan}`)}`;
       return;
     }
     onUpgrade(tier.plan as 'pro' | 'team');
@@ -186,7 +191,7 @@ function TierCard({
             boxShadow: 'var(--s-shadow-1)',
           }}
         >
-          Most chosen
+          Most popular
         </span>
       )}
 
@@ -227,7 +232,7 @@ function TierCard({
       <div className="mt-10">
         {tier.plan === 'free' ? (
           <Link
-            href={userId ? '/dashboard' : '/login'}
+            href={userId ? '/dashboard' : '/login?signup=1'}
             className="inline-block w-full py-3 text-center font-mono text-[11px] uppercase tracking-widest transition-all duration-300 rounded-md"
             style={{
               background: 'transparent',
@@ -289,74 +294,7 @@ export function PricingClient({
       {/* Gold-foil top edge */}
       <div className="gold-foil-top fixed top-0 inset-x-0 h-[1.5px] z-50" style={{ opacity: 0.95 }} />
 
-      {/* Nav */}
-      <header
-        className="sticky top-0 z-40 px-6 md:px-10 py-5 flex items-center justify-between"
-        style={{
-          background: 'rgba(255, 253, 247, 0.78)',
-          backdropFilter: 'blur(20px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(150%)',
-          borderBottom: '1px solid var(--s-vein)',
-        }}
-      >
-        <Link href="/" className="flex items-center gap-3">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
-            <defs>
-              <linearGradient id="spinePricingGold" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#e8c769" />
-                <stop offset="55%" stopColor="#b8924a" />
-                <stop offset="100%" stopColor="#7a5f2a" />
-              </linearGradient>
-            </defs>
-            <circle cx="16" cy="16" r="14.5" stroke="url(#spinePricingGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
-            <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spinePricingGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-          </svg>
-          <span className="font-serif text-xl" style={{ color: 'var(--s-ink)' }}>Spine</span>
-        </Link>
-        <div className="flex items-center gap-5 font-mono text-[10px] uppercase tracking-widest">
-          <Link
-            href="/features"
-            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
-            style={{ color: 'var(--s-ink-faint)' }}
-          >
-            Features
-          </Link>
-          <Link
-            href="/proof"
-            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
-            style={{ color: 'var(--s-ink-faint)' }}
-          >
-            Proof
-          </Link>
-          <Link
-            href="/docs/mcp"
-            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
-            style={{ color: 'var(--s-ink-faint)' }}
-          >
-            Docs
-          </Link>
-          {userEmail ? (
-            <>
-              <span className="hidden md:block" style={{ color: 'var(--s-ink-ghost)' }}>{userEmail}</span>
-              <Link
-                href="/dashboard"
-                className="transition-colors duration-300 hover:[color:var(--s-ink)]"
-                style={{ color: 'var(--s-gold-deep)' }}
-              >
-                Dashboard →
-              </Link>
-            </>
-          ) : (
-            <Link
-              href="/login"
-              className="transition-colors duration-300 hover:[color:var(--s-ink)]"
-              style={{ color: 'var(--s-ink-soft)' }}
-            >
-              Sign in →
-            </Link>
-          )}
-        </div>
-      </header>
+      <MarketingNav />
 
       <div className="relative max-w-5xl mx-auto px-6 md:px-10" style={{ zIndex: 1 }}>
 
@@ -494,46 +432,7 @@ export function PricingClient({
         </div>
       </div>
 
-      {/* Footer */}
-      <footer
-        className="relative px-6 md:px-10 py-12"
-        style={{ zIndex: 1, borderTop: '1px solid var(--s-vein)' }}
-      >
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
-              <defs>
-                <linearGradient id="spinePricingFootGold" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#e8c769" />
-                  <stop offset="55%" stopColor="#b8924a" />
-                  <stop offset="100%" stopColor="#7a5f2a" />
-                </linearGradient>
-              </defs>
-              <circle cx="16" cy="16" r="14.5" stroke="url(#spinePricingFootGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
-              <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spinePricingFootGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-            </svg>
-            <span className="font-serif text-lg" style={{ color: 'var(--s-ink)' }}>Spine</span>
-          </div>
-          <div className="flex gap-6 font-mono text-[10px] uppercase tracking-widest">
-            {[
-              ['/', 'Home'],
-              ['/features', 'Features'],
-              ['/proof', 'Proof'],
-              ['/privacy', 'Privacy'],
-              ['/docs/mcp', 'Docs'],
-            ].map(([href, label]) => (
-              <Link
-                key={href}
-                href={href}
-                className="transition-colors duration-300 hover:[color:var(--s-gold-deep)]"
-                style={{ color: 'var(--s-ink-faint)' }}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </main>
   );
 }

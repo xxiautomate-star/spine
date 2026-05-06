@@ -64,6 +64,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
 
   const prefillEmail = invite && invite.ok ? invite.email : params.email ?? '';
 
+  // Treat plan-aware arrivals as signup mode. Pricing-page CTAs route here
+  // with `?plan=pro` (or `?next=/pricing?upgrade=...`); rendering "Welcome
+  // back." in those cases mis-reads obvious signup intent.
+  const isSignup =
+    params.signup === '1' ||
+    !!params.plan ||
+    (typeof params.next === 'string' && params.next.startsWith('/pricing'));
+  const planLabel = params.plan
+    ? params.plan.charAt(0).toUpperCase() + params.plan.slice(1)
+    : null;
+
   return (
     <main
       className="relative marble-bg min-h-screen flex flex-col overflow-x-hidden"
@@ -138,11 +149,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
                 You can still sign in if you already have an account, or join the waitlist for a fresh invite.
               </p>
             </>
-          ) : params.signup === '1' ? (
+          ) : isSignup ? (
             <>
               <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-6" style={{ color: 'var(--s-gold-deep)' }}>
                 <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ 001</span>
-                Spine &middot; First memory
+                {planLabel ? `Spine · Starting ${planLabel}` : 'Spine · First memory'}
               </p>
               <h1
                 className="font-serif text-5xl md:text-6xl leading-[0.98] tracking-[-0.025em] mb-5"
@@ -151,8 +162,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
                 Welcome <em className="italic" style={{ color: 'var(--s-gold-deep)' }}>in.</em>
               </h1>
               <p className="leading-relaxed mb-10" style={{ color: 'var(--s-ink-soft)' }}>
-                Enter your email — we&apos;ll send a one-time sign-in link, no password. After that
-                you&apos;ll mint an API key and the dashboard prints a one-line install command.
+                {planLabel === 'Pro'
+                  ? 'Starting on Pro · $19/month. Enter your email — we’ll send a one-time sign-in link, then drop you into checkout.'
+                  : planLabel === 'Team'
+                    ? 'Starting on Team · $59/month for 5 seats. Enter your email — we’ll send a one-time sign-in link, then drop you into checkout.'
+                    : 'Enter your email — we’ll send a one-time sign-in link, no password. After that you’ll mint an API key and the dashboard prints a one-line install command.'}
               </p>
             </>
           ) : (

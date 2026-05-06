@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { LaunchFilm } from '@/components/LaunchFilm';
+import { MarketingNav } from '@/components/MarketingNav';
+import { MarketingFooter } from '@/components/MarketingFooter';
+import { CopyCommand } from '@/components/CopyCommand';
 
 export const metadata = {
   title: 'Spine — Your AI remembers every word',
@@ -107,67 +110,8 @@ export default function Home() {
       {/* gold-foil top edge — premium chrome */}
       <div className="gold-foil-top fixed top-0 inset-x-0 h-[1.5px] z-50" style={{ opacity: 0.95 }} />
 
-      {/* ── Nav ────────────────────────────────────────────────────────────── */}
-      <nav
-        className="fixed top-0 inset-x-0 z-40 px-6 md:px-10 py-5 flex items-center justify-between"
-        style={{
-          background: 'rgba(255, 253, 247, 0.78)',
-          backdropFilter: 'blur(20px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(150%)',
-          borderBottom: '1px solid var(--s-vein)',
-        }}
-      >
-        <a href="#top" className="flex items-center gap-3">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
-            <defs>
-              <linearGradient id="spineNavGold" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#e8c769" />
-                <stop offset="55%" stopColor="#b8924a" />
-                <stop offset="100%" stopColor="#7a5f2a" />
-              </linearGradient>
-            </defs>
-            <circle cx="16" cy="16" r="14.5" stroke="url(#spineNavGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
-            <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spineNavGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-          </svg>
-          <span className="font-serif text-[1.4rem] tracking-wide" style={{ color: 'var(--s-ink)' }}>
-            Spine
-          </span>
-        </a>
-        <div className="flex items-center gap-4 md:gap-6">
-          <a href="/features" className="font-mono text-[10px] uppercase tracking-[0.2em] hidden md:block transition-colors duration-300 hover:[color:var(--s-gold-deep)]" style={{ color: 'var(--s-ink-faint)' }}>
-            Features
-          </a>
-          <a href="/pricing" className="font-mono text-[10px] uppercase tracking-[0.2em] hidden md:block transition-colors duration-300 hover:[color:var(--s-gold-deep)]" style={{ color: 'var(--s-ink-faint)' }}>
-            Pricing
-          </a>
-          <a href="/proof" className="font-mono text-[10px] uppercase tracking-[0.2em] hidden md:block transition-colors duration-300 hover:[color:var(--s-gold-deep)]" style={{ color: 'var(--s-ink-faint)' }}>
-            Proof
-          </a>
-          <a href="/docs/mcp" className="font-mono text-[10px] uppercase tracking-[0.2em] hidden md:block transition-colors duration-300 hover:[color:var(--s-gold-deep)]" style={{ color: 'var(--s-ink-faint)' }}>
-            Docs
-          </a>
-          <Link
-            href="/login"
-            className="font-mono text-[10px] uppercase tracking-[0.2em] transition-colors duration-300 hover:[color:var(--s-ink)]"
-            style={{ color: 'var(--s-ink-soft)' }}
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/login?signup=1"
-            className="font-mono text-[10px] uppercase tracking-[0.2em] px-4 py-2 transition-colors duration-300 rounded-md"
-            style={{
-              background: 'linear-gradient(180deg, #fdfaf2 0%, #f1e6c8 100%)',
-              color: 'var(--s-gold-deep)',
-              border: '1px solid var(--s-vein-strong)',
-              fontWeight: 600,
-              boxShadow: '0 1px 2px rgba(60,45,20,0.08), inset 0 1px 0 rgba(255,255,255,0.7)',
-            }}
-          >
-            Install free →
-          </Link>
-        </div>
-      </nav>
+      {/* ── Nav (shared) ───────────────────────────────────────────────────── */}
+      <MarketingNav />
 
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
       <section
@@ -262,22 +206,7 @@ export default function Home() {
 
             {/* Terminal command card */}
             <div className="mt-7 max-w-[460px] rise rise-5">
-              <div
-                className="flex items-center gap-3 px-4 py-2.5 rounded-md"
-                style={{
-                  background: 'rgba(255, 253, 247, 0.72)',
-                  border: '1px solid var(--s-vein)',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)',
-                }}
-              >
-                <span className="font-mono text-[12px] select-none" style={{ color: 'var(--s-ink-ghost)' }}>$</span>
-                <code className="font-mono text-[13px] truncate" style={{ color: 'var(--s-gold-deep)' }}>
-                  npx @spine/mcp init
-                </code>
-                <span className="ml-auto font-mono text-[9px] uppercase tracking-widest" style={{ color: 'var(--s-ink-ghost)' }}>
-                  &nbsp;copy
-                </span>
-              </div>
+              <CopyCommand command="npx @spine/mcp init" />
               <p className="mt-2.5 font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--s-ink-faint)' }}>
                 Free · No credit card · Claude · ChatGPT · Cursor
               </p>
@@ -513,16 +442,8 @@ export default function Home() {
                   <h3 className="font-serif text-2xl md:text-3xl mb-4" style={{ color: 'var(--s-ink)' }}>{s.title}</h3>
                   <p className="leading-relaxed max-w-xl mb-5" style={{ color: 'var(--s-ink-soft)' }}>{s.body}</p>
                   {s.code && (
-                    <div
-                      className="inline-flex items-center gap-3 px-4 py-2.5 rounded-lg"
-                      style={{
-                        background: 'rgba(255, 253, 247, 0.72)',
-                        border: '1px solid var(--s-vein-strong)',
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)',
-                      }}
-                    >
-                      <span className="font-mono text-[12px] select-none" style={{ color: 'var(--s-ink-ghost)' }}>$</span>
-                      <code className="font-mono text-[13px]" style={{ color: 'var(--s-gold-deep)' }}>{s.code}</code>
+                    <div className="max-w-[420px]">
+                      <CopyCommand command={s.code} size="sm" />
                     </div>
                   )}
                 </div>
@@ -715,8 +636,15 @@ export default function Home() {
                   name: 'Free',
                   price: '$0',
                   period: 'forever',
-                  blurb: 'A quiet beginning.',
-                  bullets: ['200 memories', 'Claude Code MCP', 'Browser extension', 'Export any time'],
+                  blurb: 'A quiet beginning. Enough to feel the shape of it.',
+                  bullets: [
+                    '200 memories',
+                    'Claude Code MCP integration',
+                    'Browser extension (ChatGPT, Gemini, Cursor)',
+                    'Vector recall',
+                    'JSON export, any time',
+                    'No credit card',
+                  ],
                   cta: 'Start free',
                   href: '/login?signup=1',
                   featured: false,
@@ -726,7 +654,15 @@ export default function Home() {
                   price: '$19',
                   period: 'per month',
                   blurb: 'The relationship deepens.',
-                  bullets: ['Unlimited memories', 'Conflict detection', 'Memory decay recovery', 'Required-context pins', 'Weekly digest'],
+                  bullets: [
+                    'Unlimited memories',
+                    'Hybrid vector + BM25 retrieval',
+                    'Cross-encoder rerank',
+                    'Conflict detection + resolution',
+                    'Memory decay recovery',
+                    'Required-context pins',
+                    'Weekly retention digest',
+                  ],
                   cta: 'Start Pro',
                   href: '/login?signup=1&plan=pro',
                   featured: true,
@@ -736,7 +672,13 @@ export default function Home() {
                   price: '$59',
                   period: 'per month · 5 seats',
                   blurb: 'Shared memory. Collective clarity.',
-                  bullets: ['Everything in Pro', 'Shared workspace', 'Team memory policies', 'Org audit log', 'Priority support'],
+                  bullets: [
+                    'Everything in Pro',
+                    'Shared workspace (up to 5 members)',
+                    'Team memory policies + enforcement',
+                    'Org audit log',
+                    'Priority support',
+                  ],
                   cta: 'Start Team',
                   href: '/login?signup=1&plan=team',
                   featured: false,
@@ -867,57 +809,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer
-        className="relative px-6 md:px-16 py-14"
-        style={{ zIndex: 1, borderTop: '1px solid var(--s-vein)' }}
-      >
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-3">
-              <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
-                <defs>
-                  <linearGradient id="spineFootGold" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#e8c769" />
-                    <stop offset="55%" stopColor="#b8924a" />
-                    <stop offset="100%" stopColor="#7a5f2a" />
-                  </linearGradient>
-                </defs>
-                <circle cx="16" cy="16" r="14.5" stroke="url(#spineFootGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
-                <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spineFootGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-              </svg>
-              <p className="font-serif text-2xl" style={{ color: 'var(--s-ink)' }}>Spine</p>
-            </div>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--s-ink-faint)' }}>
-              A memory layer for your AI
-            </p>
-          </div>
-          <div className="flex flex-col md:items-end gap-2">
-            <div className="flex flex-wrap gap-5 font-mono text-[10px] uppercase tracking-widest">
-              {[
-                ['/features', 'Features'],
-                ['/pricing', 'Pricing'],
-                ['/proof', 'Proof'],
-                ['/docs/mcp', 'Docs'],
-                ['/docs/team-policies', 'Teams'],
-                ['/privacy', 'Privacy'],
-              ].map(([href, label]) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="transition-colors duration-300 hover:[color:var(--s-gold-deep)]"
-                  style={{ color: 'var(--s-ink-faint)' }}
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--s-ink-ghost)' }}>
-              © {new Date().getFullYear()} · XXIautomate · Built in Sydney
-            </p>
-          </div>
-        </div>
-      </footer>
+      {/* ── Footer (shared) ─────────────────────────────────────────────── */}
+      <MarketingFooter />
     </main>
   );
 }

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { MarketingNav } from '@/components/MarketingNav';
+import { MarketingFooter } from '@/components/MarketingFooter';
 
 export const metadata = { title: 'Features — Spine' };
 
@@ -82,61 +84,7 @@ export default function FeaturesPage() {
       {/* Gold-foil top edge */}
       <div className="gold-foil-top fixed top-0 inset-x-0 h-[1.5px] z-50" style={{ opacity: 0.95 }} />
 
-      {/* Nav */}
-      <header
-        className="sticky top-0 z-40 px-6 md:px-12 py-5 flex items-center justify-between"
-        style={{
-          background: 'rgba(255, 253, 247, 0.78)',
-          backdropFilter: 'blur(20px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(150%)',
-          borderBottom: '1px solid var(--s-vein)',
-        }}
-      >
-        <Link href="/" className="flex items-center gap-3">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
-            <defs>
-              <linearGradient id="spineFeaturesGold" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#e8c769" />
-                <stop offset="55%" stopColor="#b8924a" />
-                <stop offset="100%" stopColor="#7a5f2a" />
-              </linearGradient>
-            </defs>
-            <circle cx="16" cy="16" r="14.5" stroke="url(#spineFeaturesGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
-            <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spineFeaturesGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-          </svg>
-          <span className="font-serif text-xl" style={{ color: 'var(--s-ink)' }}>Spine</span>
-        </Link>
-        <nav className="flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest">
-          <Link
-            href="/pricing"
-            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
-            style={{ color: 'var(--s-ink-faint)' }}
-          >
-            Pricing
-          </Link>
-          <Link
-            href="/proof"
-            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
-            style={{ color: 'var(--s-ink-faint)' }}
-          >
-            Proof
-          </Link>
-          <Link
-            href="/docs/mcp"
-            className="transition-colors duration-300 hidden sm:block hover:[color:var(--s-gold-deep)]"
-            style={{ color: 'var(--s-ink-faint)' }}
-          >
-            Docs
-          </Link>
-          <Link
-            href="/login?signup=1"
-            className="transition-colors duration-300 hover:[color:var(--s-ink)]"
-            style={{ color: 'var(--s-gold-deep)' }}
-          >
-            Start free →
-          </Link>
-        </nav>
-      </header>
+      <MarketingNav />
 
       <div className="relative max-w-4xl mx-auto px-6 py-20" style={{ zIndex: 1 }}>
         <div className="mb-20 rise rise-1">
@@ -243,7 +191,7 @@ export default function FeaturesPage() {
               className="font-mono transition-transform duration-300 group-hover:translate-x-1"
               style={{ color: 'var(--s-gold-deep)' }}
             >
-              →
+              {' '}→
             </span>
           </Link>
           <Link
@@ -260,46 +208,7 @@ export default function FeaturesPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer
-        className="relative px-6 md:px-10 py-12 mt-12"
-        style={{ zIndex: 1, borderTop: '1px solid var(--s-vein)' }}
-      >
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden>
-              <defs>
-                <linearGradient id="spineFeaturesFootGold" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#e8c769" />
-                  <stop offset="55%" stopColor="#b8924a" />
-                  <stop offset="100%" stopColor="#7a5f2a" />
-                </linearGradient>
-              </defs>
-              <circle cx="16" cy="16" r="14.5" stroke="url(#spineFeaturesFootGold)" strokeWidth="1" fill="rgba(255,255,255,0.6)" />
-              <path d="M16 5L16 27 M11 9L16 5L21 9 M11 23L16 27L21 23 M11 12H21 M11 16H21 M11 20H21" stroke="url(#spineFeaturesFootGold)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-            </svg>
-            <span className="font-serif text-lg" style={{ color: 'var(--s-ink)' }}>Spine</span>
-          </div>
-          <div className="flex gap-6 font-mono text-[10px] uppercase tracking-widest">
-            {[
-              ['/', 'Home'],
-              ['/pricing', 'Pricing'],
-              ['/proof', 'Proof'],
-              ['/privacy', 'Privacy'],
-              ['/docs/mcp', 'Docs'],
-            ].map(([href, label]) => (
-              <Link
-                key={href}
-                href={href}
-                className="transition-colors duration-300 hover:[color:var(--s-gold-deep)]"
-                style={{ color: 'var(--s-ink-faint)' }}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </main>
   );
 }
