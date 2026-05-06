@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { MarketingNav } from '@/components/MarketingNav';
+import { MarketingFooter } from '@/components/MarketingFooter';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Spine',
@@ -9,8 +11,8 @@ export const metadata: Metadata = {
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="py-12 border-t border-cream/10">
-      <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-6">{label}</p>
+    <section className="py-12" style={{ borderTop: '1px solid var(--s-vein)' }}>
+      <p className="font-mono text-[11px] uppercase tracking-widest mb-6" style={{ color: 'var(--s-gold-deep)' }}>{label}</p>
       {children}
     </section>
   );
@@ -18,14 +20,14 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 
 function H2({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="font-serif font-normal text-2xl md:text-3xl text-cream mb-5 leading-snug">
+    <h2 className="font-serif font-normal text-2xl md:text-3xl mb-5 leading-snug" style={{ color: 'var(--s-ink)' }}>
       {children}
     </h2>
   );
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-cream/70 leading-relaxed mb-4 last:mb-0">{children}</p>;
+  return <p className="leading-relaxed mb-4 last:mb-0" style={{ color: 'var(--s-ink-soft)' }}>{children}</p>;
 }
 
 function DataTable({ rows }: { rows: [string, string][] }) {
@@ -34,11 +36,11 @@ function DataTable({ rows }: { rows: [string, string][] }) {
       <table className="w-full text-sm border-collapse">
         <tbody>
           {rows.map(([key, val]) => (
-            <tr key={key} className="border-t border-cream/10">
+            <tr key={key} style={{ borderTop: '1px solid var(--s-vein)' }}>
               <td className="py-3 pr-6 align-top w-1/3">
-                <span className="font-mono text-[12px] text-cream/80 font-medium">{key}</span>
+                <span className="font-mono text-[12px] font-medium" style={{ color: 'var(--s-ink-strong)' }}>{key}</span>
               </td>
-              <td className="py-3 align-top text-cream/60 leading-relaxed">{val}</td>
+              <td className="py-3 align-top leading-relaxed" style={{ color: 'var(--s-ink-soft)' }}>{val}</td>
             </tr>
           ))}
         </tbody>
@@ -52,10 +54,10 @@ function ThirdPartyTable() {
     <div className="overflow-x-auto mt-4 mb-6">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-t border-cream/10">
-            <th className="py-3 pr-6 text-left font-mono text-[10px] uppercase tracking-widest text-cream/40 w-1/4">Service</th>
-            <th className="py-3 pr-6 text-left font-mono text-[10px] uppercase tracking-widest text-cream/40 w-1/3">Purpose</th>
-            <th className="py-3 text-left font-mono text-[10px] uppercase tracking-widest text-cream/40">Their policy</th>
+          <tr style={{ borderTop: '1px solid var(--s-vein)' }}>
+            <th className="py-3 pr-6 text-left font-mono text-[10px] uppercase tracking-widest w-1/4" style={{ color: 'var(--s-ink-faint)' }}>Service</th>
+            <th className="py-3 pr-6 text-left font-mono text-[10px] uppercase tracking-widest w-1/3" style={{ color: 'var(--s-ink-faint)' }}>Purpose</th>
+            <th className="py-3 text-left font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--s-ink-faint)' }}>Their policy</th>
           </tr>
         </thead>
         <tbody>
@@ -64,17 +66,18 @@ function ThirdPartyTable() {
             ['OpenAI', 'Generating embeddings for semantic search', 'openai.com/policies/privacy-policy'],
             ['LemonSqueezy', 'Payment processing (Pro and Team plans)', 'lemonsqueezy.com/privacy'],
           ].map(([svc, purpose, url]) => (
-            <tr key={svc} className="border-t border-cream/10">
+            <tr key={svc} style={{ borderTop: '1px solid var(--s-vein)' }}>
               <td className="py-3 pr-6 align-top">
-                <span className="font-mono text-[12px] text-cream/80 font-medium">{svc}</span>
+                <span className="font-mono text-[12px] font-medium" style={{ color: 'var(--s-ink-strong)' }}>{svc}</span>
               </td>
-              <td className="py-3 pr-6 align-top text-cream/60 leading-relaxed">{purpose}</td>
+              <td className="py-3 pr-6 align-top leading-relaxed" style={{ color: 'var(--s-ink-soft)' }}>{purpose}</td>
               <td className="py-3 align-top">
                 <a
                   href={`https://${url}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-[11px] text-amber/80 hover:text-amber transition-colors duration-300 underline underline-offset-4 decoration-amber/30"
+                  className="font-mono text-[11px] underline underline-offset-4 transition-colors duration-300"
+                  style={{ color: 'var(--s-gold-deep)', textDecorationColor: 'var(--s-vein-strong)' }}
                 >
                   {url}
                 </a>
@@ -102,42 +105,26 @@ function PermissionsTable() {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-night relative">
-      {/* Ambient glow */}
-      <div
-        className="pointer-events-none fixed left-1/4 top-0 w-[600px] h-[600px] rounded-full bg-amber/[0.06] blur-[160px]"
-        aria-hidden
-      />
+    <main className="relative marble-bg min-h-screen overflow-x-hidden" style={{ color: 'var(--s-ink)' }}>
+      <div className="marble-vein" style={{ position: 'fixed', zIndex: 0 }} />
+      <div className="marble-grain" style={{ position: 'fixed', zIndex: 0 }} />
+      <div className="gold-foil-top fixed top-0 inset-x-0 h-[1.5px] z-50" style={{ opacity: 0.95 }} />
 
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 px-6 md:px-10 py-5 flex items-center justify-between backdrop-blur-md bg-night/70 border-b border-cream/5">
-        <Link href="/" className="flex items-center gap-3 group">
-          <span className="block w-2 h-2 rounded-full bg-amber transition-transform duration-500 group-hover:scale-125" aria-hidden />
-          <span className="font-serif text-xl tracking-wide text-cream">Spine</span>
-        </Link>
-        <Link
-          href="/"
-          className="font-mono text-xs uppercase tracking-widest text-cream/50 hover:text-cream/80 transition-colors duration-300"
-        >
-          ← Back
-        </Link>
-      </nav>
+      <MarketingNav />
 
-      {/* Hero */}
-      <header className="px-6 md:px-16 pt-20 pb-8 max-w-3xl mx-auto">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-6">
+      <header className="relative px-6 md:px-16 pt-20 pb-8 max-w-3xl mx-auto" style={{ zIndex: 1 }}>
+        <p className="font-mono text-[11px] uppercase tracking-widest mb-6" style={{ color: 'var(--s-gold-deep)' }}>
           Legal · Privacy Policy
         </p>
-        <h1 className="font-serif font-normal text-4xl md:text-5xl text-cream leading-tight mb-5">
+        <h1 className="font-serif font-normal text-4xl md:text-5xl leading-tight mb-5" style={{ color: 'var(--s-ink)' }}>
           What we know, what we keep,<br className="hidden md:block" /> and what we never touch.
         </h1>
-        <p className="text-cream/50 leading-relaxed font-mono text-[12px]">
+        <p className="leading-relaxed font-mono text-[12px]" style={{ color: 'var(--s-ink-faint)' }}>
           Effective 20 April 2026 · XXIautomate (Roman Puglielli, ABN 46 248 687 420)
         </p>
       </header>
 
-      {/* Content */}
-      <div className="px-6 md:px-16 pb-32 max-w-3xl mx-auto">
+      <div className="relative px-6 md:px-16 pb-32 max-w-3xl mx-auto" style={{ zIndex: 1 }}>
 
         <Section label="What Spine is">
           <P>
@@ -160,7 +147,7 @@ export default function PrivacyPage() {
               ['Conversation excerpts', 'Facts extracted from the current chat session'],
             ]}
           />
-          <P>We do <strong className="text-cream font-medium">not</strong> collect:</P>
+          <P>We do <strong style={{ color: 'var(--s-ink)', fontWeight: 500 }}>not</strong> collect:</P>
           <ul className="mt-2 mb-4 space-y-2 pl-4">
             {[
               'Your full conversation history',
@@ -168,8 +155,8 @@ export default function PrivacyPage() {
               'Browsing history outside of chatgpt.com and gemini.google.com',
               'Any data from sites you haven\'t explicitly enabled in settings',
             ].map((item) => (
-              <li key={item} className="flex gap-3 text-cream/60 leading-relaxed text-sm">
-                <span className="text-amber/60 select-none flex-shrink-0">—</span>
+              <li key={item} className="flex gap-3 leading-relaxed text-sm" style={{ color: 'var(--s-ink-soft)' }}>
+                <span className="select-none flex-shrink-0" style={{ color: 'var(--s-gold)' }}>—</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -177,9 +164,9 @@ export default function PrivacyPage() {
 
           <H2>From the MCP server</H2>
           <P>
-            When you use the Spine MCP tools (<span className="font-mono text-[12px] text-cream/80 bg-cream/5 px-1.5 py-0.5 rounded">spine_remember</span>,{' '}
-            <span className="font-mono text-[12px] text-cream/80 bg-cream/5 px-1.5 py-0.5 rounded">spine_recall</span>,{' '}
-            <span className="font-mono text-[12px] text-cream/80 bg-cream/5 px-1.5 py-0.5 rounded">spine_forget</span>) inside Claude Code or Claude Desktop:
+            When you use the Spine MCP tools (<span className="font-mono text-[12px] px-1.5 py-0.5 rounded" style={{ color: 'var(--s-ink-strong)', background: 'rgba(184,146,74,0.10)' }}>spine_remember</span>,{' '}
+            <span className="font-mono text-[12px] px-1.5 py-0.5 rounded" style={{ color: 'var(--s-ink-strong)', background: 'rgba(184,146,74,0.10)' }}>spine_recall</span>,{' '}
+            <span className="font-mono text-[12px] px-1.5 py-0.5 rounded" style={{ color: 'var(--s-ink-strong)', background: 'rgba(184,146,74,0.10)' }}>spine_forget</span>) inside Claude Code or Claude Desktop:
           </P>
           <DataTable
             rows={[
@@ -191,7 +178,7 @@ export default function PrivacyPage() {
 
         <Section label="How we store it">
           <P>
-            Everything is stored in <strong className="text-cream font-medium">your personal database row</strong>, keyed
+            Everything is stored in <strong style={{ color: 'var(--s-ink)', fontWeight: 500 }}>your personal database row</strong>, keyed
             to your account. Row-level security ensures no other user can read your data.
           </P>
           <ul className="mt-2 mb-4 space-y-3 pl-4">
@@ -201,8 +188,8 @@ export default function PrivacyPage() {
               'We do not sell, license, or share your memory data with any third party.',
               'We do not use your memories to train models.',
             ].map((item) => (
-              <li key={item} className="flex gap-3 text-cream/60 leading-relaxed text-sm">
-                <span className="text-amber/60 select-none flex-shrink-0 mt-px">—</span>
+              <li key={item} className="flex gap-3 leading-relaxed text-sm" style={{ color: 'var(--s-ink-soft)' }}>
+                <span className="select-none flex-shrink-0 mt-px" style={{ color: 'var(--s-gold)' }}>—</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -228,8 +215,8 @@ export default function PrivacyPage() {
               'Deletion is permanent. We do not retain backups of deleted memories.',
               'LemonSqueezy retains billing records as required by payment regulations; we have no control over that.',
             ].map((item) => (
-              <li key={item} className="flex gap-3 text-cream/60 leading-relaxed text-sm">
-                <span className="text-amber/60 select-none flex-shrink-0 mt-px">—</span>
+              <li key={item} className="flex gap-3 leading-relaxed text-sm" style={{ color: 'var(--s-ink-soft)' }}>
+                <span className="select-none flex-shrink-0 mt-px" style={{ color: 'var(--s-gold)' }}>—</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -264,7 +251,8 @@ export default function PrivacyPage() {
             Questions? Email{' '}
             <a
               href="mailto:rsautomateads@gmail.com"
-              className="text-amber/80 hover:text-amber transition-colors duration-300 underline underline-offset-4 decoration-amber/30"
+              className="underline underline-offset-4 transition-colors duration-300"
+              style={{ color: 'var(--s-gold-deep)', textDecorationColor: 'var(--s-vein-strong)' }}
             >
               rsautomateads@gmail.com
             </a>{' '}
@@ -273,7 +261,8 @@ export default function PrivacyPage() {
               href="https://github.com/xxiautomate-star/spine"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[12px] text-amber/80 hover:text-amber transition-colors duration-300 underline underline-offset-4 decoration-amber/30"
+              className="font-mono text-[12px] underline underline-offset-4 transition-colors duration-300"
+              style={{ color: 'var(--s-gold-deep)', textDecorationColor: 'var(--s-vein-strong)' }}
             >
               github.com/xxiautomate-star/spine
             </a>
@@ -281,21 +270,23 @@ export default function PrivacyPage() {
           </P>
         </Section>
 
-        {/* Footer divider */}
-        <div className="border-t border-cream/5 pt-10 mt-4">
+        <div className="pt-10 mt-4" style={{ borderTop: '1px solid var(--s-vein)' }}>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-widest text-cream/30">
+            <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: 'var(--s-ink-faint)' }}>
               © {new Date().getFullYear()} XXIautomate · ABN 46 248 687 420
             </p>
             <Link
               href="/"
-              className="font-mono text-[11px] uppercase tracking-widest text-cream/40 hover:text-amber transition-colors duration-300"
+              className="font-mono text-[11px] uppercase tracking-widest transition-colors duration-300"
+              style={{ color: 'var(--s-gold-deep)' }}
             >
               spine.xxiautomate.com →
             </Link>
           </div>
         </div>
       </div>
+
+      <MarketingFooter />
     </main>
   );
 }

@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { MarketingNav } from '@/components/MarketingNav';
+import { MarketingFooter } from '@/components/MarketingFooter';
 
 // ── Plan data ─────────────────────────────────────────────────────────────
 
@@ -118,21 +120,22 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border-b border-cream/[0.08]">
+    <div style={{ borderBottom: '1px solid var(--s-vein)' }}>
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full py-6 flex items-start justify-between gap-6 text-left"
       >
-        <span className="font-serif text-lg md:text-xl text-cream/85">{q}</span>
+        <span className="font-serif text-lg md:text-xl" style={{ color: 'var(--s-ink-strong)' }}>{q}</span>
         <span
-          className={`font-mono text-amber text-xl leading-none flex-shrink-0 mt-0.5 transition-transform duration-500 ${open ? 'rotate-45' : ''}`}
+          className={`font-mono text-xl leading-none flex-shrink-0 mt-0.5 transition-transform duration-500 ${open ? 'rotate-45' : ''}`}
+          style={{ color: 'var(--s-gold-deep)' }}
           aria-hidden
         >
           +
         </span>
       </button>
       {open && (
-        <p className="pb-6 text-[15px] leading-relaxed text-cream/55 max-w-2xl">{a}</p>
+        <p className="pb-6 text-[15px] leading-relaxed max-w-2xl" style={{ color: 'var(--s-ink-soft)' }}>{a}</p>
       )}
     </div>
   );
@@ -151,12 +154,13 @@ function TierCard({
   loading: Plan | null;
   onUpgrade: (plan: 'pro' | 'team') => void;
 }) {
-  const isPaid = tier.plan !== 'free';
-
   function handleCta() {
     if (tier.plan === 'free') return; // handled by Link
     if (!userId) {
-      window.location.href = `/login?next=/pricing`;
+      // Preserve signup intent + plan choice through the magic-link round-trip.
+      // /login reads `signup=1` to render the "Welcome in." copy, and `plan=`
+      // routes the post-auth redirect into LemonSqueezy checkout.
+      window.location.href = `/login?signup=1&plan=${tier.plan}&next=${encodeURIComponent(`/pricing?upgrade=${tier.plan}`)}`;
       return;
     }
     onUpgrade(tier.plan as 'pro' | 'team');
@@ -166,36 +170,60 @@ function TierCard({
 
   return (
     <div
-      className={`relative flex flex-col p-8 md:p-10 border transition-all duration-500 ${
-        tier.featured
-          ? 'border-amber/35 bg-amber/[0.03] shadow-[0_0_80px_-30px_rgba(232,154,60,0.18)]'
-          : 'border-cream/[0.08] hover:border-cream/20'
-      }`}
+      className="relative flex flex-col p-8 md:p-10 rounded-xl transition-all duration-500 hover:translate-y-[-2px] overflow-hidden"
+      style={{
+        background: tier.featured
+          ? 'linear-gradient(180deg, #fdfaf2 0%, #f5ecd4 100%)'
+          : 'linear-gradient(180deg, #ffffff 0%, #fdfaf2 100%)',
+        border: `1px solid ${tier.featured ? 'var(--s-vein-strong)' : 'var(--s-vein)'}`,
+        boxShadow: tier.featured ? 'var(--s-shadow-2)' : 'var(--s-shadow-1)',
+      }}
     >
       {tier.featured && (
-        <div className="absolute -top-px inset-x-0 h-px bg-gradient-to-r from-transparent via-amber/60 to-transparent" />
+        <div className="gold-foil-top absolute top-0 inset-x-0 h-[1.5px]" style={{ opacity: 0.95 }} />
       )}
       {tier.featured && (
-        <span className="absolute -top-3 left-8 px-2.5 py-0.5 bg-amber text-night font-mono text-[9px] uppercase tracking-widest">
-          Most chosen
+        <span
+          className="absolute -top-3 left-8 px-3 py-1 font-mono text-[9px] uppercase tracking-widest rounded-md"
+          style={{
+            background: 'var(--s-ink)',
+            color: 'var(--s-bg-cool)',
+            boxShadow: 'var(--s-shadow-1)',
+          }}
+        >
+          Most popular
         </span>
       )}
 
-      <p className={`font-mono text-[10px] uppercase tracking-widest ${tier.featured ? 'text-amber/80' : 'text-cream/40'}`}>
+      <p
+        className="font-mono text-[10px] uppercase tracking-[0.22em]"
+        style={{ color: tier.featured ? 'var(--s-gold-deep)' : 'var(--s-ink-faint)' }}
+      >
         {tier.name}
       </p>
 
       <div className="mt-6 flex items-baseline gap-2">
-        <span className="font-serif text-[3.25rem] leading-none text-cream">{tier.price}</span>
-        <span className="text-[13px] text-cream/35">{tier.period}</span>
+        <span
+          className="font-serif text-[3.25rem] leading-none"
+          style={{ color: tier.featured ? 'var(--s-gold-deep)' : 'var(--s-ink)' }}
+        >
+          {tier.price}
+        </span>
+        <span className="text-[13px]" style={{ color: 'var(--s-ink-faint)' }}>{tier.period}</span>
       </div>
 
-      <p className="mt-3 font-serif italic text-[15px] text-cream/50 leading-snug">{tier.tagline}</p>
+      <p className="mt-3 font-serif italic text-[15px] leading-snug" style={{ color: 'var(--s-ink-soft)' }}>
+        {tier.tagline}
+      </p>
 
       <ul className="mt-8 space-y-3 flex-1">
         {tier.features.map((f) => (
-          <li key={f} className="flex items-start gap-3 text-[14px] text-cream/65 leading-snug">
-            <span className="text-amber/50 select-none mt-[1px]">—</span>
+          <li
+            key={f}
+            className="flex items-start gap-3 text-[14px] leading-snug"
+            style={{ color: 'var(--s-ink-soft)' }}
+          >
+            <span style={{ color: 'var(--s-gold)' }} className="select-none mt-[1px]">—</span>
             <span>{f}</span>
           </li>
         ))}
@@ -204,8 +232,13 @@ function TierCard({
       <div className="mt-10">
         {tier.plan === 'free' ? (
           <Link
-            href={userId ? '/dashboard' : '/login'}
-            className="inline-flex items-center gap-2 py-2 border-b border-cream/25 hover:border-cream text-cream/70 hover:text-cream font-mono text-[11px] uppercase tracking-wider transition-all duration-300"
+            href={userId ? '/dashboard' : '/login?signup=1'}
+            className="inline-block w-full py-3 text-center font-mono text-[11px] uppercase tracking-widest transition-all duration-300 rounded-md"
+            style={{
+              background: 'transparent',
+              color: 'var(--s-ink-soft)',
+              border: '1px solid var(--s-vein-strong)',
+            }}
           >
             {tier.cta} →
           </Link>
@@ -213,11 +246,13 @@ function TierCard({
           <button
             onClick={handleCta}
             disabled={isLoading}
-            className={`inline-flex items-center gap-2 py-2 border-b font-mono text-[11px] uppercase tracking-wider transition-all duration-300 disabled:opacity-50 ${
-              tier.featured
-                ? 'border-amber/60 text-amber hover:border-amber'
-                : 'border-cream/25 text-cream/70 hover:border-cream hover:text-cream'
-            }`}
+            className="inline-block w-full py-3 text-center font-mono text-[11px] uppercase tracking-widest transition-all duration-300 disabled:opacity-50 rounded-md"
+            style={{
+              background: tier.featured ? 'var(--s-ink)' : 'transparent',
+              color: tier.featured ? 'var(--s-bg-cool)' : 'var(--s-ink-soft)',
+              border: tier.featured ? '1px solid var(--s-ink)' : '1px solid var(--s-vein-strong)',
+              boxShadow: tier.featured ? 'var(--s-shadow-1)' : 'none',
+            }}
           >
             {isLoading ? 'Opening checkout…' : `${tier.cta} →`}
           </button>
@@ -251,57 +286,32 @@ export function PricingClient({
   }
 
   return (
-    <>
-      {/* Atmosphere */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
-        <div className="absolute top-0 left-1/4 w-[700px] h-[700px] rounded-full bg-amber/[0.05] blur-[220px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-ink/20 blur-[200px]" />
-        <svg className="absolute inset-0 w-full h-full opacity-[0.022]" xmlns="http://www.w3.org/2000/svg">
-          <filter id="noise-p">
-            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-            <feColorMatrix type="saturate" values="0" />
-          </filter>
-          <rect width="100%" height="100%" filter="url(#noise-p)" />
-        </svg>
-      </div>
+    <main className="relative marble-bg min-h-screen overflow-x-hidden" style={{ color: 'var(--s-ink)' }}>
+      {/* Marble texture overlays */}
+      <div className="marble-vein" style={{ position: 'fixed', zIndex: 0 }} />
+      <div className="marble-grain" style={{ position: 'fixed', zIndex: 0 }} />
 
-      {/* Nav */}
-      <header className="sticky top-0 z-50 px-6 md:px-10 py-5 flex items-center justify-between backdrop-blur-md bg-night/75 border-b border-cream/[0.05]">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="block w-[7px] h-[7px] rounded-full bg-amber ember" aria-hidden />
-          <span className="font-serif text-xl text-cream">Spine</span>
-        </Link>
-        <div className="flex items-center gap-5 font-mono text-[10px] uppercase tracking-widest">
-          <Link href="/demo" className="text-cream/35 hover:text-cream/65 transition-colors duration-300 hidden sm:block">
-            Demo
-          </Link>
-          <Link href="/install" className="text-cream/35 hover:text-cream/65 transition-colors duration-300 hidden sm:block">
-            Install
-          </Link>
-          {userEmail ? (
-            <>
-              <span className="text-cream/22 hidden md:block">{userEmail}</span>
-              <Link href="/dashboard" className="text-amber/70 hover:text-amber transition-colors duration-300">
-                Dashboard →
-              </Link>
-            </>
-          ) : (
-            <Link href="/login" className="text-cream/50 hover:text-amber transition-colors duration-300">
-              Sign in →
-            </Link>
-          )}
-        </div>
-      </header>
+      {/* Gold-foil top edge */}
+      <div className="gold-foil-top fixed top-0 inset-x-0 h-[1.5px] z-50" style={{ opacity: 0.95 }} />
 
-      <div className="relative max-w-5xl mx-auto px-6 md:px-10">
+      <MarketingNav />
+
+      <div className="relative max-w-5xl mx-auto px-6 md:px-10" style={{ zIndex: 1 }}>
 
         {/* Hero */}
         <div className="pt-20 pb-16 rise rise-1">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-amber/55 mb-5">Pricing</p>
-          <h1 className="font-serif text-[clamp(3rem,8vw,6rem)] leading-[0.92] tracking-[-0.015em] text-cream/90 mb-5">
-            Pay for what lasts.
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-5" style={{ color: 'var(--s-gold-deep)' }}>
+            <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ 001</span>
+            Pricing
+          </p>
+          <h1
+            className="font-serif text-[clamp(3rem,8vw,6rem)] leading-[0.92] tracking-[-0.025em] mb-5"
+            style={{ color: 'var(--s-ink)' }}
+          >
+            Pay for what{' '}
+            <em className="italic" style={{ color: 'var(--s-gold-deep)' }}>lasts.</em>
           </h1>
-          <p className="text-cream/40 text-[15px] leading-relaxed max-w-xl">
+          <p className="text-[15px] leading-relaxed max-w-xl" style={{ color: 'var(--s-ink-soft)' }}>
             Start free, no card required. Upgrade when your archive outgrows the beginning.
             Billed monthly. Cancel any time from the dashboard.
           </p>
@@ -321,7 +331,7 @@ export function PricingClient({
         </div>
 
         {error && (
-          <p className="mt-6 text-center font-mono text-[11px] text-amber/70">{error}</p>
+          <p className="mt-6 text-center font-mono text-[11px]" style={{ color: 'var(--s-amber-warm)' }}>{error}</p>
         )}
 
         {/* Trust line */}
@@ -332,19 +342,35 @@ export function PricingClient({
             'Data exportable as JSON',
             'Encrypted at rest',
           ].map((item) => (
-            <span key={item} className="font-mono text-[10px] uppercase tracking-wider text-cream/22 flex items-center gap-2">
-              <span className="w-[4px] h-[4px] rounded-full bg-amber/30 inline-block" />
+            <span
+              key={item}
+              className="font-mono text-[10px] uppercase tracking-wider flex items-center gap-2"
+              style={{ color: 'var(--s-ink-faint)' }}
+            >
+              <span
+                className="w-[4px] h-[4px] rounded-full inline-block"
+                style={{ background: 'var(--s-gold)' }}
+              />
               {item}
             </span>
           ))}
         </div>
 
         {/* Comparison note */}
-        <div className="mt-20 mb-12 border-t border-cream/[0.06] pt-16 rise rise-3">
-          <h2 className="font-serif text-3xl md:text-4xl text-cream/85 mb-3">
+        <div
+          className="mt-20 mb-12 pt-16 rise rise-3"
+          style={{ borderTop: '1px solid var(--s-vein)' }}
+        >
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-5" style={{ color: 'var(--s-gold-deep)' }}>
+            <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ 002</span>
+            Foundation
+          </p>
+          <h2 className="font-serif text-3xl md:text-4xl mb-3" style={{ color: 'var(--s-ink)' }}>
             All plans include.
           </h2>
-          <p className="text-cream/35 text-sm mb-10">Every Spine account starts with this foundation.</p>
+          <p className="text-sm mb-10" style={{ color: 'var(--s-ink-soft)' }}>
+            Every Spine account starts with this foundation.
+          </p>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-4">
             {[
               'MCP protocol (Claude Code + Desktop)',
@@ -357,8 +383,12 @@ export function PricingClient({
               'GDPR-compliant deletion',
               'Supabase-backed — your data is yours',
             ].map((item) => (
-              <div key={item} className="flex items-start gap-3 text-[14px] text-cream/55">
-                <span className="text-amber/35 mt-[2px] flex-shrink-0">—</span>
+              <div
+                key={item}
+                className="flex items-start gap-3 text-[14px]"
+                style={{ color: 'var(--s-ink-soft)' }}
+              >
+                <span style={{ color: 'var(--s-gold)' }} className="mt-[2px] flex-shrink-0">—</span>
                 <span>{item}</span>
               </div>
             ))}
@@ -366,11 +396,18 @@ export function PricingClient({
         </div>
 
         {/* FAQ */}
-        <div className="border-t border-cream/[0.06] pt-16 pb-4 rise rise-4">
-          <h2 className="font-serif text-3xl md:text-4xl text-cream/85 mb-10">
-            Questions.
+        <div
+          className="pt-16 pb-4 rise rise-4"
+          style={{ borderTop: '1px solid var(--s-vein)' }}
+        >
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] mb-5" style={{ color: 'var(--s-gold-deep)' }}>
+            <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ 003</span>
+            Questions
+          </p>
+          <h2 className="font-serif text-3xl md:text-4xl mb-10" style={{ color: 'var(--s-ink)' }}>
+            Things people ask.
           </h2>
-          <div className="border-t border-cream/[0.08]">
+          <div style={{ borderTop: '1px solid var(--s-vein)' }}>
             {FAQS.map((f) => (
               <FaqItem key={f.q} q={f.q} a={f.a} />
             ))}
@@ -379,33 +416,23 @@ export function PricingClient({
 
         {/* Bottom CTA */}
         <div className="py-24 text-center rise rise-5">
-          <p className="font-serif italic text-2xl text-cream/30 mb-6">
+          <p className="font-serif italic text-2xl mb-6" style={{ color: 'var(--s-ink-soft)' }}>
             Still not sure? Read the archive.
           </p>
           <Link
-            href="/demo"
-            className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-amber/60 hover:text-amber border-b border-amber/25 hover:border-amber/60 pb-[1px] transition-all duration-300"
+            href="/proof"
+            className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest pb-[1px] transition-all duration-300"
+            style={{
+              color: 'var(--s-gold-deep)',
+              borderBottom: '1px solid var(--s-vein-strong)',
+            }}
           >
-            Browse the live demo →
+            Open the diary →
           </Link>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-cream/[0.05] px-6 md:px-10 py-12">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <span className="block w-[7px] h-[7px] rounded-full bg-amber ember" aria-hidden />
-            <span className="font-serif text-lg text-cream">Spine</span>
-          </div>
-          <div className="flex gap-6 font-mono text-[10px] uppercase tracking-widest text-cream/25">
-            <Link href="/" className="hover:text-amber transition-colors duration-300">Home</Link>
-            <Link href="/demo" className="hover:text-amber transition-colors duration-300">Demo</Link>
-            <Link href="/privacy" className="hover:text-amber transition-colors duration-300">Privacy</Link>
-            <Link href="/install" className="hover:text-amber transition-colors duration-300">Install</Link>
-          </div>
-        </div>
-      </footer>
-    </>
+      <MarketingFooter />
+    </main>
   );
 }
