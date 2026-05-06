@@ -161,6 +161,31 @@ export default async function ProofPage() {
         )}
       </section>
 
+      {/* Compaction proof — the headline thesis */}
+      <section className="relative px-6 md:px-16 py-16 border-t border-cream/[0.05] max-w-5xl mx-auto">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C] mb-6">
+          § 001a · Compaction proof
+        </p>
+        <h2 className="font-serif text-3xl md:text-5xl text-cream leading-[1.1] mb-6 max-w-3xl">
+          Claude folded turn 3.
+          <br />
+          <em className="italic text-[#E89A3C]">Spine returned it verbatim.</em>
+        </h2>
+        <p className="text-cream/65 leading-relaxed mb-8 max-w-2xl">
+          The numbers above measure recall quality. They don&rsquo;t prove
+          the headline thesis on their own. The compaction-proof page does:
+          one captured session, 142 turns, compaction at turn 84, Spine
+          recalled the turn-3 architectural decision in 187ms — byte-identical
+          to the original.
+        </p>
+        <Link
+          href="/proof/compaction"
+          className="inline-flex items-center gap-2 px-5 py-3 border border-[#E89A3C]/40 text-[#E89A3C] font-mono text-[11px] uppercase tracking-widest hover:bg-[#E89A3C]/[0.04] transition-colors duration-300"
+        >
+          See the receipt →
+        </Link>
+      </section>
+
       {/* Comparison table */}
       <section className="relative px-6 md:px-16 py-20 border-t border-cream/[0.05] max-w-5xl mx-auto">
         <p className="font-mono text-[10px] uppercase tracking-widest text-[#E89A3C] mb-6">
