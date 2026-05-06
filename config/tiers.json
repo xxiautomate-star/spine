@@ -1,0 +1,59 @@
+{
+  "_comment": "Spine pricing tiers. Edit values without redeploying — Next.js reads at request time. price=null means 'placeholder pricing TBD' and the UI shows 'Coming soon'. Roman explicitly said 2026-05-04: no hard-coded prices on the checkout page until tier strategy is locked. PayPal subscription IDs go in paypal_plan_id once Roman creates them in PayPal Business -> Subscriptions.",
+  "currency": "USD",
+  "tiers": [
+    {
+      "id": "spark",
+      "name": "Spark",
+      "tagline": "A quiet beginning. Enough to feel the shape of it.",
+      "price": null,
+      "period": "month",
+      "features": [
+        "Memory cap (TBD)",
+        "Claude Code MCP integration",
+        "Browser extension (ChatGPT, Gemini)",
+        "Vector recall",
+        "JSON export, any time"
+      ],
+      "paypal_plan_id": null,
+      "featured": false,
+      "cta": "Get started"
+    },
+    {
+      "id": "studio",
+      "name": "Studio",
+      "tagline": "The relationship deepens.",
+      "price": null,
+      "period": "month",
+      "features": [
+        "Unlimited memories",
+        "Hybrid vector + BM25 retrieval",
+        "Cross-encoder rerank",
+        "Conflict detection + resolution",
+        "Memory decay recovery",
+        "Required-context pins",
+        "Weekly retention digest"
+      ],
+      "paypal_plan_id": null,
+      "featured": true,
+      "cta": "Start Studio"
+    },
+    {
+      "id": "studio-pro",
+      "name": "Studio Pro",
+      "tagline": "Shared memory. Collective clarity.",
+      "price": null,
+      "period": "month",
+      "features": [
+        "Everything in Studio",
+        "Shared workspace (up to 5 members)",
+        "Team memory policies + enforcement",
+        "Org audit log",
+        "Priority support"
+      ],
+      "paypal_plan_id": null,
+      "featured": false,
+      "cta": "Start Studio Pro"
+    }
+  ]
+}

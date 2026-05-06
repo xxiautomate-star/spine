@@ -212,11 +212,29 @@ export async function hookStopCommand(): Promise<void> {
       const store = new CloudStore(spineConfig.apiBase ?? DEFAULT_API_BASE, spineConfig.apiKey);
       await store.captureBulk(inputs);
     } else {
-      const store = new LocalStore(SPINE_DB_PATH);
-      await store.captureBulk(inputs);
-      store.close();
+      // Local mode = the user's own machine. The plan cap (free=100) is a
+      // SaaS billing concept — it should NEVER apply to local SQLite, otherwise
+      // every Stop hook silently throws PlanLimitError once the local DB
+      // crosses 100 rows. enforceCap:false here is the fix.
+      const store = new LocalStore(SPINE_DB_PATH, { enforceCap: false });
+      try {
+        await store.captureBulk(inputs);
+      } finally {
+        store.close();
+      }
     }
-  } catch {
-    // Fire-and-forget — never block the session
+  } catch (err) {
+    // Fire-and-forget — never block the session — but DO leave a breadcrumb so
+    // future silent failures are debuggable. Append to ~/.spine/error.log.
+    try {
+      const { appendFile } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { homedir } = await import('node:os');
+      const logPath = join(homedir(), '.spine', 'error.log');
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      await appendFile(logPath, `[${new Date().toISOString()}] hook-stop: ${msg}\n`);
+    } catch {
+      /* really nothing we can do */
+    }
   }
 }

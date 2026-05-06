@@ -103,13 +103,25 @@ export async function captureTurnCommand(): Promise<void> {
       await store.captureTurn(turnInput);
       return;
     }
-    const store = new LocalStore(DB_PATH);
+    // Local mode = user's own machine. Plan cap is for cloud billing only.
+    const store = new LocalStore(DB_PATH, { enforceCap: false });
     try {
       await store.captureTurn(turnInput);
     } finally {
       store.close();
     }
-  } catch {
-    // Fire-and-forget; never block the prompt.
+  } catch (err) {
+    // Fire-and-forget; never block the prompt. But log so future silent
+    // failures are debuggable.
+    try {
+      const { appendFile } = await import('node:fs/promises');
+      const { join } = await import('node:path');
+      const { homedir } = await import('node:os');
+      const logPath = join(homedir(), '.spine', 'error.log');
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      await appendFile(logPath, `[${new Date().toISOString()}] capture-turn: ${msg}\n`);
+    } catch {
+      /* swallow */
+    }
   }
 }

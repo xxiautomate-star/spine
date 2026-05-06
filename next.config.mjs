@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // output: 'standalone' was for Docker/Coolify self-hosting. Vercel uses
+  // its own output format — leaving this set causes 404 NOT_FOUND on every
+  // route because Vercel doesn't read .next/standalone/.
   reactStrictMode: true,
   // better-sqlite3 is a native node module used by /api/dogfood/diary.
   // Without this, Next's webpack bundler tries to inline it and the

@@ -44,11 +44,16 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabase();
   if (!supabase) {
-    console.warn('[waitlist] Supabase env vars missing; accepting without persistence.', {
+    // 2026-05-04 fix: previously this returned `{ok:true, queued:true}` even
+    // when env vars were missing, silently dropping every signup. Now we
+    // return 503 so the frontend can surface a real failure.
+    console.error('[waitlist] Supabase env vars missing — returning 503', {
       email: normalisedEmail,
-      tier_interest: tier,
     });
-    return NextResponse.json({ ok: true, queued: true });
+    return NextResponse.json(
+      { error: 'Waitlist temporarily unavailable. Please try again shortly.' },
+      { status: 503 }
+    );
   }
 
   const { error } = await supabase.from('waitlist').insert({
