@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { revalidateTag } from 'next/cache';
+// revalidateTag/expireTag signature changed in Next 16 — temporarily skip
+// the on-demand purge. /api/hygiene/summary will see slightly stale counts
+// (refreshed on its own revalidate window) until we wire the new API.
 import { requireApiKeyWithScope, logKeyReceipt } from '@/lib/auth';
 import { embedManyWithMeta } from '@/lib/embeddings';
 import { getSupabase } from '@/lib/supabase';
@@ -450,7 +452,8 @@ export async function POST(req: NextRequest) {
   // hit (from the extension or spine_hygiene tool) returns fresh counts.
   // Global tag — acceptable because the underlying query is four cheap
   // head counts per user and a capture is a rare event.
-  revalidateTag('hygiene');
+  // TEMPORARILY DISABLED — Next 16 cache API signature change.
+  // revalidateTag('hygiene');
 
   const embedded = vectorByIdx.size;
   // Tier counts for the response — useful for debugging + dashboard live
