@@ -6,11 +6,12 @@ import type Stripe from 'stripe';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const PLAN_CAPS: Record<string, number | null> = {
-  free: 100,
-  pro: 1000,
-  team: null,   // unlimited
-};
+// NOTE: profiles schema (supabase/schema.sql:92-104) uses `user_id` as PK,
+// NOT `id`. There is no `memory_cap` column — plan caps are computed at
+// read time via `captureCap(plan)` in lib/plan-limits.ts. The previous
+// version of this webhook upserted into non-existent columns, so paid
+// customers silently stayed on the free tier. Keep the column names below
+// in lockstep with schema.sql.
 
 export async function POST(req: NextRequest) {
   const sig = req.headers.get('stripe-signature');
@@ -49,14 +50,15 @@ export async function POST(req: NextRequest) {
     if (userId && plan) {
       const supabase = getSupabase();
       if (supabase) {
+        const now = new Date().toISOString();
         await supabase.from('profiles').upsert(
           {
-            id: userId,
+            user_id: userId,
             plan,
-            memory_cap: PLAN_CAPS[plan] ?? null,
-            updated_at: new Date().toISOString(),
+            plan_updated_at: now,
+            updated_at: now,
           },
-          { onConflict: 'id' },
+          { onConflict: 'user_id' },
         );
       }
     }
@@ -68,14 +70,15 @@ export async function POST(req: NextRequest) {
     if (userId) {
       const supabase = getSupabase();
       if (supabase) {
+        const now = new Date().toISOString();
         await supabase.from('profiles').upsert(
           {
-            id: userId,
+            user_id: userId,
             plan: 'free',
-            memory_cap: PLAN_CAPS.free,
-            updated_at: new Date().toISOString(),
+            plan_updated_at: now,
+            updated_at: now,
           },
-          { onConflict: 'id' },
+          { onConflict: 'user_id' },
         );
       }
     }
