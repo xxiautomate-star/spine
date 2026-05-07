@@ -15,6 +15,9 @@ const nextConfig = {
       // page lives at /proof — keep both URLs from going dark when
       // someone shares the older link.
       { source: '/benchmarks', destination: '/proof', permanent: true },
+      // /docs has no index — only /docs/mcp and /docs/team-policies.
+      // Send bare /docs to the MCP install guide so the URL doesn't 404.
+      { source: '/docs', destination: '/docs/mcp', permanent: false },
     ];
   },
 };

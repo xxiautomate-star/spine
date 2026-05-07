@@ -270,7 +270,7 @@ export function CheckoutClient({ tiers, currency, selectedTierId, paypalClientId
                   {apiKey}
                 </code>
                 <Link
-                  href="/dashboard"
+                  href="/dashboard/memories"
                   className="inline-block mt-4 font-mono text-[10px] uppercase tracking-[0.22em] transition-colors duration-300 hover:[color:var(--s-ink)]"
                   style={{ color: 'var(--s-gold-deep)' }}
                 >
