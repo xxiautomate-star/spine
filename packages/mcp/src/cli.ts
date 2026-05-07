@@ -11,6 +11,7 @@ import { captureTurnCommand } from './commands/capture-turn.js';
 import { sessionDigestCommand } from './commands/session-digest.js';
 import { weeklyDigestCommand } from './commands/weekly-digest.js';
 import { dogfoodCommand } from './commands/dogfood.js';
+import { migrateToCloudCommand } from './commands/migrate-to-cloud.js';
 
 const USAGE = `spine-mcp — the memory layer for your AI
 
@@ -33,6 +34,9 @@ Usage:
                                      Roll up the week's session digests; outputs paste-ready markdown
   npx spine-mcp dogfood [--db PATH] Same as serve, but records every tool call to ~/.spine/dogfood.db
                                      Used for the self-audit diary (see docs/DOGFOOD_PROTOCOL.md)
+  npx spine-mcp migrate-to-cloud --key KEY [--dry-run] [--keep-local] [--batch-size N]
+                                     Drain the local SQLite memories.db into the cloud archive,
+                                     keep a renamed backup on disk, switch config to cloud mode
   npx spine-mcp login --key KEY     Switch to cloud mode (alias for init --key)
   npx spine-mcp --version           Print version
 
@@ -99,6 +103,8 @@ async function main() {
       return weeklyDigestCommand(rest);
     case 'dogfood':
       return dogfoodCommand(rest);
+    case 'migrate-to-cloud':
+      return migrateToCloudCommand(rest);
     case '-v':
     case '--version': {
       const pkg = JSON.parse(
