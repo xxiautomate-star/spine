@@ -1,4 +1,4 @@
-# @spine/mcp
+# spine-mcp
 
 > **A memory layer for your AI. One command, click approve, your AI remembers.**
 
@@ -12,7 +12,7 @@ design: nothing is summarised, nothing is overwritten, nothing is forgotten.
 ## Install
 
 ```bash
-npx @spine/mcp init
+npx spine-mcp init
 ```
 
 Browser opens. You sign in (magic link, no password). Click approve. The
@@ -24,8 +24,8 @@ No API key paste. No copy-paste from a dashboard. Same experience as
 
 ```bash
 # Power-user fast paths still work:
-npx @spine/mcp init --key spine_live_…   # if you already have a key
-npx @spine/mcp init --local              # zero-account, all on-device
+npx spine-mcp init --key spine_live_…   # if you already have a key
+npx spine-mcp init --local              # zero-account, all on-device
 ```
 
 After install: restart Claude Code, then capture starts working
@@ -91,8 +91,8 @@ artifact. Themes, decisions, open threads, commits. Paste-ready
 markdown.
 
 ```bash
-npx @spine/mcp weekly-digest          # last complete week
-npx @spine/mcp weekly-digest --week=2026-W17
+npx spine-mcp weekly-digest          # last complete week
+npx spine-mcp weekly-digest --week=2026-W17
 ```
 
 Read it in the dashboard at
@@ -167,13 +167,13 @@ If auto-registration during `init` fails, paste this into
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@spine/mcp", "serve"]
+      "args": ["-y", "spine-mcp", "serve"]
     }
   },
   "hooks": {
-    "SessionStart":     [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx -y @spine/mcp recall-recent" }] }],
-    "UserPromptSubmit": [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx -y @spine/mcp capture-turn" }] }],
-    "Stop":             [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx -y @spine/mcp session-digest" }] }]
+    "SessionStart":     [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx -y spine-mcp recall-recent" }] }],
+    "UserPromptSubmit": [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx -y spine-mcp capture-turn" }] }],
+    "Stop":             [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx -y spine-mcp session-digest" }] }]
   }
 }
 ```
@@ -186,19 +186,19 @@ alongside `session-digest` if you want both raw chunks and a digest.
 ## Commands
 
 ```
-npx @spine/mcp init                  Device-flow install (default)
-npx @spine/mcp init --key spine_live_…   Power-user fast path (existing key)
-npx @spine/mcp init --local          Zero-account, all on-device
+npx spine-mcp init                  Device-flow install (default)
+npx spine-mcp init --key spine_live_…   Power-user fast path (existing key)
+npx spine-mcp init --local          Zero-account, all on-device
 
-npx @spine/mcp serve                 Start MCP server (Claude Code runs this)
-npx @spine/mcp recall-recent         SessionStart hook
-npx @spine/mcp capture-turn          UserPromptSubmit hook
-npx @spine/mcp session-digest        Stop hook (structured digest)
-npx @spine/mcp hook-stop             Stop hook (full transcript chunking, legacy)
-npx @spine/mcp weekly-digest [--week=YYYY-WW] [--force]
+npx spine-mcp serve                 Start MCP server (Claude Code runs this)
+npx spine-mcp recall-recent         SessionStart hook
+npx spine-mcp capture-turn          UserPromptSubmit hook
+npx spine-mcp session-digest        Stop hook (structured digest)
+npx spine-mcp hook-stop             Stop hook (full transcript chunking, legacy)
+npx spine-mcp weekly-digest [--week=YYYY-WW] [--force]
                                      Roll up the week's session digests
-npx @spine/mcp inject                Older proactive-injection hook
-npx @spine/mcp sync                  Ingest local ~/.claude/projects/*/memory/*.md
+npx spine-mcp inject                Older proactive-injection hook
+npx spine-mcp sync                  Ingest local ~/.claude/projects/*/memory/*.md
 ```
 
 ---

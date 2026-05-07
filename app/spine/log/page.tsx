@@ -93,7 +93,7 @@ const LOG: Entry[] = [
     date: '2026-04-22',
     title: 'MCP v1.0.0 · auto-register',
     body:
-      'Publish-ready @spine/mcp. `npx @spine/mcp init` writes itself into ~/.claude/settings.json. Zero-config install.',
+      'Publish-ready spine-mcp. `npx spine-mcp init` writes itself into ~/.claude/settings.json. Zero-config install.',
     commits: ['024a104'],
   },
   {

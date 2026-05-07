@@ -39,7 +39,7 @@ Spine doesn't just return matching memories — it returns the actual
 decision node, the alternatives we considered, and the reasoning at
 the time.
 
-Drop-in: `npx @spine/mcp init` and your Claude Code / Claude Desktop
+Drop-in: `npx spine-mcp init` and your Claude Code / Claude Desktop
 / Cursor has persistent memory in 30 seconds. Self-hostable. Free tier
 covers 200 memories. Pro at $19/month for unlimited + the full hybrid
 retrieval stack.

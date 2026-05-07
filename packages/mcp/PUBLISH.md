@@ -1,4 +1,4 @@
-# Publishing @spine/mcp to npm
+# Publishing spine-mcp to npm
 
 ## One-time setup (do this once)
 
@@ -48,7 +48,7 @@ npm publish --access public
 # --access public is required for scoped packages on free npm accounts
 
 # 5. Verify install works cold
-cd /tmp && npx @spine/mcp --version
+cd /tmp && npx spine-mcp --version
 # Should print the version you just published
 ```
 
@@ -78,7 +78,7 @@ kill %1
 
 ## If the Stop hook is erroring
 
-The hook runs `npx @spine/mcp hook-stop`. If the package isn't published yet,
+The hook runs `npx spine-mcp hook-stop`. If the package isn't published yet,
 npx falls back to the local install — but if the package name doesn't match,
 it will error with "package not found".
 
@@ -106,9 +106,9 @@ Replace `/path/to/saas/spine/` with the actual absolute path.
 
 ## Post-publish checklist
 
-- [ ] `npx @spine/mcp --version` prints correct version from a fresh directory
-- [ ] `npx @spine/mcp init --local` writes `~/.spine/config.json` and `~/.claude/settings.json`
-- [ ] `npx @spine/mcp serve` starts without crashing
+- [ ] `npx spine-mcp --version` prints correct version from a fresh directory
+- [ ] `npx spine-mcp init --local` writes `~/.spine/config.json` and `~/.claude/settings.json`
+- [ ] `npx spine-mcp serve` starts without crashing
 - [ ] Stop hook fires and captures session on next Claude Code session end
 - [ ] UserPromptSubmit hook fires and injects memories (check Claude's context at session start)
 - [ ] Update `CHANGELOG.md` with what changed in this version

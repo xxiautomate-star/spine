@@ -80,7 +80,7 @@ default for everyone else.
 
 ## Coexisting with the legacy `hook-stop`
 
-If you're already running `npx @spine/mcp hook-stop` on the Stop event,
+If you're already running `npx spine-mcp hook-stop` on the Stop event,
 you can keep it — it captures the raw transcript chunked into 7500-char
 segments. The new `session-digest` hook is additive: it writes one extra
 row tagged `kind=digest` that Spine surfaces at next-session-start. You

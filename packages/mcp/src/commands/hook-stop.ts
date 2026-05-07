@@ -2,7 +2,7 @@
  * Claude Code Stop hook — full transcript capture.
  *
  * Claude Code invokes this as:
- *   npx @spine/mcp hook-stop
+ *   npx spine-mcp hook-stop
  * with a JSON blob on stdin:
  *   { session_id, stop_hook_active, transcript_path }
  *

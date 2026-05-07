@@ -125,9 +125,9 @@ export function OnboardingClient({ email }: { email: string }) {
     };
   }, [step, captured, pollCaptures]);
 
-  const initCommand = `npx @spine/mcp init`;
+  const initCommand = `npx spine-mcp init`;
   const fullInitCommand = storedKey
-    ? `SPINE_API_KEY=${storedKey} npx @spine/mcp init`
+    ? `SPINE_API_KEY=${storedKey} npx spine-mcp init`
     : initCommand;
 
   if (loading) {

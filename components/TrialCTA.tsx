@@ -6,7 +6,7 @@ const MCP_CONFIG = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@spine/mcp"],
+      "args": ["-y", "spine-mcp"],
       "env": {
         "SPINE_API_KEY": "get yours at spine.xxiautomate.com/dashboard/keys"
       }
@@ -118,7 +118,7 @@ export function TrialCTA() {
                 <span className="text-cream/30">: [</span>
                 <span className="text-amber">"-y"</span>
                 <span className="text-cream/30">, </span>
-                <span className="text-amber">"@spine/mcp"</span>
+                <span className="text-amber">"spine-mcp"</span>
                 <span className="text-cream/30">],</span>{'\n'}
                 {'      '}<span className="text-sky-400">"env"</span>
                 <span className="text-cream/30">: {'{'}</span>{'\n'}
@@ -167,7 +167,7 @@ export function TrialCTA() {
       {/* Footer */}
       <div className="px-6 md:px-8 py-4 border-t border-cream/5 bg-cream/[0.01] flex items-center justify-between gap-4">
         <p className="font-mono text-[10px] text-cream/25">
-          npx pulls the latest @spine/mcp from npm. Node 18+ required.
+          npx pulls the latest spine-mcp from npm. Node 18+ required.
         </p>
         <a
           href="/dashboard/keys"

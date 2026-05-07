@@ -101,7 +101,7 @@ const PREVIEW_GROUPS: DayGroup[] = [
     date: 'April 10',
     weekday: 'Thursday',
     memories: [
-      { id: 'p6', content: 'MCP is the Anthropic-blessed protocol for AI tool extensions. The wedge: npx @spine/mcp installs Spine into Claude Code and Claude Desktop in 30 seconds.', source: 'claude.ai', tags: ['mcp', 'architecture'], created_at: '2026-04-10T16:18:00Z' },
+      { id: 'p6', content: 'MCP is the Anthropic-blessed protocol for AI tool extensions. The wedge: npx spine-mcp installs Spine into Claude Code and Claude Desktop in 30 seconds.', source: 'claude.ai', tags: ['mcp', 'architecture'], created_at: '2026-04-10T16:18:00Z' },
       { id: 'p7', content: 'Pricing: Free = 100 memories + 1 integration. Pro $9/mo = unlimited + cross-AI. Power $29/mo = team memory + background agents.', source: 'chatgpt.com', tags: ['pricing', 'product'], created_at: '2026-04-10T17:30:00Z' },
       { id: 'p8', content: 'Design reference: Readwise, Arc browser, Apple Journal. Palette: #0D0C0A bg, #E8E4DD text, #E89A3C accent. A library at dusk.', source: 'claude.ai', tags: ['design', 'brand'], created_at: '2026-04-10T18:02:00Z' },
     ],
@@ -530,7 +530,7 @@ function EmptyState() {
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@spine/mcp"]
+      "args": ["-y", "spine-mcp"]
     }
   }
 }`}</p>

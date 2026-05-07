@@ -29,7 +29,7 @@ export default async function KeysPage() {
             Manual keys.
           </h1>
           <p className="text-cream/55 text-base max-w-xl leading-relaxed mb-10">
-            Most users don&apos;t need this page. <code className="font-mono text-[12px] text-amber/80 px-1">npx @spine/mcp init</code> opens a browser, you sign in, click approve — the CLI receives a key automatically. No copy-paste.
+            Most users don&apos;t need this page. <code className="font-mono text-[12px] text-amber/80 px-1">npx spine-mcp init</code> opens a browser, you sign in, click approve — the CLI receives a key automatically. No copy-paste.
           </p>
 
           {/* Recommendation card — guide the user back to device flow */}
@@ -37,7 +37,7 @@ export default async function KeysPage() {
             <p className="font-mono text-[10px] uppercase tracking-widest text-amber/80 mb-3">
               Recommended &middot; one command
             </p>
-            <pre className="font-mono text-[13px] text-amber/90 mb-4 overflow-x-auto">npx @spine/mcp init</pre>
+            <pre className="font-mono text-[13px] text-amber/90 mb-4 overflow-x-auto">npx spine-mcp init</pre>
             <p className="text-cream/65 text-[14px] leading-relaxed">
               Opens a browser, you click approve, the CLI receives the key invisibly + writes config + registers with Claude Code. Same flow as <span className="text-cream/85">stripe login</span> or <span className="text-cream/85">gh auth login</span>.
             </p>

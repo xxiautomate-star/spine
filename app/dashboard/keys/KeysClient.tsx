@@ -127,7 +127,7 @@ export function KeysClient({ initialKeys }: Props) {
   async function handleCopyCmd() {
     if (!freshKey) return;
     try {
-      await navigator.clipboard.writeText(`npx -y @spine/mcp init --key ${freshKey}`);
+      await navigator.clipboard.writeText(`npx -y spine-mcp init --key ${freshKey}`);
       setCmdCopied(true);
       setTimeout(() => setCmdCopied(false), 2000);
     } catch {
@@ -240,7 +240,7 @@ export function KeysClient({ initialKeys }: Props) {
                 hooks will start firing on your next session.
               </p>
               <pre className="font-mono text-sm text-cream bg-cream/[0.04] border border-cream/10 px-4 py-4 break-all whitespace-pre-wrap mb-2">
-                npx -y @spine/mcp init --key {freshKey}
+                npx -y spine-mcp init --key {freshKey}
               </pre>
               <button
                 onClick={handleCopyCmd}
@@ -271,7 +271,7 @@ export function KeysClient({ initialKeys }: Props) {
           <p className="font-serif text-3xl md:text-4xl text-cream mb-3">No keys yet.</p>
           <p className="text-cream/50 max-w-md mx-auto">
             Mint your first key above, then install Spine into Claude Code with{' '}
-            <code className="font-mono text-amber">npx @spine/mcp init --key &lt;key&gt;</code>.
+            <code className="font-mono text-amber">npx spine-mcp init --key &lt;key&gt;</code>.
           </p>
         </div>
       ) : (

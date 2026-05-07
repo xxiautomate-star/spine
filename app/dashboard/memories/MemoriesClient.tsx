@@ -344,7 +344,7 @@ export function MemoriesClient({
           </p>
           {!hasActiveFilters && (
             <pre className="inline-block font-mono text-sm bg-cream/[0.04] border border-cream/10 text-amber px-4 py-3">
-              <span className="text-cream/40 select-none">$ </span>npx @spine/mcp init
+              <span className="text-cream/40 select-none">$ </span>npx spine-mcp init
             </pre>
           )}
         </div>

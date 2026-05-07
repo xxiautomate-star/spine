@@ -214,7 +214,7 @@ function EmptyState({ path }: { path: string }) {
       "matcher": "",
       "hooks": [{
         "type": "command",
-        "command": "npx @spine/mcp hook-stop"
+        "command": "npx spine-mcp hook-stop"
       }]
     }]
   }

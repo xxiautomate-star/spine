@@ -56,7 +56,7 @@ function cleanup() {
 process.on('exit', cleanup);
 process.on('SIGINT', () => { cleanup(); process.exit(130); });
 
-console.log('publish-smoke — verifying @spine/mcp publish-readiness\n');
+console.log('publish-smoke — verifying spine-mcp publish-readiness\n');
 
 // 1. Build is fresh.
 step('build dist', () => {
@@ -144,7 +144,7 @@ step('serve cold-boots', () => {
   }
 });
 
-console.log(`\npublish-smoke: OK · @spine/mcp@${installedVersion}`);
+console.log(`\npublish-smoke: OK · spine-mcp@${installedVersion}`);
 console.log('Safe to publish. Run from packages/mcp:');
 console.log('  npm version <patch|minor|major>');
 console.log('  npm publish --access public');

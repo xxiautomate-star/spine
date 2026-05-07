@@ -132,7 +132,7 @@ Category: **Productivity**. Single purpose statement: *"Captures memories from A
 1. Open an incognito window → `https://spine.xxiautomate.com`
 2. Sign up with a test email
 3. Confirm the profile row was auto-inserted: Supabase → `profiles` table → plan = `free`
-4. Install the MCP server: `npx @spine/mcp` — paste the API key from the dashboard
+4. Install the MCP server: `npx spine-mcp` — paste the API key from the dashboard
 5. In Claude Desktop / Claude Code: run `spine_remember("test memory from go-live")` → confirm it appears in the dashboard timeline
 6. Go to **Upgrade** → complete Stripe checkout with test card `4242 4242 4242 4242`
 7. Confirm: `profiles.plan` updated to `pro`, subscription active in Stripe dashboard

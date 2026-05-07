@@ -8,12 +8,12 @@ const SNIPPET_SETTINGS = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@spine/mcp", "serve"]
+      "args": ["-y", "spine-mcp", "serve"]
     }
   }
 }`;
 
-const SNIPPET_CLOUD = `$ npx @spine/mcp init
+const SNIPPET_CLOUD = `$ npx spine-mcp init
 # Spine — setup
 # ─────────────
 # Storage mode — [L]ocal-only or [c]loud sync? (L/c): c
@@ -22,7 +22,7 @@ const SNIPPET_CLOUD = `$ npx @spine/mcp init
 # [spine] API key accepted.
 # Config written to ~/.spine/config.json`;
 
-const SNIPPET_LOCAL = `$ npx @spine/mcp init
+const SNIPPET_LOCAL = `$ npx spine-mcp init
 # Storage mode — [L]ocal-only or [c]loud sync? (L/c): [Enter]
 # [spine] Local-only storage set. Memories live in ~/.spine/memories.db`;
 
@@ -125,7 +125,7 @@ export default function McpDocsPage() {
           <p className="text-sm mb-5 leading-relaxed" style={{ color: 'var(--s-ink-soft)' }}>
             No global install required. <code className="font-mono px-1.5 py-0.5 rounded" style={{ color: 'var(--s-gold-deep)', background: 'rgba(184,146,74,0.10)' }}>npx</code> fetches and runs the latest version each time.
           </p>
-          <CodeBlock lang="bash">{`$ npx @spine/mcp init`}</CodeBlock>
+          <CodeBlock lang="bash">{`$ npx spine-mcp init`}</CodeBlock>
         </section>
 
         <section className="mb-14">

@@ -35,7 +35,7 @@
 - **DB/Auth:** Supabase (Postgres + pgvector for semantic memory search)
 - **Payments:** Stripe
 - **Deploy:** Coolify on Vultr Sydney (git push to main auto-deploys)
-- **MCP server:** published as `@spine/mcp` npm package, runs locally on the user's machine, syncs to our Supabase
+- **MCP server:** published as `spine-mcp` npm package, runs locally on the user's machine, syncs to our Supabase
 - **Embeddings:** OpenAI `text-embedding-3-small` for vector search, OR Voyage AI if we want cheap
 - **Proactive injection:** Claude Haiku-4.5 filters which memories are relevant for the current conversation (cheap, fast)
 
@@ -66,7 +66,7 @@ Example headline voice:
 - Deploy to Coolify
 
 **Phase 2 — MCP server MVP**
-- `@spine/mcp` npm package: one command install, point at our API
+- `spine-mcp` npm package: one command install, point at our API
 - Server exposes tools: `spine_remember(fact)`, `spine_recall(query)`, `spine_forget(id)`
 - Every time Claude Code uses these tools, memory syncs to user's Supabase row
 - Auth via API key from dashboard

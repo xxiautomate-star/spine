@@ -1,6 +1,6 @@
 # Dogfood protocol
 
-The 7-day self-audit that gates the public launch of `@spine/mcp`.
+The 7-day self-audit that gates the public launch of `spine-mcp`.
 
 The Gate 2 retrieval harness used 200 synthetic memories. Real
 conversations are noisier — 80% chatter, 20% signal. Until Spine survives

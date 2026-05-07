@@ -12,32 +12,32 @@ import { sessionDigestCommand } from './commands/session-digest.js';
 import { weeklyDigestCommand } from './commands/weekly-digest.js';
 import { dogfoodCommand } from './commands/dogfood.js';
 
-const USAGE = `@spine/mcp — the memory layer for your AI
+const USAGE = `spine-mcp — the memory layer for your AI
 
 Usage:
-  npx @spine/mcp init                Interactive setup (auto-registers with Claude Code)
-  npx @spine/mcp init --key KEY      One-line cloud setup — no prompts
-  npx @spine/mcp init --local        One-line local-only setup — no prompts
-  npx @spine/mcp install             Alias for init
-  npx @spine/mcp sync                Ingest local ~/.claude/projects/*/memory/*.md
-  npx @spine/mcp sync --dir <path>   Ingest from a custom directory
-  npx @spine/mcp sync --force        Re-ingest all files (ignore already-synced check)
-  npx @spine/mcp sync --dry-run      Preview what would be ingested without writing
-  npx @spine/mcp serve               Start MCP server on stdio
-  npx @spine/mcp hook-stop           Claude Code Stop hook (raw transcript chunking)
-  npx @spine/mcp inject              Claude Code UserPromptSubmit hook (proactive injection)
-  npx @spine/mcp capture-turn        Claude Code UserPromptSubmit hook (single-turn append)
-  npx @spine/mcp recall-recent       Claude Code SessionStart hook (recent-context block)
-  npx @spine/mcp session-digest      Claude Code Stop hook (structured end-of-session digest)
-  npx @spine/mcp weekly-digest [--week=YYYY-WW] [--force]
+  npx spine-mcp init                Interactive setup (auto-registers with Claude Code)
+  npx spine-mcp init --key KEY      One-line cloud setup — no prompts
+  npx spine-mcp init --local        One-line local-only setup — no prompts
+  npx spine-mcp install             Alias for init
+  npx spine-mcp sync                Ingest local ~/.claude/projects/*/memory/*.md
+  npx spine-mcp sync --dir <path>   Ingest from a custom directory
+  npx spine-mcp sync --force        Re-ingest all files (ignore already-synced check)
+  npx spine-mcp sync --dry-run      Preview what would be ingested without writing
+  npx spine-mcp serve               Start MCP server on stdio
+  npx spine-mcp hook-stop           Claude Code Stop hook (raw transcript chunking)
+  npx spine-mcp inject              Claude Code UserPromptSubmit hook (proactive injection)
+  npx spine-mcp capture-turn        Claude Code UserPromptSubmit hook (single-turn append)
+  npx spine-mcp recall-recent       Claude Code SessionStart hook (recent-context block)
+  npx spine-mcp session-digest      Claude Code Stop hook (structured end-of-session digest)
+  npx spine-mcp weekly-digest [--week=YYYY-WW] [--force]
                                      Roll up the week's session digests; outputs paste-ready markdown
-  npx @spine/mcp dogfood [--db PATH] Same as serve, but records every tool call to ~/.spine/dogfood.db
+  npx spine-mcp dogfood [--db PATH] Same as serve, but records every tool call to ~/.spine/dogfood.db
                                      Used for the self-audit diary (see docs/DOGFOOD_PROTOCOL.md)
-  npx @spine/mcp login --key KEY     Switch to cloud mode (alias for init --key)
-  npx @spine/mcp --version           Print version
+  npx spine-mcp login --key KEY     Switch to cloud mode (alias for init --key)
+  npx spine-mcp --version           Print version
 
 Shorthand (flags passed without a subcommand run init):
-  npx @spine/mcp --key KEY           Same as: npx @spine/mcp init --key KEY
+  npx spine-mcp --key KEY           Same as: npx spine-mcp init --key KEY
 
 Tools registered in Claude Code:
   search_memory(query)            Semantic search across all sessions
@@ -53,7 +53,7 @@ Docs: https://spine.xxiautomate.com
 async function main() {
   const [, , cmd, ...rest] = process.argv;
 
-  // Top-level flags that delegate to init (e.g. npx @spine/mcp --key <k>)
+  // Top-level flags that delegate to init (e.g. npx spine-mcp --key <k>)
   if (!cmd || cmd.startsWith('--')) {
     const flags = cmd ? [cmd, ...rest] : rest;
     if (flags.includes('--key') || flags.includes('--local')) {

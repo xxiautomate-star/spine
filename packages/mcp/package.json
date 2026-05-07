@@ -1,5 +1,5 @@
 {
-  "name": "@spine/mcp",
+  "name": "spine-mcp",
   "version": "1.0.0",
   "description": "The memory layer for your AI. Append-only, infinite, never summarised. MCP server for Claude Code, Claude Desktop, Cursor, Windsurf, and Continue.",
   "type": "module",

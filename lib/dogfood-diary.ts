@@ -2,7 +2,7 @@
 // read-only — opens the file, runs aggregation queries, returns the
 // shape consumed by /api/dogfood/diary.
 //
-// Why this lives in `lib/` rather than importing from @spine/mcp:
+// Why this lives in `lib/` rather than importing from spine-mcp:
 //   - better-sqlite3 is a native module; keeping the import local to the
 //     dashboard avoids a cross-workspace dynamic-import dance under
 //     Next.js bundling

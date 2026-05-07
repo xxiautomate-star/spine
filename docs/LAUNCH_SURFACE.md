@@ -1,7 +1,7 @@
 # Spine — Launch Surface
 
 > Master sales surface for the May 10, 2026 launch. Every channel pulls from this file.
-> Pricing, install command, and product claims confirmed against `app/page.tsx` + `CLAUDE.md` (Free / Pro $19 / Team $59 · `npx @spine/mcp init`).
+> Pricing, install command, and product claims confirmed against `app/page.tsx` + `CLAUDE.md` (Free / Pro $19 / Team $59 · `npx spine-mcp init`).
 
 ---
 
@@ -13,7 +13,7 @@
 
 ### 30-second pitch (~80 words)
 
-I'm Roman, 17, and Spine is the memory layer my AI co-founder and I built because we kept losing four hours of context every time Claude compacted mid-session. One command — `npx @spine/mcp init` — wires it into Claude Code, Cursor, ChatGPT, anything that speaks MCP. Every turn gets stored append-only. Every prompt pulls back the memories that actually matter. Anthropic compacts to save inference cost. We have the opposite incentive: preserve everything. The AI finally remembers you across sessions.
+I'm Roman, 17, and Spine is the memory layer my AI co-founder and I built because we kept losing four hours of context every time Claude compacted mid-session. One command — `npx spine-mcp init` — wires it into Claude Code, Cursor, ChatGPT, anything that speaks MCP. Every turn gets stored append-only. Every prompt pulls back the memories that actually matter. Anthropic compacts to save inference cost. We have the opposite incentive: preserve everything. The AI finally remembers you across sessions.
 
 ### 2-paragraph deep pitch (~250 words)
 
@@ -42,7 +42,7 @@ The structural angle: Anthropic, OpenAI, and Cursor all compact for the same rea
 Install (one line, device-flow auth, no key paste):
 
 ```
-npx @spine/mcp init
+npx spine-mcp init
 ```
 
 Recall in any MCP client (this is what your AI sees, not you):
@@ -102,7 +102,7 @@ This is a real session. Claude compacted at turn 84. Spine returned the turn-3 d
 One command. Device-flow auth, no key paste, no config file hunt.
 
 ```
-npx @spine/mcp init
+npx spine-mcp init
 ```
 
 Browser opens, you click approve, your Claude Code / Cursor / Claude Desktop has memory in 30 seconds.
@@ -129,7 +129,7 @@ The agency that ate its own tail. We dogfood, then we sell.
 
 **10/ (CTA + open invite)**
 Try it: spine.xxiautomate.com
-Install: `npx @spine/mcp init`
+Install: `npx spine-mcp init`
 Show HN thread: [link]
 
 Happy to answer anything in the replies — pricing, architecture, why I'm 17, why we picked MCP. Drop your hardest question.
@@ -146,7 +146,7 @@ Hey {name} — saw you shipped {product}. Quick one.
 
 Every long Claude / Cursor / ChatGPT session quietly compacts older turns to save context. Your users probably don't notice until the assistant "forgets" something they told it an hour ago. I built Spine to fix that — it's a memory layer that captures every turn append-only via MCP, then re-injects only the relevant fragments before each prompt. No summarisation, no loss.
 
-Free tier (200 memories) lives at spine.xxiautomate.com. One-line install: `npx @spine/mcp init`.
+Free tier (200 memories) lives at spine.xxiautomate.com. One-line install: `npx spine-mcp init`.
 
 If you want a deeper integration into {product} so your users don't lose context, happy to wire it up — drop a reply with the workflow you'd want to preserve and I'll build the demo this weekend.
 
@@ -170,7 +170,7 @@ Subject: n/a — DM
 
 Hey, saw your thread about Claude folding your debugging session — exact same thing happened to me last week, lost about four hours of architectural context to a summary. That's literally why I shipped Spine. Append-only memory layer, one-line MCP install, recall the original turn verbatim no matter how deep the convo went.
 
-Free tier is 200 memories — enough to test on whatever you're working on now. `npx @spine/mcp init`.
+Free tier is 200 memories — enough to test on whatever you're working on now. `npx spine-mcp init`.
 
 If you try it, I'd genuinely want your feedback on what breaks. We dogfood it on our own orchestrator (Spine remembers Spine), so I push fixes the same day.
 
@@ -187,7 +187,7 @@ spine.xxiautomate.com — Roman.
 | 1 | 0–4s | Tight on Claude Code terminal. Cursor scrolls fast. The line "Note: I'll need to summarise the earlier portion of our conversation…" appears. | VO: *"Watch what just happened."* |
 | 2 | 4–8s | Cut to Roman's face, blank stare. Holds. | VO: *"Four hours of context — gone."* |
 | 3 | 8–13s | Split-screen: left side, Claude apologising it doesn't remember turn 3. Right side, the original turn 3 message visible in the scrollback. | Text overlay: **Claude compacts. You pay.** |
-| 4 | 13–18s | Hands type: `npx @spine/mcp init`. Browser opens. Click approve. | VO: *"One command. Thirty seconds."* |
+| 4 | 13–18s | Hands type: `npx spine-mcp init`. Browser opens. Click approve. | VO: *"One command. Thirty seconds."* |
 | 5 | 18–24s | Back in Claude Code. Same prompt as before: "what did I tell you in turn 3?" Cursor types. Spine surfaces the original turn verbatim. | Text overlay: **Spine remembered.** |
 | 6 | 24–30s | Cut to Spine timeline view scrolling — every turn, every tool call, all stored. | VO: *"Append-only. Nothing summarised."* |
 | 7 | 30–36s | Quick cut: Roman at desk. Type "spine remembers spine" into a search bar — results show Spine's own commits and decisions. | VO: *"We use it on the company we built it for."* |
@@ -210,7 +210,7 @@ Drop this into your Claude Code settings to capture every conversation turn into
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@spine/mcp"],
+      "args": ["-y", "spine-mcp"],
       "env": {
         "SPINE_API_KEY": "${env:SPINE_API_KEY}",
         "SPINE_API_URL": "https://spine.xxiautomate.com/api"
@@ -240,7 +240,7 @@ Drop this into your Claude Code settings to capture every conversation turn into
 }
 ```
 
-Run `npx @spine/mcp init` first to create the API key. Recall fires before every prompt; write fires after every assistant turn. Both are non-blocking — if Spine is down your prompt still ships.
+Run `npx spine-mcp init` first to create the API key. Recall fires before every prompt; write fires after every assistant turn. Both are non-blocking — if Spine is down your prompt still ships.
 
 ### Example 2 — MCP tool config (expose `spine_recall_recent`, `spine_write` to Claude Code)
 
@@ -251,7 +251,7 @@ This is the minimal MCP definition Claude Code needs to call Spine as if it were
   "name": "spine",
   "version": "1.0.0",
   "description": "Memory layer for AI. Append-only capture, hybrid recall, no compaction.",
-  "transport": { "type": "stdio", "command": "npx", "args": ["-y", "@spine/mcp"] },
+  "transport": { "type": "stdio", "command": "npx", "args": ["-y", "spine-mcp"] },
   "tools": [
     {
       "name": "spine_recall_recent",

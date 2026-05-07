@@ -109,7 +109,7 @@ const MEMORIES: DemoMemory[] = [
   {
     id: 's4-1', daysAgo: 14, minsOffset: 0, baseSim: 0.92, source: 'gemini.google.com',
     tags: ['mcp', 'architecture'],
-    content: 'MCP is the Anthropic-blessed protocol for AI tool extensions. The wedge: `npx @spine/mcp init` registers Spine with Claude Code and Claude Desktop in 30 seconds.',
+    content: 'MCP is the Anthropic-blessed protocol for AI tool extensions. The wedge: `npx spine-mcp init` registers Spine with Claude Code and Claude Desktop in 30 seconds.',
   },
   {
     id: 's4-2', daysAgo: 14, minsOffset: 30, baseSim: 0.89, source: 'gemini.google.com',

@@ -15,7 +15,7 @@ const STEPS = [
     n: '01',
     title: 'One command. Browser opens. Click approve.',
     body: 'Run the install. A browser tab opens. Sign in via magic link, click approve. Spine is wired into Claude Code, Claude Desktop, Cursor — any MCP client. Zero copy-paste. Zero config files. Thirty seconds, end-to-end.',
-    code: 'npx @spine/mcp init',
+    code: 'npx spine-mcp init',
   },
   {
     n: '02',
@@ -206,7 +206,7 @@ export default function Home() {
 
             {/* Terminal command card */}
             <div className="mt-7 max-w-[460px] rise rise-5">
-              <CopyCommand command="npx @spine/mcp init" />
+              <CopyCommand command="npx spine-mcp init" />
               <p className="mt-2.5 font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--s-ink-faint)' }}>
                 Free · No credit card · Claude · ChatGPT · Cursor
               </p>

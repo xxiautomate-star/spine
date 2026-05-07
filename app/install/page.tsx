@@ -3,18 +3,18 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
-const ONE_LINER_NO_KEY = 'npx -y @spine/mcp init';
-const ONE_LINER_LOCAL  = 'npx -y @spine/mcp init --local';
+const ONE_LINER_NO_KEY = 'npx -y spine-mcp init';
+const ONE_LINER_LOCAL  = 'npx -y spine-mcp init --local';
 const MCP_SNIPPET = `{
   "mcpServers": {
     "spine": {
       "command": "npx",
-      "args": ["-y", "@spine/mcp", "serve"]
+      "args": ["-y", "spine-mcp", "serve"]
     }
   },
   "hooks": {
-    "Stop":              [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx @spine/mcp hook-stop" }] }],
-    "UserPromptSubmit":  [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx @spine/mcp inject" }] }]
+    "Stop":              [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx spine-mcp hook-stop" }] }],
+    "UserPromptSubmit":  [{ "matcher": "", "hooks": [{ "type": "command", "command": "npx spine-mcp inject" }] }]
   }
 }`;
 
@@ -219,7 +219,7 @@ function Step2({ onNext }: { onNext: () => void }) {
               the key already filled in. Copy and paste into your terminal.
             </p>
             <div className="bg-cream/[0.03] border border-cream/[0.08] rounded-lg px-4 py-3 font-mono text-[12px] text-cream/60">
-              npx -y @spine/mcp init --key spine_live_<span className="text-cream/20">••••••••</span>
+              npx -y spine-mcp init --key spine_live_<span className="text-cream/20">••••••••</span>
             </div>
           </div>
         </div>

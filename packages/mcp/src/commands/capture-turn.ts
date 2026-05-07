@@ -2,7 +2,7 @@
  * Claude Code UserPromptSubmit hook — single-turn capture.
  *
  * Claude Code invokes this as:
- *   npx @spine/mcp capture-turn
+ *   npx spine-mcp capture-turn
  * with a JSON blob on stdin (UserPromptSubmit hook protocol):
  *   { session_id, prompt }
  *

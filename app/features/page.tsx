@@ -159,7 +159,7 @@ export default function FeaturesPage() {
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-mono text-[12px] select-none" style={{ color: 'var(--s-ink-ghost)' }}>$</span>
                       <code className="font-mono text-[13px]" style={{ color: 'var(--s-gold-deep)' }}>
-                        npx @spine/mcp init
+                        npx spine-mcp init
                       </code>
                       <span className="font-mono text-[11px] ml-4" style={{ color: 'var(--s-ink-faint)' }}>
                         — one command, any MCP client

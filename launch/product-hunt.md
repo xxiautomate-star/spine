@@ -38,7 +38,7 @@ conversations (Mem.ai's API hits 0.74 on the same set — eval code is
 open in the repo).
 
 Drops into Claude Code, Claude Desktop, Cursor, or any MCP-compatible
-client in 30 seconds: `npx @spine/mcp init`. Self-hostable. You own
+client in 30 seconds: `npx spine-mcp init`. Self-hostable. You own
 your memory layer forever.
 ```
 
@@ -83,7 +83,7 @@ Three things make Spine different from the existing memory products:
    ask "why did we use Postgres over Mongo," Spine has the actual
    conversation thread that led to that call.
 
-3. **MCP-first.** One install command (`npx @spine/mcp init`) and your
+3. **MCP-first.** One install command (`npx spine-mcp init`) and your
    Claude Code / Claude Desktop / Cursor has persistent memory. No
    browser extension required for power users (though we ship one too
    for ChatGPT/Gemini in the browser).
@@ -125,7 +125,7 @@ In order of importance:
 4. **Eval benchmark chart** — bar chart, Spine vs Mem.ai vs raw embedding
    on recall@5 for 3-week conversations. The receipt for paragraph 1.
 
-5. **MCP install screen recording** — terminal showing `npx @spine/mcp init`
+5. **MCP install screen recording** — terminal showing `npx spine-mcp init`
    → "Installed. Restart Claude Code." → asking Claude something + getting
    memory-aware response. 15 seconds, demonstrates the 30-second-install
    claim.
