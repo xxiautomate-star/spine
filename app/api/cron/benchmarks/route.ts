@@ -14,12 +14,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 30 queries × ~1s each = ~30s; safe ceiling
 
 export async function POST(req: NextRequest) {
+  // Fail-CLOSED: if CRON_SECRET is unset, this route is unreachable.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get('authorization');
-    if (!auth || auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET unset.' }, { status: 500 });
+  }
+  const auth = req.headers.get('authorization') ?? '';
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 
   // The cron must hit the SAME deployment — running benchmarks against
