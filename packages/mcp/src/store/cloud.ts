@@ -27,6 +27,7 @@ function captureInputToWire(input: CaptureInput): Record<string, unknown> {
   if (input.toolName) out.tool_name = input.toolName;
   if (input.filesTouched && input.filesTouched.length > 0) out.files_touched = input.filesTouched;
   if (input.embedTurns) out.embed_turns = true;
+  if (input.importance !== undefined && input.importance !== null) out.importance = input.importance;
   return out;
 }
 

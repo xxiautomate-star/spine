@@ -244,7 +244,9 @@ export const TOOL_DEFS = [
       'user preferences, project conventions, API keys or endpoints, anything the user says they ' +
       'want remembered. One memory per fact. Never summarise — store it as the user said it. ' +
       'Spine scores every capture for signal quality, so noise stays out of semantic search ' +
-      'automatically — capture freely without self-censoring.',
+      'automatically — capture freely without self-censoring. Set importance="high" when the ' +
+      'user explicitly says "remember this" or the fact is load-bearing for the rest of the work; ' +
+      'high-importance memories skip the auto-scorer and rank above noise immediately.',
     inputSchema: {
       type: 'object',
       required: ['content'],
@@ -258,6 +260,12 @@ export const TOOL_DEFS = [
           enum: ['decision', 'bug', 'feature', 'context', 'fact'],
           default: 'context',
           description: 'Memory type. decision = architecture/product choice, bug = fix and root cause, feature = new capability, context = background/notes, fact = stable fact about the project or user.',
+        },
+        importance: {
+          type: 'string',
+          enum: ['high', 'standard', 'low'],
+          default: 'standard',
+          description: 'Caller-asserted signal tier. high = the user said "remember this" or the memory is load-bearing for ongoing work; standard = normal capture (default); low = chatter / passing observation. Overrides Spine\'s auto-scorer at write-time.',
         },
         source: {
           type: 'string',
@@ -797,13 +805,18 @@ export async function runTool(store: Store, name: string, args: ToolArgs): Promi
       const memType = ['decision','bug','feature','context','fact'].includes(args.type as string)
         ? (args.type as import('./store/index.js').MemoryType)
         : 'context' as const;
+      const importance: 'high' | 'standard' | 'low' | undefined =
+        args.importance === 'high' || args.importance === 'standard' || args.importance === 'low'
+          ? (args.importance as 'high' | 'standard' | 'low')
+          : undefined;
       const id = await store.capture({
         content: str(args.content, 'content'),
         type: memType,
         source: typeof args.source === 'string' ? args.source : null,
         tags: tags(args.tags),
+        importance,
       });
-      return JSON.stringify({ id, stored: true, type: memType });
+      return JSON.stringify({ id, stored: true, type: memType, importance: importance ?? 'standard' });
     }
 
     case 'get_timeline': {

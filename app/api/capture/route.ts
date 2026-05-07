@@ -44,6 +44,10 @@ type CaptureItem = {
   tool_name?: unknown;
   files_touched?: unknown;
   embed_turns?: unknown;     // power-user opt-in: embed turn rows too (default false)
+  // v2.2 caller-supplied importance (session 5 A0.2). When the LLM marks a
+  // memory mid-thread as high signal, it shouldn't have to wait for the
+  // Haiku scorer to confirm. Accepts 'high'|'standard'|'low' or numeric 0–1.
+  importance?: unknown;
 };
 
 type Body = CaptureItem & { bulk?: CaptureItem[] };
@@ -120,13 +124,36 @@ function coerceItem(item: CaptureItem): CleanItem | null {
   const embedTurnsOptIn = item.embed_turns === true;
   const skipEmbed = kind === 'turn' && !embedTurnsOptIn;
 
+  // Caller-supplied importance (session 5 A0.2). Wins over the kind-based
+  // overrides because it's the strongest possible signal — the caller is
+  // saying "trust me, this matters." Accepts string tiers or numeric 0–1.
+  let importanceOverride: SignalScore | null = null;
+  if (typeof item.importance === 'string') {
+    const tag = item.importance.toLowerCase();
+    if (tag === 'high') {
+      importanceOverride = { score: 0.9, tier: 'high', reason: 'caller-tagged high importance' };
+    } else if (tag === 'standard' || tag === 'medium') {
+      importanceOverride = { score: 0.55, tier: 'standard', reason: 'caller-tagged standard importance' };
+    } else if (tag === 'low') {
+      importanceOverride = { score: 0.2, tier: 'low', reason: 'caller-tagged low importance' };
+    }
+  } else if (typeof item.importance === 'number' && Number.isFinite(item.importance)) {
+    const score = Math.max(0, Math.min(1, item.importance));
+    const tier: 'high' | 'standard' | 'low' =
+      score >= 0.7 ? 'high' : score >= 0.4 ? 'standard' : 'low';
+    importanceOverride = { score, tier, reason: 'caller-supplied importance score' };
+  }
+
   // Brief 023 — pre-scorer override:
+  //   - caller importance → wins outright
   //   - turn (no embed_turns) → tier='low' regardless of content
   //   - digest → tier='high' (intentional artifact)
   //   - non-text mime → tier='standard' (we don't Haiku-score images)
   // Anything else falls through to the scorer.
   let preOverrideScore: SignalScore | null = null;
-  if (kind === 'turn' && !embedTurnsOptIn) {
+  if (importanceOverride) {
+    preOverrideScore = importanceOverride;
+  } else if (kind === 'turn' && !embedTurnsOptIn) {
     preOverrideScore = { score: 0.0, tier: 'low', reason: 'conversation turn (chatter by default)' };
   } else if (kind === 'digest') {
     preOverrideScore = { score: 1.0, tier: 'high', reason: 'session digest — intentional artifact' };

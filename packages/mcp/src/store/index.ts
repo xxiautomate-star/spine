@@ -21,6 +21,10 @@ export type CaptureInput = {
   toolName?: string | null;
   filesTouched?: string[];
   embedTurns?: boolean;
+  // Caller importance signal — overrides the auto-scorer at write-time so
+  // mid-thread "remember this!" captures rank above noise immediately.
+  // Accepts the SignalTier strings, or a numeric 0–1 score.
+  importance?: 'high' | 'standard' | 'low' | number;
 };
 
 export type TurnInput = {
