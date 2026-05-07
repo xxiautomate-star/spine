@@ -14,17 +14,18 @@ and `/proof` keeps falling back to the calibration baseline forever.
 2. Set `HARNESS_API_KEY` in Vercel project env vars (Production scope) —
    value is a Spine API key minted from the dashboard. Without it the
    benchmarks job returns 500.
-3. Confirm the `crons` array in `saas/spine/vercel.json` lists all six paths
-   (the file in this repo is the source of truth).
+3. Confirm the `crons` array in `saas/spine/vercel.json` matches your plan.
+   The file in this repo is the source of truth and currently lists the
+   Hobby-tier subset (`benchmarks` + `weekly-retention`).
 4. Redeploy so the env vars and `vercel.json` land. **Vercel cron auto-fires
    the routes on the schedule** — no other scheduler needed. Vercel signs the
    request with the `CRON_SECRET` automatically when the route checks
    `Authorization: Bearer $CRON_SECRET`.
 
-> Plan note: Vercel Hobby allows 2 daily crons. Pro is needed for the full
-> six. If you're stuck on Hobby for launch week, prioritise `benchmarks`
-> (proof-page lifeblood) + `weekly-retention` (revenue feature) and run the
-> rest by hand until you upgrade.
+> Plan note: Vercel Hobby allows 2 daily crons. The full six-cron set
+> requires Pro. The repo ships the Hobby subset by default; the four
+> deferred crons (`daily-digest`, `morning-briefing`, `weekly-inbox`,
+> `retrain-weights`) can be run manually via `curl` until you upgrade.
 
 ## The six jobs
 
@@ -50,24 +51,33 @@ If you get `503 Server not configured.` → Supabase env vars missing.
 If you get a 5-minute timeout → user base is large enough that the job needs
 splitting; talk to me.
 
-## vercel.json — the canonical schedule
+## vercel.json — current schedule
+
+The live file in this repo (`saas/spine/vercel.json`) ships the Hobby-tier
+subset — two daily crons, the maximum Vercel Hobby allows:
 
 ```json
 {
   "crons": [
-    { "path": "/api/cron/daily-digest",      "schedule": "0 8 * * *" },
-    { "path": "/api/cron/morning-briefing",  "schedule": "30 7 * * 1-5" },
-    { "path": "/api/cron/weekly-inbox",      "schedule": "0 8 * * 1" },
-    { "path": "/api/cron/weekly-retention",  "schedule": "0 8 * * 1" },
-    { "path": "/api/cron/retrain-weights",   "schedule": "0 3 * * *" },
-    { "path": "/api/cron/benchmarks",        "schedule": "0 2 * * 0" }
+    { "path": "/api/cron/benchmarks",       "schedule": "0 2 * * 0" },
+    { "path": "/api/cron/weekly-retention", "schedule": "0 8 * * 1" }
   ]
 }
 ```
 
+When Spine moves to Vercel Pro, expand to the full set — these are the
+remaining four, in priority order:
+
+```json
+{ "path": "/api/cron/daily-digest",     "schedule": "0 8 * * *" },
+{ "path": "/api/cron/morning-briefing", "schedule": "30 7 * * 1-5" },
+{ "path": "/api/cron/weekly-inbox",     "schedule": "0 8 * * 1" },
+{ "path": "/api/cron/retrain-weights",  "schedule": "0 3 * * *" }
+```
+
 Vercel hits each `path` with `GET` (the platform default) — but our routes
-only export `POST` handlers. `vercel.json` doesn't accept a method override,
-so each route additionally exports a `GET` shim that delegates to `POST`.
+originally exported only `POST`. Each cron route additionally exports a `GET`
+shim that delegates to `POST` (`vercel.json` doesn't accept a method override).
 If a new cron route is added, mirror that pattern.
 
 ## Acceptance check for the benchmarks job specifically
