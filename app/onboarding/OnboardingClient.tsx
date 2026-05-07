@@ -416,6 +416,12 @@ export function OnboardingClient({ email }: { email: string }) {
                       <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
                     </Link>
                     <Link
+                      href="/proof/compaction"
+                      className="inline-flex items-center gap-2 px-6 py-3 border border-cream/[0.12] text-cream/55 font-mono text-[11px] uppercase tracking-widest hover:border-amber/40 hover:text-cream/80 transition-all duration-300"
+                    >
+                      See why this matters →
+                    </Link>
+                    <Link
                       href="/pricing"
                       className="inline-flex items-center gap-2 px-6 py-3 border border-cream/[0.12] text-cream/55 font-mono text-[11px] uppercase tracking-widest hover:border-cream/30 hover:text-cream/80 transition-all duration-300"
                     >
