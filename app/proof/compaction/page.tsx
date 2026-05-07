@@ -88,9 +88,48 @@ const TRANSCRIPT: Transcript = {
   },
 };
 
-export default function CompactionProofPage() {
+export default async function CompactionProofPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ embed?: string }>;
+}) {
   const t = TRANSCRIPT;
   const fragment = t.spineRecall.fragments[0];
+
+  // Embed mode strips nav/footer/static-receipt sections so only the
+  // interactive theatre remains — for screen-recordings, Loom decks,
+  // and ads creative. Triggered by ?embed=1.
+  const params = (await searchParams) ?? {};
+  const embedded = params.embed === '1' || params.embed === 'true';
+
+  if (embedded) {
+    return (
+      <main
+        className="relative marble-bg min-h-screen flex items-center px-4 md:px-10 py-8"
+        style={{ color: 'var(--s-ink)' }}
+      >
+        <div className="marble-vein" style={{ position: 'fixed', zIndex: 0 }} />
+        <div className="marble-grain" style={{ position: 'fixed', zIndex: 0 }} />
+        <div className="w-full max-w-5xl mx-auto" style={{ position: 'relative', zIndex: 1 }}>
+          <p
+            className="font-mono text-[10px] uppercase tracking-[0.32em] mb-4"
+            style={{ color: 'var(--s-gold-deep)' }}
+          >
+            <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ Compaction proof</span>
+            spine.xxiautomate.com
+          </p>
+          <CompactionTheater />
+          <p
+            className="mt-5 font-mono text-[10px] tracking-widest"
+            style={{ color: 'var(--s-ink-faint)' }}
+          >
+            captured {new Date(t.capturedAt).toUTCString()} · session id{' '}
+            <span style={{ color: 'var(--s-gold-deep)' }}>{t.id}</span>
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="relative marble-bg min-h-screen overflow-x-hidden" style={{ color: 'var(--s-ink)' }}>
