@@ -1,0 +1,22 @@
+-- Pre-migration-030 state snapshot — captured before applying
+-- saas/spine/supabase/migrations/030_pro_tier_recall.sql.
+--
+-- All six target tables verified ABSENT from public schema:
+--   spine_rerank_weights
+--   spine_session_history
+--   spine_dependency_nodes
+--   spine_dependency_edges
+--   spine_training_samples
+--   spine_saas_spine_weight_profiles
+--
+-- Rollback recipe (applies cleanly to a green migration):
+--
+--   DROP TABLE IF EXISTS public.spine_saas_spine_weight_profiles;
+--   DROP TABLE IF EXISTS public.spine_training_samples;
+--   DROP TABLE IF EXISTS public.spine_dependency_edges;
+--   DROP TABLE IF EXISTS public.spine_dependency_nodes;
+--   DROP TABLE IF EXISTS public.spine_session_history;
+--   DROP TABLE IF EXISTS public.spine_rerank_weights;
+--
+-- (Order matters — edges -> nodes due to FK; profiles depend on auth.users
+-- only so order between the rest is free.)
