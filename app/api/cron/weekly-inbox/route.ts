@@ -30,3 +30,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+// Vercel cron sends GET with the bearer token. Same handler.
+export async function GET(req: NextRequest) {
+  return POST(req);
+}

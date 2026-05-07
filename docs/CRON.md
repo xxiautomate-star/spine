@@ -1,22 +1,30 @@
 # Cron jobs — schedule these or product features go quiet
 
 Spine has six scheduled jobs. They are exposed as `POST` routes guarded by a
-shared `CRON_SECRET` bearer token. **The routes exist; nothing calls them by
-default.** You have to point an external scheduler at each one. If you skip
-this step, the homepage's "weekly digest" / "memory decay" / "morning
-briefing" promises become marketing claims with nothing behind them, and
-`/proof` keeps falling back to the calibration baseline forever.
+shared `CRON_SECRET` bearer token. **Vercel cron** drives them via the
+`crons` array in `vercel.json` at the repo root of this app. If a cron is
+missing from `vercel.json`, the homepage's "weekly digest" / "memory decay" /
+"morning briefing" promises become marketing claims with nothing behind them,
+and `/proof` keeps falling back to the calibration baseline forever.
 
 ## Setup once
 
-1. Set `CRON_SECRET` in Coolify env vars to a long random string (≥32 chars).
-2. Set `HARNESS_API_KEY` in Coolify env vars (a Spine API key from the
-   dashboard) — required for the benchmarks job to actually hit `/api/recall`.
-3. Redeploy so the env vars land.
-4. Pick one scheduler — Coolify scheduled tasks, GitHub Actions, or any
-   external HTTP cron service (cron-job.org, EasyCron, etc.). Coolify is the
-   path of least resistance because the secret already lives there.
-5. Add the six jobs below. **All POST. All bearer-auth.** Body is empty.
+1. Set `CRON_SECRET` in Vercel project env vars (Production scope) to a long
+   random string (≥32 chars).
+2. Set `HARNESS_API_KEY` in Vercel project env vars (Production scope) —
+   value is a Spine API key minted from the dashboard. Without it the
+   benchmarks job returns 500.
+3. Confirm the `crons` array in `saas/spine/vercel.json` lists all six paths
+   (the file in this repo is the source of truth).
+4. Redeploy so the env vars and `vercel.json` land. **Vercel cron auto-fires
+   the routes on the schedule** — no other scheduler needed. Vercel signs the
+   request with the `CRON_SECRET` automatically when the route checks
+   `Authorization: Bearer $CRON_SECRET`.
+
+> Plan note: Vercel Hobby allows 2 daily crons. Pro is needed for the full
+> six. If you're stuck on Hobby for launch week, prioritise `benchmarks`
+> (proof-page lifeblood) + `weekly-retention` (revenue feature) and run the
+> rest by hand until you upgrade.
 
 ## The six jobs
 
@@ -42,23 +50,25 @@ If you get `503 Server not configured.` → Supabase env vars missing.
 If you get a 5-minute timeout → user base is large enough that the job needs
 splitting; talk to me.
 
-## Coolify scheduled task example
+## vercel.json — the canonical schedule
 
-In Coolify → Resources → spine → Scheduled tasks → Add task:
+```json
+{
+  "crons": [
+    { "path": "/api/cron/daily-digest",      "schedule": "0 8 * * *" },
+    { "path": "/api/cron/morning-briefing",  "schedule": "30 7 * * 1-5" },
+    { "path": "/api/cron/weekly-inbox",      "schedule": "0 8 * * 1" },
+    { "path": "/api/cron/weekly-retention",  "schedule": "0 8 * * 1" },
+    { "path": "/api/cron/retrain-weights",   "schedule": "0 3 * * *" },
+    { "path": "/api/cron/benchmarks",        "schedule": "0 2 * * 0" }
+  ]
+}
+```
 
-```
-Name:     weekly-retention
-Schedule: 0 8 * * 1
-Command:  curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://spine.xxiautomate.com/api/cron/weekly-retention
-```
-
-```
-Name:     benchmarks
-Schedule: 0 2 * * 0
-Command:  curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://spine.xxiautomate.com/api/cron/benchmarks
-```
-
-Repeat for each of the six jobs with their respective schedules.
+Vercel hits each `path` with `GET` (the platform default) — but our routes
+only export `POST` handlers. `vercel.json` doesn't accept a method override,
+so each route additionally exports a `GET` shim that delegates to `POST`.
+If a new cron route is added, mirror that pattern.
 
 ## Acceptance check for the benchmarks job specifically
 

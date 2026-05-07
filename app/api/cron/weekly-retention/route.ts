@@ -26,3 +26,8 @@ export async function POST(req: NextRequest) {
   const result = await runWeeklyRetentionJob(sb);
   return NextResponse.json({ ok: true, ...result });
 }
+
+// Vercel cron sends GET with the bearer token. Same handler.
+export async function GET(req: NextRequest) {
+  return POST(req);
+}
