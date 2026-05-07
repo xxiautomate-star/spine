@@ -15,12 +15,14 @@ export const dynamic = 'force-dynamic';
 const KEEP_PER_KEY = 100;
 
 export async function POST(req: NextRequest) {
+  // Fail-CLOSED: if CRON_SECRET is unset, this route is unreachable.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get('authorization');
-    if (!auth || auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET unset.' }, { status: 500 });
+  }
+  const auth = req.headers.get('authorization') ?? '';
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 
   const sb = getSupabase();
