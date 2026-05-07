@@ -46,9 +46,9 @@ Copy the output price IDs — you need them in step 5.
 
 ---
 
-## 5. Set env vars in Coolify
+## 5. Set env vars in Vercel
 
-In your Spine service on Coolify, add every variable below. **Do not commit secrets to git.**
+In the Spine project on Vercel → **Settings → Environment Variables**, add every variable below at the **Production** scope (and **Preview** if you want PR builds to share staging DB). **Do not commit secrets to git.**
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
@@ -77,7 +77,7 @@ ENGINE_ACCESS_PASSWORD=           # optional: gate the coming-soon page
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
    - `invoice.payment_failed`
-4. Copy the **Signing secret** (`whsec_...`) → paste as `STRIPE_WEBHOOK_SECRET` in Coolify
+4. Copy the **Signing secret** (`whsec_...`) → paste as `STRIPE_WEBHOOK_SECRET` in Vercel env vars (Production scope)
 
 ---
 
@@ -87,22 +87,23 @@ ENGINE_ACCESS_PASSWORD=           # optional: gate the coming-soon page
 git push origin main
 ```
 
-Coolify picks up the push, builds the Dockerfile, and deploys to the Vultr Sydney VPS. Watch the build log in Coolify. A green checkmark means the container is live.
+Vercel picks up the push, runs `next build` against `saas/spine/` (project root in the dashboard), and ships to `spine.xxiautomate.com`. Watch the build in the Vercel dashboard. A green checkmark means the deployment is live.
 
-Smoke-test: `curl https://spine.xxiautomate.com/api/health` should return `{"ok":true}`.
+Smoke-test: `curl https://spine.xxiautomate.com/api/health` should return `{"ok":true,"db_connected":true,...}`.
+
+> Self-host alternative: see `docs/SELF_HOST.md` for the original Coolify-on-Vultr Dockerfile path. Live deployments use Vercel.
 
 ---
 
 ## 8. DNS
 
-Point your domain at the Vultr VPS IP. Two records needed:
+Point `spine.xxiautomate.com` at Vercel. In your DNS provider:
 
 | Type | Name | Value |
 |---|---|---|
-| `A` | `spine` | `<Vultr VPS IPv4>` |
-| `AAAA` | `spine` | `<Vultr VPS IPv6>` (optional) |
+| `CNAME` | `spine` | `cname.vercel-dns.com` |
 
-TTL: 300 (5 min) for fast propagation. Coolify handles TLS via Let's Encrypt automatically once DNS resolves.
+Add the domain in Vercel → **Settings → Domains**. Vercel issues the TLS certificate automatically once the CNAME resolves (usually <2 min).
 
 ---
 

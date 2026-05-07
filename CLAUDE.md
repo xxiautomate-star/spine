@@ -103,9 +103,11 @@ Everything you build goes here. Do NOT touch anything outside this folder.
 
 ## DEPLOY
 
-- Git push to `main` on this folder's own repo triggers Coolify
-- Domain target: `spine.xxiautomate.com` (Roman will point DNS when ready)
-- Before pushing: `npm run build` locally, fix errors, then push
+- Live host: Vercel. Project root = `saas/spine/`. Domain: `spine.xxiautomate.com`.
+- `git push origin main` → Vercel auto-builds + deploys.
+- Cron jobs run via Vercel cron (declared in `saas/spine/vercel.json`) — see `docs/CRON.md`.
+- Before pushing: `npm run build` locally, fix errors, then push.
+- Coolify-on-Vultr is the documented self-host path (`docs/SELF_HOST.md`); production no longer uses it.
 
 ---
 
