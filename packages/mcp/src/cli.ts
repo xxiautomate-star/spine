@@ -24,6 +24,9 @@ Usage:
   npx spine-mcp sync --dir <path>   Ingest from a custom directory
   npx spine-mcp sync --force        Re-ingest all files (ignore already-synced check)
   npx spine-mcp sync --dry-run      Preview what would be ingested without writing
+  npx spine-mcp sync --obsidian-vault <path>
+                                     Ingest a whole Obsidian vault (frontmatter, tags,
+                                     [[wikilinks]]). See docs/OBSIDIAN.md.
   npx spine-mcp serve               Start MCP server on stdio
   npx spine-mcp hook-stop           Claude Code Stop hook (raw transcript chunking)
   npx spine-mcp inject              Claude Code UserPromptSubmit hook (proactive injection)

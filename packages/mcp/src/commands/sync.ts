@@ -100,6 +100,14 @@ async function alreadySynced(store: Store, sourceTag: string): Promise<boolean> 
 // ── Main ────────────────────────────────────────────────────────────────────
 
 export async function syncCommand(args: string[] = []): Promise<void> {
+  // --obsidian-vault routes to the dedicated vault walker (handles YAML
+  // arrays, wikilinks, importance frontmatter). Default behaviour stays
+  // as Claude Code memory ingestion under ~/.claude/projects.
+  if (args.includes('--obsidian-vault') || args.includes('--vault')) {
+    const { syncObsidianCommand } = await import('./sync-obsidian.js');
+    return syncObsidianCommand(args);
+  }
+
   const dirFlagIdx = args.indexOf('--dir');
   const customDir = dirFlagIdx !== -1 ? (args[dirFlagIdx + 1] ?? '') : undefined;
   const forceFlag = args.includes('--force');
