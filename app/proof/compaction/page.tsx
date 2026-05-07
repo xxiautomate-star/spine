@@ -11,6 +11,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MarketingNav } from '@/components/MarketingNav';
 import { MarketingFooter } from '@/components/MarketingFooter';
+import { CompactionTheater } from '@/components/CompactionTheater';
 
 export const metadata: Metadata = {
   title: 'Compaction proof — Spine',
@@ -121,6 +122,16 @@ export default function CompactionProofPage() {
           captured {new Date(t.capturedAt).toUTCString()} · session id{' '}
           <span style={{ color: 'var(--s-gold-deep)' }}>{t.id}</span>
         </p>
+      </section>
+
+      {/* Theatre — interactive scrubber over the same 142-turn session.
+          Sits above the static receipt so the headline is moving before
+          the reader scrolls into the byte-level evidence. */}
+      <section
+        className="relative px-6 md:px-16 pb-4 max-w-5xl mx-auto"
+        style={{ zIndex: 1 }}
+      >
+        <CompactionTheater />
       </section>
 
       {/* Setup */}
