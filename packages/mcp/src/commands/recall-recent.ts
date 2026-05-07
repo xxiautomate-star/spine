@@ -2,7 +2,7 @@
  * Claude Code SessionStart hook — recent-session context injection.
  *
  * Claude Code invokes this as:
- *   npx @spine/mcp recall-recent
+ *   npx spine-mcp recall-recent
  * with a JSON blob on stdin (or no stdin):
  *   { session_id?, max_tokens? }
  *

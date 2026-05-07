@@ -2,7 +2,7 @@
  * Claude Code Stop / SessionEnd hook — write the structured digest.
  *
  * Claude Code invokes this as:
- *   npx @spine/mcp session-digest
+ *   npx spine-mcp session-digest
  * with a JSON blob on stdin (Stop hook protocol):
  *   { session_id, transcript_path, stop_hook_active }
  *

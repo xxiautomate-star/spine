@@ -513,7 +513,7 @@ export class LocalStore implements Store {
       week: 'local',
       skipped: 'local_unsupported',
       error:
-        'Weekly digests run cloud-only — switch with `npx @spine/mcp init --key YOUR_KEY` and try again.',
+        'Weekly digests run cloud-only — switch with `npx spine-mcp init --key YOUR_KEY` and try again.',
     };
   }
 
