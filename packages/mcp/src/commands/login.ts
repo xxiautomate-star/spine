@@ -4,7 +4,7 @@ export async function loginCommand(args: string[]): Promise<void> {
   const keyIdx = args.indexOf('--key');
   if (keyIdx === -1 || !args[keyIdx + 1]) {
     process.stderr.write(
-      'Usage: npx @spine/mcp login --key <api_key> [--api <url>]\n'
+      'Usage: npx spine-mcp login --key <api_key> [--api <url>]\n'
     );
     process.exit(1);
   }

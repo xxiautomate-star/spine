@@ -1,5 +1,5 @@
 /**
- * `npx @spine/mcp weekly-digest [--week=YYYY-WW] [--force]`
+ * `npx spine-mcp weekly-digest [--week=YYYY-WW] [--force]`
  *
  * Triggers the weekly multi-session digest rollup for the bearer's
  * namespace. Default target: the most recent COMPLETE ISO week (the

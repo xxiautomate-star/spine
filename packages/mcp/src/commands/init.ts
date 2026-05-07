@@ -13,19 +13,25 @@ import {
 // ── Claude Code settings path (global, not per-project) ───────────────────────
 const CLAUDE_SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
 
+// The npm-published package is `spine-mcp` (no @ prefix). The pre-publish
+// internal name was `@spine/mcp`; settings written by older builds still
+// reference it. registerWithClaudeCode() detects + rewrites those.
+const PKG_NAME = 'spine-mcp';
+const LEGACY_PKG_NAMES = ['@spine/mcp'];
+
 const MCP_SERVER_ENTRY = {
   command: 'npx',
-  args: ['-y', '@spine/mcp', 'serve'],
+  args: ['-y', PKG_NAME, 'serve'],
 };
 
 const STOP_HOOK_ENTRY = {
   matcher: '',
-  hooks: [{ type: 'command', command: 'npx @spine/mcp hook-stop' }],
+  hooks: [{ type: 'command', command: `npx ${PKG_NAME} hook-stop` }],
 };
 
 const INJECT_HOOK_ENTRY = {
   matcher: '',
-  hooks: [{ type: 'command', command: 'npx @spine/mcp inject' }],
+  hooks: [{ type: 'command', command: `npx ${PKG_NAME} inject` }],
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -49,48 +55,101 @@ type RegistrationResult = 'written' | 'already' | 'failed';
  * Merge Spine into ~/.claude/settings.json.
  * Adds mcpServers.spine and the Stop hook without overwriting anything else.
  */
+/**
+ * Rewrite a hook command string from `@spine/mcp ...` to `spine-mcp ...`
+ * (or any other legacy → current name). Returns the rewritten command and
+ * a boolean indicating whether anything changed.
+ */
+function migratePkgName(cmd: string): { command: string; changed: boolean } {
+  let out = cmd;
+  let changed = false;
+  for (const legacy of LEGACY_PKG_NAMES) {
+    if (out.includes(legacy)) {
+      out = out.split(legacy).join(PKG_NAME);
+      changed = true;
+    }
+  }
+  return { command: out, changed };
+}
+
 async function registerWithClaudeCode(): Promise<RegistrationResult> {
   try {
     const settings = await readJson<Record<string, unknown>>(CLAUDE_SETTINGS_PATH, {});
     let changed = false;
 
-    // MCP server
+    // ── MCP server ──────────────────────────────────────────────────────────
     const mcpServers = (settings.mcpServers as Record<string, unknown> | undefined) ?? {};
-    if (!mcpServers['spine']) {
+    const existingSpine = mcpServers['spine'] as
+      | { command?: string; args?: string[] }
+      | undefined;
+
+    if (!existingSpine) {
       mcpServers['spine'] = MCP_SERVER_ENTRY;
       settings.mcpServers = mcpServers;
       changed = true;
+    } else if (Array.isArray(existingSpine.args)) {
+      // Legacy installs registered `@spine/mcp` here. Rewrite in place so
+      // Claude Code finds the published `spine-mcp` package on next launch.
+      const newArgs = existingSpine.args.map((a) =>
+        typeof a === 'string' && LEGACY_PKG_NAMES.includes(a) ? PKG_NAME : a
+      );
+      const argsChanged = newArgs.some((a, i) => a !== existingSpine.args![i]);
+      if (argsChanged) {
+        existingSpine.args = newArgs;
+        mcpServers['spine'] = existingSpine;
+        settings.mcpServers = mcpServers;
+        changed = true;
+      }
     }
 
-    // Stop hook — append if Spine hook isn't already there
+    // ── Hooks (Stop + UserPromptSubmit) ─────────────────────────────────────
     const hooks = (settings.hooks as Record<string, unknown> | undefined) ?? {};
 
-    const stopArr = Array.isArray(hooks['Stop']) ? (hooks['Stop'] as unknown[]) : [];
-    const stopHooked = stopArr.some((h) => {
-      const entry = h as { hooks?: Array<{ command?: string }> };
-      return entry.hooks?.some((ih) => typeof ih.command === 'string' && ih.command.includes('hook-stop'));
-    });
-    if (!stopHooked) {
-      stopArr.push(STOP_HOOK_ENTRY);
-      hooks['Stop'] = stopArr;
-      settings.hooks = hooks;
-      changed = true;
-    }
+    type HookEntry = { matcher?: string; hooks?: Array<{ type?: string; command?: string }> };
 
-    // UserPromptSubmit hook — proactive memory injection
-    const promptArr = Array.isArray(hooks['UserPromptSubmit'])
-      ? (hooks['UserPromptSubmit'] as unknown[])
-      : [];
-    const injectHooked = promptArr.some((h) => {
-      const entry = h as { hooks?: Array<{ command?: string }> };
-      return entry.hooks?.some((ih) => typeof ih.command === 'string' && ih.command.includes('inject'));
-    });
-    if (!injectHooked) {
-      promptArr.push(INJECT_HOOK_ENTRY);
-      hooks['UserPromptSubmit'] = promptArr;
-      settings.hooks = hooks;
-      changed = true;
-    }
+    const ensureHook = (
+      bucket: 'Stop' | 'UserPromptSubmit',
+      identifierFragment: string,
+      entryToAdd: typeof STOP_HOOK_ENTRY | typeof INJECT_HOOK_ENTRY
+    ): boolean => {
+      const arr = (Array.isArray(hooks[bucket]) ? hooks[bucket] : []) as HookEntry[];
+      let touched = false;
+
+      // Step 1: rewrite legacy package names in any existing entry.
+      for (const entry of arr) {
+        if (!entry?.hooks) continue;
+        for (const ih of entry.hooks) {
+          if (typeof ih.command === 'string') {
+            const { command, changed: rewritten } = migratePkgName(ih.command);
+            if (rewritten) {
+              ih.command = command;
+              touched = true;
+            }
+          }
+        }
+      }
+
+      // Step 2: only append a fresh entry if no Spine hook is already there.
+      const alreadyHooked = arr.some((entry) =>
+        entry?.hooks?.some(
+          (ih) =>
+            typeof ih.command === 'string' && ih.command.includes(identifierFragment)
+        )
+      );
+      if (!alreadyHooked) {
+        arr.push(entryToAdd);
+        touched = true;
+      }
+
+      if (touched) {
+        hooks[bucket] = arr;
+        settings.hooks = hooks;
+      }
+      return touched;
+    };
+
+    if (ensureHook('Stop', 'hook-stop', STOP_HOOK_ENTRY)) changed = true;
+    if (ensureHook('UserPromptSubmit', 'inject', INJECT_HOOK_ENTRY)) changed = true;
 
     if (!changed) return 'already';
     await writeJson(CLAUDE_SETTINGS_PATH, settings);
@@ -206,11 +265,11 @@ export async function initCommand(args: string[] = []): Promise<void> {
     info('Add this manually to ~/.claude/settings.json:');
     info('');
     info('  "mcpServers": {');
-    info('    "spine": { "command": "npx", "args": ["-y", "@spine/mcp", "serve"] }');
+    info(`    "spine": { "command": "npx", "args": ["-y", "${PKG_NAME}", "serve"] }`);
     info('  },');
     info('  "hooks": {');
     info('    "Stop": [{ "matcher": "", "hooks": [{ "type": "command",');
-    info('      "command": "npx @spine/mcp hook-stop" }] }]');
+    info(`      "command": "npx ${PKG_NAME} hook-stop" }] }]`);
     info('  }');
     info('');
   }

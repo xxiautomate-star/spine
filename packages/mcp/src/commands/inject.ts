@@ -2,7 +2,7 @@
  * Claude Code UserPromptSubmit hook — proactive memory injection.
  *
  * Claude Code invokes this as:
- *   npx @spine/mcp inject
+ *   npx spine-mcp inject
  * with a JSON blob on stdin:
  *   { session_id, prompt }
  *

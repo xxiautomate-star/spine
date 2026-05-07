@@ -19,7 +19,7 @@
 // USAGE — wire into any Claude Agent SDK consumer:
 //
 //   import { Agent } from '@anthropic-ai/claude-agent-sdk';
-//   import { wireCompactBoundary } from '@spine/mcp/hooks/compact-boundary';
+//   import { wireCompactBoundary } from 'spine-mcp/hooks/compact-boundary';
 //
 //   const agent = new Agent({ apiKey: ... });
 //   wireCompactBoundary(agent, { spineApiKey: process.env.SPINE_API_KEY });
