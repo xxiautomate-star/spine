@@ -17,6 +17,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/service';
+import { embedderConfigured, defaultProvider } from '@/lib/embeddings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,7 +56,8 @@ export async function GET() {
     deployed_at: DEPLOYED_AT,
     db_connected: dbConnected,
     db_error: dbError,
-    embedder_configured: Boolean(process.env.OPENAI_API_KEY),
+    embedder_configured: embedderConfigured(),
+    embedder_provider: defaultProvider(),
     anthropic_configured: Boolean(process.env.ANTHROPIC_API_KEY),
     paypal_configured: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
     timestamp: new Date().toISOString(),
