@@ -126,12 +126,15 @@ curl -i -H "Cookie: <session>" https://spine.xxiautomate.com/api/onboarding/setu
 
 ### Known gaps / inconsistencies
 
-- **Plan-cap drift between two files.** The webhook's local `PLAN_CAPS`
-  map (`free: 100`) disagrees with the canonical `lib/plan-limits.ts`
-  (`free: 200`). The webhook map is informational only — runtime cap
-  enforcement at `/api/capture` reads `captureCap()` from
-  `lib/plan-limits.ts` so the canonical value wins. Worth normalising
-  to one source of truth in a follow-up commit; not a launch blocker.
+- **Cap source-of-truth (resolved 2026-05-08).** `lib/plan-limits.ts`
+  is canonical (`free: 200`). The legacy webhook `PLAN_CAPS` snippet
+  (`free: 100`) was rewritten in the Stripe-fix pass — webhook now
+  upserts only `plan` / `plan_updated_at` and lets `/api/capture` and
+  `/api/check-cap` derive the cap at read-time via `captureCap()`.
+- **Pre-tiering grandfather override.** Migration 032 adds
+  `profiles.grandfather_cap_override`. `/api/capture` and
+  `/api/check-cap` honour it. Backfill SQL is in the migration header
+  comment — apply per audit on launch day.
 - **No PayPal path tested.** Health endpoint reports
   `paypal_configured: false`. LemonSqueezy is a partial fallback; see
   `lib/plan-limits.ts:84-95` for variant-ID env var names.

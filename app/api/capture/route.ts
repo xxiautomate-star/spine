@@ -301,7 +301,26 @@ export async function POST(req: NextRequest) {
       return withCors(NextResponse.json({ error: countErr.message }, { status: 500 }));
     }
     const current = count ?? 0;
-    const limit = captureCap(auth.authed.plan);
+    // Grandfather override: pre-signal-tiering accounts (migration 032) carry
+    // a per-user cap that overrides the plan default until grandfather_expires_at.
+    // Skips the override silently if the column doesn't exist yet (older
+    // deployments) so capture stays functional.
+    let limit = captureCap(auth.authed.plan);
+    try {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('grandfather_cap_override, grandfather_expires_at')
+        .eq('user_id', auth.authed.userId)
+        .maybeSingle();
+      const override = (prof as { grandfather_cap_override?: number | null } | null)?.grandfather_cap_override;
+      const expires = (prof as { grandfather_expires_at?: string | null } | null)?.grandfather_expires_at;
+      if (typeof override === 'number' && override > 0) {
+        const stillActive = !expires || Date.parse(expires) > Date.now();
+        if (stillActive) limit = Math.max(limit, override);
+      }
+    } catch {
+      // Column may not exist on older clusters — fall through to plan cap.
+    }
     // Only count THIS batch's non-low items toward the cap.
     let incoming = 0;
     for (let i = 0; i < clean.length; i++) {

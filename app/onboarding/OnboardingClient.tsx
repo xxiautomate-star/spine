@@ -43,6 +43,55 @@ function CodeLine({ children, copyValue }: { children: React.ReactNode; copyValu
   );
 }
 
+// 30-second Loom embed shown the first time a user lands on the success
+// step ("Spine is awake."). Closes the "did it really work?" gap by
+// showing the loop the user just completed — capture in Claude, recall
+// pulled it back. The Loom ID is read from a public env var so Roman can
+// swap the recording without a code change. If the env is unset, we
+// render a styled placeholder rather than a broken iframe.
+const LOOM_EMBED_ID = process.env.NEXT_PUBLIC_LOOM_FIRST_CAPTURE_ID ?? '';
+
+function FirstCaptureLoom() {
+  if (LOOM_EMBED_ID) {
+    return (
+      <div className="relative w-full overflow-hidden rounded-xl border border-cream/[0.08] bg-[#0a0905]" style={{ aspectRatio: '16 / 9' }}>
+        <iframe
+          src={`https://www.loom.com/embed/${LOOM_EMBED_ID}?hideEmbedTopBar=true&hide_speed=true&hide_share=true`}
+          title="Spine — capture, then recall"
+          allow="fullscreen"
+          frameBorder={0}
+          className="absolute inset-0 w-full h-full"
+        />
+      </div>
+    );
+  }
+  // Placeholder — soft, clearly non-broken, sized exactly the same as
+  // the live iframe will be so the layout never reflows when the env
+  // var lands.
+  return (
+    <div
+      className="relative w-full overflow-hidden rounded-xl border border-cream/[0.08] flex items-center justify-center"
+      style={{
+        aspectRatio: '16 / 9',
+        background:
+          'linear-gradient(180deg, rgba(232,154,60,0.04) 0%, rgba(13,12,10,0.6) 100%)',
+      }}
+    >
+      <div className="text-center px-6">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-amber/55 mb-3">
+          30-second walkthrough · arriving soon
+        </p>
+        <p className="font-serif text-cream/85 text-2xl leading-tight max-w-md mx-auto">
+          Capture in Claude. Recall it back. The whole loop in half a minute.
+        </p>
+        <p className="mt-4 font-mono text-[10px] tracking-widest text-cream/30">
+          (set NEXT_PUBLIC_LOOM_FIRST_CAPTURE_ID to embed)
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function StepDot({ n, current }: { n: Step; current: Step }) {
   const done = n < current;
   const active = n === current;
@@ -385,12 +434,14 @@ export function OnboardingClient({ email }: { email: string }) {
                     </div>
                   </div>
 
-                  <p className="text-cream/55 text-[15px] leading-relaxed mb-10">
+                  <p className="text-cream/55 text-[15px] leading-relaxed mb-8">
                     Your first memory is stored. Every session from here builds on the last —
                     context that would otherwise vanish now compounds.
                   </p>
 
-                  <div className="space-y-3 mb-10 p-5 border border-cream/[0.08] rounded-xl">
+                  <FirstCaptureLoom />
+
+                  <div className="space-y-3 mt-10 mb-10 p-5 border border-cream/[0.08] rounded-xl">
                     <p className="font-mono text-[10px] uppercase tracking-widest text-cream/25 mb-4">What happens next</p>
                     {[
                       ['Every session', 'Claude calls get_context at startup — relevant memories appear in its system prompt automatically.'],

@@ -34,7 +34,18 @@ const TURN_TICK_MS = 80;
 const COMPACT_PAUSE_MS = 1600;
 const ASK_PAUSE_MS = 2400;
 
-export function CompactionTheater() {
+export type CompactionTheaterProps = {
+  /**
+   * When true, the auto-play stops at turn=SESSION_LENGTH instead of
+   * looping back to turn=1 after a short pause. Used for screen-recording
+   * (Loom, ads creative) where a rewind in the middle of a take ruins
+   * the shot. Pair with the embed-mode page so the user can record one
+   * clean run-through without the looping animation.
+   */
+  playOnce?: boolean;
+};
+
+export function CompactionTheater({ playOnce = false }: CompactionTheaterProps = {}) {
   const [turn, setTurn] = useState(1);
   const [playing, setPlaying] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -44,6 +55,12 @@ export function CompactionTheater() {
   useEffect(() => {
     if (!playing) return;
     if (turn >= SESSION_LENGTH) {
+      // Play-once: stop at the end. Recording-friendly — no auto-rewind
+      // mid-take. The user can scrub manually if they want a second pass.
+      if (playOnce) {
+        setPlaying(false);
+        return;
+      }
       tickRef.current = setTimeout(() => setTurn(1), 2000);
       return () => {
         if (tickRef.current) clearTimeout(tickRef.current);
@@ -60,7 +77,7 @@ export function CompactionTheater() {
     return () => {
       if (tickRef.current) clearTimeout(tickRef.current);
     };
-  }, [turn, playing]);
+  }, [turn, playing, playOnce]);
 
   const compacted = turn > COMPACT_TURN;
   const askReached = turn >= ASK_TURN;

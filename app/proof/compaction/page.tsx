@@ -91,7 +91,7 @@ const TRANSCRIPT: Transcript = {
 export default async function CompactionProofPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ embed?: string }>;
+  searchParams?: Promise<{ embed?: string; loop?: string }>;
 }) {
   const t = TRANSCRIPT;
   const fragment = t.spineRecall.fragments[0];
@@ -99,18 +99,30 @@ export default async function CompactionProofPage({
   // Embed mode strips nav/footer/static-receipt sections so only the
   // interactive theatre remains — for screen-recordings, Loom decks,
   // and ads creative. Triggered by ?embed=1.
+  //
+  // Optional ?loop=0 (or `loop=false`) flips the theatre into play-once
+  // mode — the auto-play stops at the end instead of rewinding so the
+  // recording stays clean through the full reveal. Loop is on by default
+  // because the marketing-page version benefits from continuous motion.
   const params = (await searchParams) ?? {};
   const embedded = params.embed === '1' || params.embed === 'true';
+  const playOnce = params.loop === '0' || params.loop === 'false';
 
   if (embedded) {
     return (
       <main
-        className="relative marble-bg min-h-screen flex items-center px-4 md:px-10 py-8"
+        className="relative marble-bg min-h-screen flex items-center justify-center px-4 md:px-8 py-6 md:py-10"
         style={{ color: 'var(--s-ink)' }}
       >
         <div className="marble-vein" style={{ position: 'fixed', zIndex: 0 }} />
         <div className="marble-grain" style={{ position: 'fixed', zIndex: 0 }} />
-        <div className="w-full max-w-5xl mx-auto" style={{ position: 'relative', zIndex: 1 }}>
+        {/* max-w-5xl on landscape (1920×1080), max-w-md keeps vertical
+            (1080×1920) recordings from sprawling. The mx-auto + flex
+            wrapper above centers either way. */}
+        <div
+          className="w-full max-w-5xl portrait:max-w-md mx-auto"
+          style={{ position: 'relative', zIndex: 1 }}
+        >
           <p
             className="font-mono text-[10px] uppercase tracking-[0.32em] mb-4"
             style={{ color: 'var(--s-gold-deep)' }}
@@ -118,7 +130,7 @@ export default async function CompactionProofPage({
             <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ Compaction proof</span>
             spine.xxiautomate.com
           </p>
-          <CompactionTheater />
+          <CompactionTheater playOnce={playOnce} />
           <p
             className="mt-5 font-mono text-[10px] tracking-widest"
             style={{ color: 'var(--s-ink-faint)' }}

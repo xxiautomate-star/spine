@@ -225,49 +225,72 @@ export const MEMORIES: Record<Theme, string[]> = {
   ],
 };
 
-// 30 evaluation queries — 6 per theme. Each phrased as the kind of thing a
+// 50 evaluation queries — 10 per theme. Each phrased as the kind of thing a
 // real user might ask their AI ("what do I think about X?", "remind me about Y").
 // The retrieval is correct if the top-K results carry the matching theme tag.
+//
+// Mirrored 1:1 in scripts/benchmark-eval-set.json so external replicators can
+// read the eval surface without a TS toolchain. If you edit either, edit both.
 export const QUERIES: Array<{ query: string; theme: Theme }> = [
-  // tech
+  // tech (10)
   { query: 'what frontend framework am I using right now?', theme: 'tech' },
   { query: 'what is my preferred database setup?', theme: 'tech' },
   { query: 'how do I handle authentication in my apps?', theme: 'tech' },
   { query: 'what is my deployment pipeline?', theme: 'tech' },
   { query: 'which testing libraries do I use?', theme: 'tech' },
   { query: 'what embedding model do I default to?', theme: 'tech' },
+  { query: 'do I prefer Tailwind or CSS-in-JS?', theme: 'tech' },
+  { query: 'which ORM am I using these days?', theme: 'tech' },
+  { query: 'how do I validate request bodies on API routes?', theme: 'tech' },
+  { query: 'where do I store secrets during local development?', theme: 'tech' },
 
-  // travel
+  // travel (10)
   { query: 'recommend a hotel in Tokyo I have stayed at before', theme: 'travel' },
   { query: 'what is my favourite ramen place in Japan?', theme: 'travel' },
   { query: 'where did I drive when I went to Iceland?', theme: 'travel' },
   { query: 'good cafe in Melbourne I like?', theme: 'travel' },
   { query: 'what airline do I prefer for long-haul flights?', theme: 'travel' },
   { query: 'where do I get cash when arriving in Japan?', theme: 'travel' },
+  { query: 'what is my preferred hotel chain for business trips?', theme: 'travel' },
+  { query: 'where did I stay in Bali?', theme: 'travel' },
+  { query: 'what is the best dim sum I have had in Hong Kong?', theme: 'travel' },
+  { query: 'which train pass did I use across Japan?', theme: 'travel' },
 
-  // cooking
+  // cooking (10)
   { query: 'what is my go-to weeknight pasta dish?', theme: 'cooking' },
   { query: 'how do I cook a steak at home?', theme: 'cooking' },
   { query: 'what knife do I use for prep?', theme: 'cooking' },
   { query: 'what is my sourdough routine?', theme: 'cooking' },
   { query: 'what oil do I use for finishing dishes?', theme: 'cooking' },
   { query: 'how do I make my pizza dough?', theme: 'cooking' },
+  { query: 'how do I season cast iron pans?', theme: 'cooking' },
+  { query: 'what is my preferred salt for cooking?', theme: 'cooking' },
+  { query: 'how do I make a proper carbonara?', theme: 'cooking' },
+  { query: 'what is my method for slow-cooked ragu?', theme: 'cooking' },
 
-  // fitness
+  // fitness (10)
   { query: 'what is my current 5k personal best?', theme: 'fitness' },
   { query: 'how often do I lift weights per week?', theme: 'fitness' },
   { query: 'what supplements do I take?', theme: 'fitness' },
   { query: 'what is my favourite running shoe?', theme: 'fitness' },
   { query: 'how do I structure my long runs?', theme: 'fitness' },
   { query: 'what is my deadlift PR?', theme: 'fitness' },
+  { query: 'what does my warm-up look like?', theme: 'fitness' },
+  { query: 'how do I track my training volume?', theme: 'fitness' },
+  { query: 'when do I take rest days?', theme: 'fitness' },
+  { query: 'what is my pre-race nutrition plan?', theme: 'fitness' },
 
-  // books
+  // books (10)
   { query: 'what am I currently reading?', theme: 'books' },
   { query: 'recommend a business book I rate highly', theme: 'books' },
   { query: 'what is my favourite Cormac McCarthy novel?', theme: 'books' },
   { query: 'best biography I have read?', theme: 'books' },
   { query: 'how do I track books I have finished?', theme: 'books' },
   { query: 'what is my favourite philosophy book?', theme: 'books' },
+  { query: 'which novel has had the biggest influence on me?', theme: 'books' },
+  { query: 'how often do I re-read books?', theme: 'books' },
+  { query: 'what is my preferred reading format?', theme: 'books' },
+  { query: 'which book do I gift the most?', theme: 'books' },
 ];
 
 export const TOTAL_MEMORIES = Object.values(MEMORIES).reduce((sum, arr) => sum + arr.length, 0);

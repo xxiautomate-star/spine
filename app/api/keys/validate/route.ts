@@ -27,7 +27,49 @@ function capForPlan(plan: Plan): number | null {
   return Number.isFinite(tier.captureCap) ? tier.captureCap : null;
 }
 
+// Per-IP token bucket: 60 req / 60s. A leaked key probe-loop would
+// otherwise burn through a candidate dictionary at line-rate.
+const validateHits = new Map<string, number[]>();
+const VALIDATE_WINDOW_MS = 60_000;
+const VALIDATE_MAX = 60;
+
+function checkValidateRate(ip: string): boolean {
+  const now = Date.now();
+  const prev = validateHits.get(ip) ?? [];
+  const recent = prev.filter((t) => now - t < VALIDATE_WINDOW_MS);
+  if (recent.length >= VALIDATE_MAX) {
+    validateHits.set(ip, recent);
+    return false;
+  }
+  recent.push(now);
+  validateHits.set(ip, recent);
+  if (validateHits.size > 5_000) {
+    const cutoff = now - VALIDATE_WINDOW_MS;
+    for (const [k, arr] of validateHits) {
+      const kept = arr.filter((t) => t >= cutoff);
+      if (kept.length === 0) validateHits.delete(k);
+      else validateHits.set(k, kept);
+    }
+  }
+  return true;
+}
+
+function clientIp(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  );
+}
+
 export async function GET(req: NextRequest) {
+  if (!checkValidateRate(clientIp(req))) {
+    return NextResponse.json(
+      { error: 'Rate limited', retry_after_s: 60 },
+      { status: 429, headers: { 'Retry-After': '60' } },
+    );
+  }
+
   const header = req.headers.get('authorization');
   if (!header || !header.toLowerCase().startsWith('bearer ')) {
     return NextResponse.json({ error: 'Missing bearer token' }, { status: 401 });

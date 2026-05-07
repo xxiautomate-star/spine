@@ -36,7 +36,7 @@ and `/proof` keeps falling back to the calibration baseline forever.
 | Weekly inbox | `POST /api/cron/weekly-inbox` | Mondays, 08:00 UTC | Cross-AI activity summary email | "Weekly inbox" — Pro feature |
 | Weekly retention | `POST /api/cron/weekly-retention` | Mondays, 08:00 UTC | Memory decay + revive flow + retention digest | "Weekly retention digest" — Pro feature |
 | Retrain weights | `POST /api/cron/retrain-weights` | Nightly, 03:00 UTC | Logistic regression over recall labels → new active weights | "Learned ranker" — internal infra |
-| Benchmarks | `POST /api/cron/benchmarks` | Sundays, 02:00 UTC | Runs the recall-quality eval (30 queries) and writes one row to `benchmark_runs`. `/proof` reads the latest row | "We measured. Here's what we got." (proof page headline) |
+| Benchmarks | `POST /api/cron/benchmarks` | Nightly, 02:00 UTC | Runs the recall-quality eval (50 themed queries + 5 false-positive) and writes one row to `benchmark_runs`. `/proof` reads the latest row | "We measured. Here's what we got." (proof page headline) |
 
 ## Curl pattern (verify each manually before scheduling)
 
@@ -59,7 +59,7 @@ subset — two daily crons, the maximum Vercel Hobby allows:
 ```json
 {
   "crons": [
-    { "path": "/api/cron/benchmarks",       "schedule": "0 2 * * 0" },
+    { "path": "/api/cron/benchmarks",       "schedule": "0 2 * * *" },
     { "path": "/api/cron/weekly-retention", "schedule": "0 8 * * 1" }
   ]
 }
