@@ -47,6 +47,11 @@ export type DigestPayload = {
   filesTouched?: string[];
   commits?: string[];
   source?: string;
+  // B1 (2026-05-08): mark a digest as a partial / crash-recovered roll-up
+  // rather than the canonical end-of-session artefact. Surfaces in
+  // /api/recall/recent so callers can show "context through ${ts} via ${phase}".
+  // Defaults to 'complete'.
+  phase?: 'in_progress' | 'complete' | 'recovered';
 };
 
 export type RecallRecentResult = {

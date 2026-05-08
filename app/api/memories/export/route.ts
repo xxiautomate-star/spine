@@ -12,6 +12,7 @@
 import { type NextRequest } from 'next/server';
 import { getServerSupabase, getServerUser } from '@/lib/supabase-server';
 import { logAuditFireForget } from '@/lib/audit';
+import { isLargeExport, sendExportConfirmation } from '@/lib/export-email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -145,6 +146,13 @@ export async function GET(req: NextRequest) {
         // Audit-log the export. memory_audit.op constraint allows only
         // read/write/embed/reembed/delete — using 'read' with metadata
         // marker. Adding 'export' to the constraint would need a migration.
+        const filters = {
+          q: q ?? null,
+          source: source ?? null,
+          from: from ?? null,
+          to: toRaw ?? null,
+          tag: tag ?? null,
+        };
         logAuditFireForget({
           userId: user.id,
           op: 'read',
@@ -154,18 +162,21 @@ export async function GET(req: NextRequest) {
             row_count: totalRows,
             include_embeddings: includeEmb,
             ip,
-            filters: {
-              q: q ?? null,
-              source: source ?? null,
-              from: from ?? null,
-              to: to ?? null,
-              tag: tag ?? null,
-            },
-            // TODO: send confirmation email on large exports once Resend is
-            // wired into the user-notification path. Track by user_id +
-            // last_export_email_at on profiles.
+            filters,
           },
         });
+        // Fire-and-forget Resend confirmation for large exports. Dedup is
+        // upstream via the per-user 1/60s rate limit; we don't suppress
+        // here. user.email is the auth.users email, always present.
+        if (isLargeExport(totalRows) && user.email) {
+          void sendExportConfirmation({
+            to: user.email,
+            rowCount: totalRows,
+            includeEmbeddings: includeEmb,
+            ip,
+            filters,
+          });
+        }
         controller.close();
       }
     },

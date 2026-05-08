@@ -88,10 +88,41 @@ const TRANSCRIPT: Transcript = {
   },
 };
 
+// Aspect-ratio presets for embed-mode Loom / ads recording. Each maps to
+// a Tailwind max-width that constrains the theatre frame so a stylable
+// browser window can be cropped cleanly to the target dimensions.
+//   16:9 — landscape (Loom default, YouTube)
+//   9:16 — vertical (Reels / TikTok / IG Stories)
+//   1:1  — square (LinkedIn carousel, Twitter)
+type Aspect = '16:9' | '9:16' | '1:1';
+
+function parseAspect(raw: string | undefined): Aspect {
+  if (raw === '9:16' || raw === '1:1') return raw;
+  return '16:9';
+}
+
+function parseSpeed(raw: string | undefined): number {
+  if (!raw) return 1;
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.min(4, Math.max(0.25, n));
+}
+
+const ASPECT_FRAME: Record<Aspect, string> = {
+  '16:9': 'max-w-5xl',
+  '9:16': 'max-w-md',
+  '1:1': 'max-w-2xl',
+};
+
 export default async function CompactionProofPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ embed?: string; loop?: string }>;
+  searchParams?: Promise<{
+    embed?: string;
+    loop?: string;
+    aspect?: string;
+    speed?: string;
+  }>;
 }) {
   const t = TRANSCRIPT;
   const fragment = t.spineRecall.fragments[0];
@@ -104,9 +135,17 @@ export default async function CompactionProofPage({
   // mode — the auto-play stops at the end instead of rewinding so the
   // recording stays clean through the full reveal. Loop is on by default
   // because the marketing-page version benefits from continuous motion.
+  //
+  // Optional ?aspect=9:16|16:9|1:1 constrains the theatre frame. Default
+  // 16:9 matches Loom / YouTube; 9:16 keeps vertical recordings tight.
+  //
+  // Optional ?speed=0.5|1|2|... applies a multiplier to every auto-play
+  // delay. 1 = canonical, 2 = double-speed, 0.5 = slow-mo. Clamped 0.25–4.
   const params = (await searchParams) ?? {};
   const embedded = params.embed === '1' || params.embed === 'true';
   const playOnce = params.loop === '0' || params.loop === 'false';
+  const aspect = parseAspect(params.aspect);
+  const speed = parseSpeed(params.speed);
 
   if (embedded) {
     return (
@@ -116,12 +155,13 @@ export default async function CompactionProofPage({
       >
         <div className="marble-vein" style={{ position: 'fixed', zIndex: 0 }} />
         <div className="marble-grain" style={{ position: 'fixed', zIndex: 0 }} />
-        {/* max-w-5xl on landscape (1920×1080), max-w-md keeps vertical
-            (1080×1920) recordings from sprawling. The mx-auto + flex
-            wrapper above centers either way. */}
+        {/* Aspect-aware frame. 16:9 (default) → wide; 9:16 → narrow for
+            vertical Reels; 1:1 → square for LinkedIn carousels. */}
         <div
-          className="w-full max-w-5xl portrait:max-w-md mx-auto"
+          className={`w-full ${ASPECT_FRAME[aspect]} mx-auto`}
           style={{ position: 'relative', zIndex: 1 }}
+          data-aspect={aspect}
+          data-speed={speed}
         >
           <p
             className="font-mono text-[10px] uppercase tracking-[0.32em] mb-4"
@@ -130,7 +170,7 @@ export default async function CompactionProofPage({
             <span className="mr-3" style={{ color: 'var(--s-gold)' }}>§ Compaction proof</span>
             spine.xxiautomate.com
           </p>
-          <CompactionTheater playOnce={playOnce} />
+          <CompactionTheater playOnce={playOnce} speed={speed} />
           <p
             className="mt-5 font-mono text-[10px] tracking-widest"
             style={{ color: 'var(--s-ink-faint)' }}

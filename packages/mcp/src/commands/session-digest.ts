@@ -21,6 +21,7 @@ import { homedir } from 'node:os';
 import { DEFAULT_API_BASE, readConfig, DB_PATH } from '../config.js';
 import { CloudStore } from '../store/cloud.js';
 import { LocalStore } from '../store/local.js';
+import { SessionBuffer } from '../store/session-buffer.js';
 import type { DigestPayload } from '../store/index.js';
 
 const LAST_WEEK_FILE = join(homedir(), '.spine', 'last-week.txt');
@@ -176,22 +177,42 @@ export async function sessionDigestCommand(): Promise<void> {
   };
 
   const config = await readConfig();
+  let digestStored = false;
   try {
     if (config.mode === 'cloud' && config.apiKey) {
       const store = new CloudStore(config.apiBase ?? DEFAULT_API_BASE, config.apiKey);
       await store.captureDigest(payload);
+      digestStored = true;
       await maybeTriggerWeeklyRollup(store);
-      return;
-    }
-    const store = new LocalStore(DB_PATH);
-    try {
-      await store.captureDigest(payload);
-      // Local mode: weekly digests are unsupported — skip the rollup trigger.
-    } finally {
-      store.close();
+    } else {
+      const store = new LocalStore(DB_PATH);
+      try {
+        await store.captureDigest(payload);
+        digestStored = true;
+        // Local mode: weekly digests are unsupported — skip the rollup trigger.
+      } finally {
+        store.close();
+      }
     }
   } catch {
     // Fire-and-forget; never block session end.
+  }
+
+  // Once the complete digest landed, flag this session's buffered turns as
+  // flushed so a future SessionStart `recover` doesn't redundantly rebuild
+  // the digest. Failure to mark is non-fatal — recover dedups against
+  // existing complete digests in cloud anyway.
+  if (digestStored) {
+    let buffer: SessionBuffer | null = null;
+    try {
+      buffer = new SessionBuffer();
+      buffer.markFlushed(sessionId);
+      buffer.pruneOlderThan(14);
+    } catch {
+      /* swallow */
+    } finally {
+      buffer?.close();
+    }
   }
 }
 

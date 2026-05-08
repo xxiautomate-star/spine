@@ -382,6 +382,7 @@ export class LocalStore implements Store {
   }
 
   async captureDigest(input: DigestPayload): Promise<string> {
+    const phase = input.phase ?? 'complete';
     const body = JSON.stringify(
       {
         decisions: input.decisions ?? [],
@@ -390,6 +391,7 @@ export class LocalStore implements Store {
         mistakes: input.mistakes ?? [],
         files_touched: input.filesTouched ?? [],
         commits: input.commits ?? [],
+        phase,
       },
       null,
       2
@@ -397,7 +399,12 @@ export class LocalStore implements Store {
     return this.capture({
       content: body,
       source: input.source ?? 'claude-code',
-      tags: ['session-digest', `session:${input.sessionId.slice(0, 8)}`, 'digest'],
+      tags: [
+        'session-digest',
+        `session:${input.sessionId.slice(0, 8)}`,
+        'digest',
+        `phase:${phase}`,
+      ],
       type: 'context',
     });
   }

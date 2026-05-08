@@ -20,7 +20,20 @@ type DigestRow = {
   content: string;
   session_id: string | null;
   created_at: string;
+  tags: string[] | null;
 };
+
+type DigestPhase = 'in_progress' | 'complete' | 'recovered';
+
+function inferPhase(tags: string[] | null): DigestPhase {
+  if (!tags) return 'complete';
+  for (const t of tags) {
+    if (t === 'phase:in_progress') return 'in_progress';
+    if (t === 'phase:recovered') return 'recovered';
+    if (t === 'phase:complete') return 'complete';
+  }
+  return 'complete';
+}
 
 type TurnRow = {
   id: string;
@@ -85,7 +98,7 @@ export async function POST(req: NextRequest) {
   // 1. Pull the most recent N digests for this user.
   const { data: digests, error: dErr } = await supabase
     .from('memories')
-    .select('id, content, session_id, created_at')
+    .select('id, content, session_id, created_at, tags')
     .eq('user_id', auth.authed.userId)
     .eq('kind', 'digest')
     .is('deleted_at', null)
@@ -198,6 +211,18 @@ export async function POST(req: NextRequest) {
       ? `${header}\n\n(no recent sessions yet — capture some turns and try again)`
       : `${header}\n\n${sectionLines.join('\n').trim()}`;
 
+  // B1 (2026-05-08): declare the granularity of what we're returning so
+  // callers can render an honest "context through ${ts} via ${phase}" line
+  // and don't trust digests blindly. via='turn_buffer' reserved for the
+  // local-store fallback path (CLI uses recallRecent on LocalStore).
+  const newestDigest = digestRows[0] ?? null;
+  const digestThrough = newestDigest?.created_at ?? null;
+  const via: DigestPhase | 'turn_buffer' | 'none' = newestDigest
+    ? inferPhase(newestDigest.tags)
+    : turnRows.length > 0
+      ? 'turn_buffer'
+      : 'none';
+
   return withCors(
     NextResponse.json({
       context,
@@ -205,6 +230,8 @@ export async function POST(req: NextRequest) {
       digests_count: digestRows.length,
       turns_count: turnRows.length,
       latest_session_id: latestSessionId,
+      digest_through: digestThrough,
+      via,
     })
   );
 }

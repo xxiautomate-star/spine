@@ -21,6 +21,7 @@
 import { DEFAULT_API_BASE, readConfig, DB_PATH } from '../config.js';
 import { CloudStore } from '../store/cloud.js';
 import { LocalStore } from '../store/local.js';
+import { SessionBuffer } from '../store/session-buffer.js';
 import type { TurnInput } from '../store/index.js';
 
 interface HookInput {
@@ -95,6 +96,29 @@ export async function captureTurnCommand(): Promise<void> {
     ts: new Date().toISOString(),
     embedTurns: process.env.SPINE_EMBED_TURNS === '1',
   };
+
+  // Mirror to the local session buffer FIRST. If cloud capture later fails,
+  // the recover command on the next session start can rebuild the digest
+  // from this buffer — which is the whole point (B1, 2026-05-08). The
+  // buffer is cheap (~150 bytes per turn) and idempotent on
+  // (session_id, ts, role) so a retry never duplicates.
+  let buffer: SessionBuffer | null = null;
+  try {
+    buffer = new SessionBuffer();
+    buffer.push({
+      sessionId: turnInput.sessionId,
+      role: turnInput.role,
+      content: turnInput.content,
+      toolName: turnInput.toolName ?? null,
+      filesTouched: turnInput.filesTouched ?? null,
+      ts: turnInput.ts ?? new Date().toISOString(),
+    });
+  } catch {
+    // Never block the prompt on a buffer write failure — cloud still gets
+    // the turn, and the worst case is no recovery on crash for THIS turn.
+  } finally {
+    buffer?.close();
+  }
 
   const config = await readConfig();
   try {

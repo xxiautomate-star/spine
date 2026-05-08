@@ -12,6 +12,7 @@ import { sessionDigestCommand } from './commands/session-digest.js';
 import { weeklyDigestCommand } from './commands/weekly-digest.js';
 import { dogfoodCommand } from './commands/dogfood.js';
 import { migrateToCloudCommand } from './commands/migrate-to-cloud.js';
+import { recoverCommand } from './commands/recover.js';
 
 const USAGE = `spine-mcp — the memory layer for your AI
 
@@ -32,6 +33,7 @@ Usage:
   npx spine-mcp inject              Claude Code UserPromptSubmit hook (proactive injection)
   npx spine-mcp capture-turn        Claude Code UserPromptSubmit hook (single-turn append)
   npx spine-mcp recall-recent       Claude Code SessionStart hook (recent-context block)
+  npx spine-mcp recover             Claude Code SessionStart hook (rebuild crash-orphaned digests)
   npx spine-mcp session-digest      Claude Code Stop hook (structured end-of-session digest)
   npx spine-mcp weekly-digest [--week=YYYY-WW] [--force]
                                      Roll up the week's session digests; outputs paste-ready markdown
@@ -100,6 +102,8 @@ async function main() {
       return captureTurnCommand();
     case 'recall-recent':
       return recallRecentCommand();
+    case 'recover':
+      return recoverCommand();
     case 'session-digest':
       return sessionDigestCommand();
     case 'weekly-digest':

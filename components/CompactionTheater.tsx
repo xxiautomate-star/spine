@@ -43,9 +43,23 @@ export type CompactionTheaterProps = {
    * clean run-through without the looping animation.
    */
   playOnce?: boolean;
+  /**
+   * Multiplier for every auto-play delay. 1 = canonical pacing,
+   * 0.5 = twice as fast (good for tight ad-creative cuts), 2 = half-speed
+   * (good for narrating the beat-by-beat in a Loom). Clamped [0.25, 4].
+   * Manual scrub is unaffected.
+   */
+  speed?: number;
 };
 
-export function CompactionTheater({ playOnce = false }: CompactionTheaterProps = {}) {
+const SPEED_MIN = 0.25;
+const SPEED_MAX = 4;
+
+export function CompactionTheater({
+  playOnce = false,
+  speed = 1,
+}: CompactionTheaterProps = {}) {
+  const speedClamped = Math.min(SPEED_MAX, Math.max(SPEED_MIN, speed));
   const [turn, setTurn] = useState(1);
   const [playing, setPlaying] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -68,16 +82,19 @@ export function CompactionTheater({ playOnce = false }: CompactionTheaterProps =
     }
     const isCompactBeat = turn === COMPACT_TURN;
     const isAskBeat = turn === ASK_TURN;
-    const delay = isCompactBeat
+    const baseDelay = isCompactBeat
       ? COMPACT_PAUSE_MS
       : isAskBeat
       ? ASK_PAUSE_MS
       : TURN_TICK_MS;
+    // Higher speed → shorter delays. Floor of 16ms keeps the timer above
+    // a single animation frame even at the fastest setting.
+    const delay = Math.max(16, Math.round(baseDelay / speedClamped));
     tickRef.current = setTimeout(() => setTurn((t) => t + 1), delay);
     return () => {
       if (tickRef.current) clearTimeout(tickRef.current);
     };
-  }, [turn, playing, playOnce]);
+  }, [turn, playing, playOnce, speedClamped]);
 
   const compacted = turn > COMPACT_TURN;
   const askReached = turn >= ASK_TURN;
