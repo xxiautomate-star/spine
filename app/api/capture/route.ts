@@ -14,6 +14,20 @@ import { detectConflicts } from '@/lib/conflict-detector';
 import { extractDecision } from '@/lib/decision-extractor';
 import { logAuditBatchFireForget, type AuditEntry } from '@/lib/audit';
 import { scoreSignals, type SignalScore, type SignalTier, fallbackScore } from '@/lib/signal-scorer';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+// Burst limits for /api/capture. Per-user is the primary defence (auth
+// is mandatory); per-IP catches an attacker burning many keys behind
+// one IP. Both are generous because legitimate MCP traffic bursts —
+// every prompt-response turn writes one row.
+const CAPTURE_RATE_PER_USER_PER_MIN = 120;
+const CAPTURE_RATE_PER_IP_PER_MIN = 300;
+
+function clientIp(req: NextRequest): string {
+  const xff = req.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0].trim();
+  return req.headers.get('x-real-ip') ?? 'unknown';
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -186,6 +200,33 @@ export async function POST(req: NextRequest) {
   const auth = await requireApiKeyWithScope(req, 'write');
   if (!auth.authed)
     return withCors(NextResponse.json({ error: auth.error }, { status: auth.status }));
+
+  // Burst rate-limit. Plan-cap (line ~330) is the long-horizon defence;
+  // this catches runaway MCP loops and single-IP scrape attacks before
+  // any work happens. Per-user first (cheaper to check), then per-IP.
+  if (!checkRateLimit('capture-user:' + auth.authed.userId, CAPTURE_RATE_PER_USER_PER_MIN)) {
+    return withCors(
+      NextResponse.json(
+        {
+          error: 'Capture rate limit exceeded for this user. Slow down and retry in a minute.',
+          retry_after_seconds: 60,
+        },
+        { status: 429, headers: { 'retry-after': '60' } },
+      ),
+    );
+  }
+  if (!checkRateLimit('capture-ip:' + clientIp(req), CAPTURE_RATE_PER_IP_PER_MIN)) {
+    return withCors(
+      NextResponse.json(
+        {
+          error: 'Capture rate limit exceeded for this network. Slow down and retry in a minute.',
+          retry_after_seconds: 60,
+        },
+        { status: 429, headers: { 'retry-after': '60' } },
+      ),
+    );
+  }
+
   // Receipt: fire-and-forget. See /api/recall for the same pattern + rationale.
   logKeyReceipt({
     keyId: auth.authed.keyId,

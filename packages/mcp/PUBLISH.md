@@ -1,124 +1,165 @@
 # Publishing spine-mcp to npm
 
-## One-time setup (do this once)
+> Read this **before** running `npm publish`. Two minutes here saves an
+> hour rolling back a botched release.
 
-### 1. Create the npm org
+## Where things stand right now
 
-1. Go to https://www.npmjs.com/org/create
-2. Org name: `spine`
-3. If `spine` is taken, check `@spine-mcp` or `@spinemcp`
-4. Update `package.json` → `"name"` to match the org you secured
+- Package name on npm: **`spine-mcp`** (unscoped — no `@spine/` prefix).
+- Latest published: check with `npm view spine-mcp version`.
+- Source of truth for version: `packages/mcp/package.json` `"version"`.
+- Maintainer on npm: `roman.xxiautomate` (your account).
+- Tarball is **64 files, ~65 kB** — no `src/`, no `node_modules/`. If
+  `npm pack --dry-run` shows anything else, stop and investigate before
+  publishing.
 
-### 2. Authenticate
+---
+
+## Pre-flight (run every time)
+
+From `packages/mcp/`:
+
+```bash
+# 1. Clean build
+npm run build
+
+# 2. Inspect the tarball that will go to npm
+npm pack --dry-run
+
+# 3. Smoke the published behaviour locally
+npm run smoke         # publish-smoke.mjs
+```
+
+If `prepublishOnly` is honoured (it is, via the script in package.json)
+both build and smoke run automatically when you `npm publish` — but it's
+faster to catch problems before you've authenticated.
+
+---
+
+## Authentication
+
+You should already be logged in (`npm whoami` → `roman.xxiautomate`).
+If not:
 
 ```bash
 npm login
-# Prompts for username, password, email, OTP
-# Verify: npm whoami → should print your username
+# Choose: Web (browser flow) — opens npm.js in the browser, sign in,
+# returns to the terminal authenticated.
 ```
 
-### 3. Verify you own the org scope
+For 2FA, you have two options on your account:
 
-```bash
-npm org ls spine
-# Should list you as owner
-```
+- **Standard**: every `npm publish` prompts for an OTP from your
+  authenticator app. Safest, slowest.
+- **Granular access token with `--otp` bypass**: generate at
+  https://www.npmjs.com/settings/<you>/tokens · choose
+  *Granular Access Token*, scope to the `spine-mcp` package, tick
+  "Bypass 2FA for publish." Set `NPM_TOKEN` in your shell and `npm
+  publish` will use it without prompting. Treat this token like a
+  password — short expiry, never commit it.
 
 ---
 
-## Every publish
+## Publish
 
 ```bash
-# 1. From the repo root — build first
-cd packages/mcp
-npm run build
-# Verify dist/ exists with no tsc errors
+# 1. Decide the version bump (see semver below)
+npm version patch     # 1.1.1 → 1.1.2 (bug fix, no API change)
+npm version minor     # 1.1.x → 1.2.0 (new MCP tool, new command, new flag)
+npm version major     # 1.x.x → 2.0.0 (breaking config or schema change)
+# This commits a version bump and creates a git tag.
 
-# 2. Sanity-check what will be published
-npm pack --dry-run
-# Should list: dist/**, README.md, package.json
-# Should NOT list: src/, node_modules/, *.ts source files
+# 2. Push the version bump + tag (so the repo and npm stay in sync)
+git push --follow-tags
 
-# 3. Bump version (choose: patch | minor | major)
-npm version patch
-# This commits a version bump and creates a git tag
-
-# 4. Publish
+# 3. Publish
 npm publish --access public
-# --access public is required for scoped packages on free npm accounts
+# --access public is required even for unscoped packages on free accounts.
 
-# 5. Verify install works cold
-cd /tmp && npx spine-mcp --version
-# Should print the version you just published
+# 4. Verify the release landed
+npm view spine-mcp version
+# Should print the version you just published.
 ```
 
----
-
-## Testing the full install flow before publish
+### Cold-install verification
 
 ```bash
-# Pack locally
-npm pack
-# Creates spine-mcp-1.0.0.tgz in packages/mcp/
+cd /tmp
+npx spine-mcp@latest --version
+# Should print the version you just published. If npm cached, add
+# --no-cache or `npx spine-mcp@<exact-version>`.
 
-# Install from local tarball in a temp dir
-mkdir /tmp/spine-test && cd /tmp/spine-test
-npm init -y
-npm install /path/to/spine-mcp-1.0.0.tgz
-
-# Test commands
-npx spine-mcp --version
-npx spine-mcp init --local
-npx spine-mcp serve &
-# Should start MCP server on stdio with no errors
-kill %1
+npx spine-mcp@latest init --local
+# Writes ~/.spine/config.json + ~/.claude/settings.json,
+# starts MCP server on stdio with no errors.
 ```
 
 ---
 
-## If the Stop hook is erroring
+## Rollback
 
-The hook runs `npx spine-mcp hook-stop`. If the package isn't published yet,
-npx falls back to the local install — but if the package name doesn't match,
-it will error with "package not found".
+If you find a critical bug **after** publish:
 
-**Temporary workaround** while the package isn't yet published:
+```bash
+# Option A — deprecate the bad version (preferred, doesn't break installs)
+npm deprecate spine-mcp@<version> "Critical bug — please install <safe>"
 
-In `~/.claude/settings.json`, change the hook command to use the local dist directly:
-
-```json
-{
-  "hooks": {
-    "Stop": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "node /path/to/saas/spine/packages/mcp/dist/cli.js hook-stop"
-      }]
-    }]
-  }
-}
+# Option B — fully unpublish (only allowed within 72 hours of publish,
+# only if no one else depends on it)
+npm unpublish spine-mcp@<version>
 ```
 
-Replace `/path/to/saas/spine/` with the actual absolute path.
+Then publish a patch version with the fix immediately. The deprecation
+message shows up in `npm install` warnings — users on the bad version
+get nudged automatically.
 
----
-
-## Post-publish checklist
-
-- [ ] `npx spine-mcp --version` prints correct version from a fresh directory
-- [ ] `npx spine-mcp init --local` writes `~/.spine/config.json` and `~/.claude/settings.json`
-- [ ] `npx spine-mcp serve` starts without crashing
-- [ ] Stop hook fires and captures session on next Claude Code session end
-- [ ] UserPromptSubmit hook fires and injects memories (check Claude's context at session start)
-- [ ] Update `CHANGELOG.md` with what changed in this version
+**Never `npm unpublish` a version that's been live for more than a
+couple of hours.** It breaks every lockfile that's pinned to it and
+poisons the cache for downstream users.
 
 ---
 
 ## Version strategy
 
-- `patch` (1.0.x) — bug fixes, hook registration fixes, parse improvements
-- `minor` (1.x.0) — new MCP tools, new commands, new store features
-- `major` (x.0.0) — breaking config format changes, store schema migrations
+- `patch` (1.1.x) — bug fixes, parser tweaks, idempotency improvements,
+  hook registration fixes. Safe to publish without warning.
+- `minor` (1.x.0) — new MCP tools, new commands, new CLI flags, new
+  store features. Backward-compatible.
+- `major` (x.0.0) — breaking changes to config format, MCP tool names,
+  CLI command shape, or store schema. Coordinate with Roman first.
 
-Current version: `1.0.0`
+The currently-staged version (1.1.1) is a `patch` — sync-obsidian now
+drops the prior memory before re-ingesting an updated note (true
+update-in-place semantics) instead of leaving a duplicate. No public
+API change.
+
+---
+
+## Post-publish
+
+- [ ] `npm view spine-mcp version` matches expected
+- [ ] `npx spine-mcp@latest --version` prints from a fresh directory
+- [ ] `npx spine-mcp@latest init --local` writes config + starts server
+- [ ] Stop hook fires and captures session on next Claude Code session end
+- [ ] UserPromptSubmit hook fires and injects memories at session start
+- [ ] Update `CHANGELOG.md` with what changed in this version (one line
+      under `## <version>`)
+
+---
+
+## If something goes sideways
+
+- **`npm publish` errors with "version already exists"** — bump the
+  version (`npm version patch`) before retrying.
+- **`npm publish` errors with "you do not have permission"** — re-auth
+  (`npm logout && npm login`), confirm `npm whoami` matches the package
+  maintainer.
+- **`prepublishOnly` smoke fails** — read the failure, fix the source,
+  rebuild, retry. Do **not** skip with `--ignore-scripts` to ship a
+  release that didn't smoke-test.
+- **Tarball size jumped > 100 kB** — something landed in `dist/` that
+  shouldn't have. Compare `npm pack --dry-run` against the previous
+  version's file list.
+- **Stop hook regressed for users on the new version** — `npm
+  deprecate` the bad version with a pointer to the safe one, then ship
+  a patch within an hour.
