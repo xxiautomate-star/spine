@@ -45,6 +45,25 @@ export async function POST(req: NextRequest) {
   const lsVariantId = String(attrs.variant_id);
   const lsStatus = attrs.status; // active | cancelled | expired | paused | past_due
 
+  // Hard-fail if the webhook arrives without identifying metadata. The
+  // checkout route always passes org_id + user_id in custom_data, so a
+  // payload with neither means either a misconfigured guest checkout or a
+  // bad actor. Returning 400 makes LemonSqueezy retry (and surfaces the
+  // misconfig in our logs) instead of silently 200-ing while the user's
+  // plan stays on 'free'. Subscription_* events without metadata are not
+  // recoverable on our side — there's no way to know who paid.
+  if (!orgId && !userId) {
+    return NextResponse.json(
+      {
+        error:
+          'custom_data.org_id or custom_data.user_id required to map this webhook to a customer.',
+        event,
+        lsSubId,
+      },
+      { status: 400 },
+    );
+  }
+
   // Determine the plan from variant ID
   const plan = variantIdToPlan(lsVariantId) ?? 'free';
 
@@ -145,8 +164,13 @@ export async function POST(req: NextRequest) {
     }
 
     default:
-      // subscription_payment_success / subscription_payment_failed etc.
-      // Log and ignore for now.
+      // subscription_payment_success, subscription_payment_failed,
+      // order_created, order_refunded — all handled implicitly via
+      // subscription_* events when LS replays the resulting state
+      // change. Refunds in particular are managed entirely in the LS
+      // dashboard; we sync state from subscription_cancelled /
+      // subscription_expired downstream events, not from order_refunded.
+      // Logged-and-ignored is intentional.
       break;
   }
 

@@ -75,9 +75,9 @@ const LOG: Entry[] = [
   {
     round: 'Round 12',
     date: '2026-04-22',
-    title: 'Stripe Checkout + webhook',
+    title: 'Three-tier billing — checkout + webhook',
     body:
-      'Three-tier billing wired in test mode. Checkout session on success routes the webhook to promote the profile; failed webhook re-queues without double-promotion.',
+      'Three-tier billing wired in test mode. Checkout session on success routes the webhook to promote the profile; failed webhook re-queues without double-promotion. (Stripe scaffolded first, then swapped to LemonSqueezy as the live merchant-of-record path while KYC stood up — both code paths still ship.)',
     commits: ['1a8f6a5'],
   },
   {

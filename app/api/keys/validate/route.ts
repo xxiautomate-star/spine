@@ -117,7 +117,8 @@ export async function GET(req: NextRequest) {
   const status = (profile?.subscription_status ?? null) as string | null;
   const periodEnd = (profile?.subscription_current_period_end ?? null) as string | null;
 
-  // If the profile claims a paid plan but Stripe has marked the subscription
+  // If the profile claims a paid plan but the merchant-of-record (LemonSqueezy
+  // in prod, Stripe in the dormant scaffolding) has marked the subscription
   // as past_due / canceled / unpaid, return 402 so the MCP drops to free
   // without requiring a new webhook round-trip.
   if (plan !== 'free' && status && status !== 'active' && status !== 'trialing') {
