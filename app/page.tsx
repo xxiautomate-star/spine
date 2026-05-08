@@ -13,8 +13,8 @@ export const metadata = {
 const STEPS = [
   {
     n: '01',
-    title: 'One command. Browser opens. Click approve.',
-    body: 'Run the install. A browser tab opens. Sign in via magic link, click approve. Spine is wired into Claude Code, Claude Desktop, Cursor — any MCP client. Zero copy-paste. Zero config files. Thirty seconds, end-to-end.',
+    title: 'One command. One paste. Wired in.',
+    body: 'Run the install. Mint a key from your dashboard, paste it back, done — or pick local-only mode and skip the account entirely. Spine wires into Claude Code, Claude Desktop, Cursor — any MCP client — automatically. Thirty seconds, end-to-end.',
     code: 'npx spine-mcp init',
   },
   {
@@ -38,7 +38,7 @@ const FAQS = [
   },
   {
     q: 'Why is install really only 30 seconds?',
-    a: 'Because device flow. You run one command, a browser opens, you sign in (magic link, no password), click Approve. The CLI receives the key and writes config invisibly. No copy-paste, no dashboard hunt, no API key fumbling. Same UX as the Stripe CLI or GitHub CLI.',
+    a: 'Because there is one command and one paste. You run `npx spine-mcp init`, mint a key from your dashboard at spine.xxiautomate.com/dashboard/keys, paste it back into the prompt, and you are done. The CLI verifies the key, writes config, and registers the MCP server + hooks with Claude Code automatically. Restart Claude Code and capture starts working.',
   },
   {
     q: 'How does Spine know what is "signal" vs "noise"?',
@@ -68,7 +68,7 @@ const FAQS = [
 
 const COMPARISON = {
   rows: [
-    ['One-command install (no key paste)',     true,  false, false, false],
+    ['One-command install (npx)',              true,  false, false, false],
     ['Works across Claude / Cursor / ChatGPT', true,  false, true,  false],
     ['Quality scoring at write-time',          true,  false, false, false],
     ['Auto-promotion of frequently used',      true,  false, false, false],

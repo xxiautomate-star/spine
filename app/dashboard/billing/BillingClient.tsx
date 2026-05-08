@@ -133,7 +133,7 @@ export function BillingClient({
               disabled={portalBusy}
               className="font-mono text-[11px] uppercase tracking-widest text-cream/60 hover:text-amber transition-colors disabled:opacity-40"
             >
-              {portalBusy ? 'Opening…' : 'Manage subscription in Stripe →'}
+              {portalBusy ? 'Opening…' : 'Manage subscription in LemonSqueezy →'}
             </button>
           </div>
         )}
@@ -190,7 +190,7 @@ export function BillingClient({
                       disabled={portalBusy}
                       className="w-full rounded-lg border border-cream/20 py-3 font-sans font-medium text-sm text-cream hover:border-cream/40 transition-colors disabled:opacity-40"
                     >
-                      {portalBusy ? 'Opening…' : 'Cancel in Stripe'}
+                      {portalBusy ? 'Opening…' : 'Cancel in LemonSqueezy'}
                     </button>
                   ) : (
                     <span className="font-mono text-[11px] uppercase tracking-widest text-cream/40">
@@ -203,7 +203,7 @@ export function BillingClient({
                     disabled={portalBusy}
                     className="w-full rounded-lg border border-cream/20 py-3 font-sans font-medium text-sm text-cream hover:border-cream/40 transition-colors disabled:opacity-40"
                   >
-                    {portalBusy ? 'Opening…' : 'Downgrade in Stripe'}
+                    {portalBusy ? 'Opening…' : 'Downgrade in LemonSqueezy'}
                   </button>
                 ) : (
                   <button
@@ -222,7 +222,7 @@ export function BillingClient({
 
       <p className="text-cream/40 text-sm max-w-xl leading-relaxed">
         Nothing is ever deleted when you downgrade. Your memories stay; only the cap on new ones
-        changes. Cancel anytime from the Stripe portal.
+        changes. Cancel anytime from the LemonSqueezy portal.
       </p>
 
       <button

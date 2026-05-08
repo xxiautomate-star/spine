@@ -15,22 +15,24 @@ design: nothing is summarised, nothing is overwritten, nothing is forgotten.
 npx spine-mcp init
 ```
 
-Browser opens. You sign in (magic link, no password). Click approve. The
-CLI receives an API key, writes config, registers with Claude Code,
-restarts. Total: ~30 seconds.
-
-No API key paste. No copy-paste from a dashboard. Same experience as
-`stripe login` or `gh auth login`.
+You will be asked to choose: **local-only** (zero-account, memories live
+in `~/.spine/memories.db`) or **cloud sync** (paste an API key minted at
+[spine.xxiautomate.com/dashboard/keys](https://spine.xxiautomate.com/dashboard/keys)).
+The CLI verifies the key, writes config, and registers the MCP server +
+capture/inject hooks with Claude Code automatically. ~30 seconds end to end.
 
 ```bash
-# Power-user fast paths still work:
-npx spine-mcp init --key spine_live_…   # if you already have a key
+# Non-interactive fast paths:
+npx spine-mcp init --key spine_live_…   # paste the key inline
 npx spine-mcp init --local              # zero-account, all on-device
 ```
 
-After install: restart Claude Code, then capture starts working
-automatically. New sessions begin with the relevant context already in
-the prompt.
+After install: restart Claude Code. Capture starts working automatically;
+new sessions begin with the relevant context already in the prompt.
+
+> **Coming soon — device-flow install.** OAuth-style "browser opens, click
+> approve, no key paste" is the next CLI release. Today's install is one
+> command + one paste. Roadmap: spine.xxiautomate.com/changelog.
 
 ---
 

@@ -97,9 +97,9 @@ const FAQS = [
 
 // ── Checkout logic ────────────────────────────────────────────────────────
 
-// Dashboards (/dashboard/billing, /billing) and the pricing page all share
-// LemonSqueezy as the live checkout. Stripe routes exist as scaffolding but
-// are dormant until KYC is in place — see /api/stripe/* for the dead path.
+// LemonSqueezy is the PRIMARY checkout (one-click cards, simpler flow).
+// PayPal is secondary — for users who insist on it (no card / international).
+// Stripe routes exist as scaffolding but are dormant until KYC is in place.
 async function startCheckout(plan: 'pro' | 'team'): Promise<void> {
   const res = await fetch('/api/ls/checkout', {
     method: 'POST',
@@ -112,6 +112,20 @@ async function startCheckout(plan: 'pro' | 'team'): Promise<void> {
   }
   const { url } = (await res.json()) as { url?: string };
   if (url) window.location.href = url;
+}
+
+async function startPaypalCheckout(plan: 'pro' | 'team'): Promise<void> {
+  const res = await fetch('/api/paypal/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planId: plan }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({ error: 'PayPal checkout failed.' }))) as { error?: string };
+    throw new Error(err.error ?? 'PayPal checkout failed.');
+  }
+  const { approval_url } = (await res.json()) as { approval_url?: string };
+  if (approval_url) window.location.href = approval_url;
 }
 
 // ── FAQ item ─────────────────────────────────────────────────────────────
@@ -147,12 +161,16 @@ function TierCard({
   tier,
   userId,
   loading,
+  paypalLoading,
   onUpgrade,
+  onPaypalUpgrade,
 }: {
   tier: Tier;
   userId: string | null;
   loading: Plan | null;
+  paypalLoading: Plan | null;
   onUpgrade: (plan: 'pro' | 'team') => void;
+  onPaypalUpgrade: (plan: 'pro' | 'team') => void;
 }) {
   function handleCta() {
     if (tier.plan === 'free') return; // handled by Link
@@ -166,7 +184,17 @@ function TierCard({
     onUpgrade(tier.plan as 'pro' | 'team');
   }
 
+  function handlePaypal() {
+    if (tier.plan === 'free') return;
+    if (!userId) {
+      window.location.href = `/login?signup=1&plan=${tier.plan}&via=paypal&next=${encodeURIComponent(`/pricing?upgrade=${tier.plan}&via=paypal`)}`;
+      return;
+    }
+    onPaypalUpgrade(tier.plan as 'pro' | 'team');
+  }
+
   const isLoading = loading === tier.plan;
+  const isPaypalLoading = paypalLoading === tier.plan;
 
   return (
     <div
@@ -243,19 +271,57 @@ function TierCard({
             {tier.cta} →
           </Link>
         ) : (
-          <button
-            onClick={handleCta}
-            disabled={isLoading}
-            className="inline-block w-full py-3 text-center font-mono text-[11px] uppercase tracking-widest transition-all duration-300 disabled:opacity-50 rounded-md"
-            style={{
-              background: tier.featured ? 'var(--s-ink)' : 'transparent',
-              color: tier.featured ? 'var(--s-bg-cool)' : 'var(--s-ink-soft)',
-              border: tier.featured ? '1px solid var(--s-ink)' : '1px solid var(--s-vein-strong)',
-              boxShadow: tier.featured ? 'var(--s-shadow-1)' : 'none',
-            }}
-          >
-            {isLoading ? 'Opening checkout…' : `${tier.cta} →`}
-          </button>
+          <>
+            <button
+              onClick={handleCta}
+              disabled={isLoading || isPaypalLoading}
+              className="inline-block w-full py-3 text-center font-mono text-[11px] uppercase tracking-widest transition-all duration-300 disabled:opacity-50 rounded-md"
+              style={{
+                background: tier.featured ? 'var(--s-ink)' : 'transparent',
+                color: tier.featured ? 'var(--s-bg-cool)' : 'var(--s-ink-soft)',
+                border: tier.featured ? '1px solid var(--s-ink)' : '1px solid var(--s-vein-strong)',
+                boxShadow: tier.featured ? 'var(--s-shadow-1)' : 'none',
+              }}
+            >
+              {isLoading ? 'Opening checkout…' : `${tier.cta} →`}
+            </button>
+
+            {/* Secondary: PayPal — custom-styled to match marble + gold,
+                no PayPal-branded chrome. Quiet by design. */}
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <span
+                className="h-px flex-1"
+                style={{ background: 'var(--s-vein)' }}
+                aria-hidden
+              />
+              <span
+                className="font-mono text-[9px] uppercase tracking-[0.22em]"
+                style={{ color: 'var(--s-ink-faint)' }}
+              >
+                Or
+              </span>
+              <span
+                className="h-px flex-1"
+                style={{ background: 'var(--s-vein)' }}
+                aria-hidden
+              />
+            </div>
+
+            <button
+              onClick={handlePaypal}
+              disabled={isLoading || isPaypalLoading}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 py-2.5 text-center font-mono text-[10px] uppercase tracking-[0.22em] transition-all duration-300 disabled:opacity-40"
+              style={{
+                background: 'transparent',
+                color: 'var(--s-gold-deep)',
+                border: 'none',
+                borderBottom: '1px solid var(--s-vein-strong)',
+                borderRadius: 0,
+              }}
+            >
+              {isPaypalLoading ? 'Opening PayPal…' : 'Continue with PayPal →'}
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -272,6 +338,7 @@ export function PricingClient({
   userEmail: string | null;
 }) {
   const [loading, setLoading] = useState<Plan | null>(null);
+  const [paypalLoading, setPaypalLoading] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleUpgrade(plan: 'pro' | 'team') {
@@ -282,6 +349,17 @@ export function PricingClient({
     } catch (e) {
       setError((e as Error).message);
       setLoading(null);
+    }
+  }
+
+  async function handlePaypalUpgrade(plan: 'pro' | 'team') {
+    setError(null);
+    setPaypalLoading(plan);
+    try {
+      await startPaypalCheckout(plan);
+    } catch (e) {
+      setError((e as Error).message);
+      setPaypalLoading(null);
     }
   }
 
@@ -325,7 +403,9 @@ export function PricingClient({
               tier={t}
               userId={userId}
               loading={loading}
+              paypalLoading={paypalLoading}
               onUpgrade={handleUpgrade}
+              onPaypalUpgrade={handlePaypalUpgrade}
             />
           ))}
         </div>
