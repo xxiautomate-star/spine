@@ -116,7 +116,7 @@ export default function Home() {
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
       <section
         id="top"
-        className="relative min-h-[100svh] pt-28 lg:pt-36 pb-20 lg:pb-28 overflow-hidden"
+        className="relative min-h-[100svh] pt-20 lg:pt-24 pb-20 lg:pb-28 overflow-hidden"
         style={{ zIndex: 1 }}
       >
         {/* Editorial frame — corner annotations */}
@@ -131,7 +131,7 @@ export default function Home() {
         </div>
 
         {/* Hero grid — asymmetric 7/5 split */}
-        <div className="relative mt-12 md:mt-16 px-6 md:px-10 lg:px-16 grid lg:grid-cols-12 gap-x-8 gap-y-16 lg:gap-y-0 items-end lg:items-center">
+        <div className="relative mt-6 md:mt-8 px-6 md:px-10 lg:px-16 grid lg:grid-cols-12 gap-x-8 gap-y-16 lg:gap-y-0 items-end lg:items-center">
           {/* Vertical hairline anchor */}
           <div
             className="hidden lg:block absolute left-16 top-0 bottom-0 w-px"
@@ -169,13 +169,10 @@ export default function Home() {
               </span>
             </h1>
 
-            {/* Body — drop cap + restrained measure */}
+            {/* Body — restrained measure */}
             <div className="mt-10 md:mt-12 max-w-[540px] rise rise-3">
               <p className="text-[17px] leading-[1.65]" style={{ color: 'var(--s-ink-soft)' }}>
-                <span className="float-left mr-3 -mt-1 font-serif italic text-[3.5rem] leading-none" style={{ color: 'var(--s-gold-deep)' }}>
-                  S
-                </span>
-                pine is a quiet memory layer beneath your assistant. It captures what matters across every conversation and returns it when it counts — so your AI stops being a stranger.
+                Spine is a quiet memory layer beneath your assistant. It captures what matters across every conversation and returns it when it counts — so your AI stops being a stranger.
               </p>
             </div>
 
