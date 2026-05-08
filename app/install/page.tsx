@@ -350,9 +350,12 @@ export default function InstallPage() {
         <div className="w-full max-w-lg">
           {/* Title */}
           <div className="mb-10 rise rise-1">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-amber/55 mb-3">Setup</p>
-            <h1 className="font-serif text-4xl md:text-5xl text-cream leading-tight mb-3">
-              Running in 3 minutes.
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-amber/55 mb-3">
+              <span className="mr-3 text-amber">§ 001</span>
+              Setup
+            </p>
+            <h1 className="font-serif text-4xl md:text-5xl text-cream leading-tight tracking-[-0.025em] mb-3">
+              Running in <em className="italic text-amber">3 minutes.</em>
             </h1>
             <p className="text-cream/40 text-sm leading-relaxed">
               One install. Every AI conversation starts building your archive.
@@ -392,10 +395,16 @@ export default function InstallPage() {
           {/* Step content */}
           <div className="rise rise-2">
             <div className="mb-6">
-              <h2 className="font-serif text-2xl text-cream mb-1">
-                {step === 1 && 'Install the capture layer.'}
-                {step === 2 && 'Connect your account.'}
-                {step === 3 && 'Your first memories.'}
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-amber/55 mb-3">
+                <span className="mr-3 text-amber">§ 00{step + 1}</span>
+                {step === 1 && 'Install'}
+                {step === 2 && 'Connect'}
+                {step === 3 && 'First memories'}
+              </p>
+              <h2 className="font-serif text-2xl text-cream tracking-[-0.02em] mb-1">
+                {step === 1 && <>Install the <em className="italic text-amber">capture layer.</em></>}
+                {step === 2 && <>Connect your <em className="italic text-amber">account.</em></>}
+                {step === 3 && <>Your <em className="italic text-amber">first memories.</em></>}
               </h2>
             </div>
 

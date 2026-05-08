@@ -7,7 +7,11 @@
  * frontmatter), then captures each note as one Spine memory.
  *
  * Idempotent: re-runs skip files whose source-tag already exists with a
- * created_at >= the file's mtime. `--force` overrides.
+ * created_at >= the file's mtime. When the file has been edited since the
+ * last sync (mtime > prior.createdAt), the prior memory is forgotten before
+ * the new copy is captured — so one note maps to exactly one memory in the
+ * archive, no matter how many times you sync. `--force` re-ingests every
+ * note unconditionally, dropping the prior copy.
  *
  * Spec: docs/OBSIDIAN.md.
  */
@@ -162,14 +166,15 @@ function vaultSourceTag(vaultRoot: string, filepath: string): string {
   return 'obsidian-sync:' + hash;
 }
 
-async function alreadySyncedFresh(store: Store, sourceTag: string, fileMtimeIso: string): Promise<boolean> {
+type PriorMemory = { id: string; createdAt: string };
+
+async function findPriorMemory(store: Store, sourceTag: string): Promise<PriorMemory | null> {
   try {
     const recent = await store.timeline({ limit: 5000 });
     const hit = recent.find((m) => m.source === sourceTag);
-    if (!hit) return false;
-    return hit.createdAt >= fileMtimeIso;
+    return hit ? { id: hit.id, createdAt: hit.createdAt } : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -283,7 +288,7 @@ export async function syncObsidianCommand(rawArgs: string[]): Promise<void> {
     }
   }
 
-  let ingested = 0, skipped = 0, failed = 0;
+  let ingested = 0, updated = 0, skipped = 0, failed = 0;
 
   for (const filepath of files) {
     const rel = relative(vaultRoot, filepath);
@@ -299,7 +304,8 @@ export async function syncObsidianCommand(rawArgs: string[]): Promise<void> {
       continue;
     }
 
-    if (!opts.force && store && (await alreadySyncedFresh(store, sourceTag, mtimeIso))) {
+    const prior = store ? await findPriorMemory(store, sourceTag) : null;
+    if (prior && !opts.force && prior.createdAt >= mtimeIso) {
       info('skip  ' + rel + ' (already synced)');
       skipped++;
       continue;
@@ -322,15 +328,32 @@ export async function syncObsidianCommand(rawArgs: string[]): Promise<void> {
     }
 
     if (opts.dryRun) {
-      info('would sync  ' + rel + '  [' + input.type + ']  ' + input.content.length + ' chars · ' + (input.tags?.length ?? 0) + ' tags');
+      const verb = prior ? 'would update' : 'would sync  ';
+      info(verb + '  ' + rel + '  [' + input.type + ']  ' + input.content.length + ' chars · ' + (input.tags?.length ?? 0) + ' tags');
       ingested++;
       continue;
     }
 
+    // True update semantics: drop the prior copy before capturing the new
+    // one so each note maps to exactly one memory after re-syncs.
+    if (prior && store) {
+      try {
+        await store.forget(prior.id);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        info('warn  ' + rel + ' (could not drop prior ' + prior.id.slice(0, 8) + ': ' + msg.slice(0, 80) + ')');
+      }
+    }
+
     try {
       await store!.capture(input);
-      ok('sync  ' + rel);
-      ingested++;
+      if (prior) {
+        ok('update  ' + rel);
+        updated++;
+      } else {
+        ok('sync  ' + rel);
+        ingested++;
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       info('fail  ' + rel + ': ' + msg.slice(0, 120));
@@ -342,6 +365,7 @@ export async function syncObsidianCommand(rawArgs: string[]): Promise<void> {
 
   head('Summary');
   info('Ingested: ' + ingested);
+  if (updated > 0) info('Updated:  ' + updated);
   info('Skipped:  ' + skipped);
   if (failed > 0) info('Failed:   ' + failed);
   info('');

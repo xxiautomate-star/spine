@@ -274,11 +274,12 @@ export default function DemoPage() {
 
       {/* Header */}
       <header className="relative px-6 md:px-16 pt-16 pb-10 max-w-5xl mx-auto">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-5">
-          § 001 · Archive · demo account
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-amber/70 mb-5">
+          <span className="mr-3 text-amber">§ 001</span>
+          Archive · demo account
         </p>
-        <h1 className="font-serif font-normal text-4xl md:text-5xl text-cream leading-tight mb-4">
-          Every word, every session.
+        <h1 className="font-serif font-normal text-4xl md:text-5xl text-cream leading-tight tracking-[-0.025em] mb-4">
+          Every word, <em className="italic text-amber">every session.</em>
         </h1>
         <p className="text-cream/50 leading-relaxed max-w-2xl mb-8">
           This is a real archive: 25 memories captured across 5 sessions on Claude, ChatGPT, and Gemini.
@@ -401,11 +402,12 @@ export default function DemoPage() {
 
         {/* CTA */}
         <div className="mt-16 border border-cream/10 rounded-xl p-8 bg-cream/[0.02]">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-amber mb-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-amber/70 mb-3">
+            <span className="mr-3 text-amber">§ 002</span>
             Your archive, not a demo
           </p>
-          <h2 className="font-serif font-normal text-2xl text-cream mb-3">
-            Start your own archive in 30 seconds.
+          <h2 className="font-serif font-normal text-2xl text-cream tracking-[-0.02em] mb-3">
+            Start your own archive in <em className="italic text-amber">30 seconds.</em>
           </h2>
           <p className="text-cream/60 text-sm leading-relaxed mb-6 max-w-xl">
             Every AI session you have adds to your corpus. By next week, your AI knows your stack,

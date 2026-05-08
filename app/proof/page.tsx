@@ -63,8 +63,24 @@ async function loadLatest(): Promise<BenchmarkRun> {
 }
 
 export default async function ProofPage() {
-  const latest = await loadLatest();
-  const isCalibration = latest.id === 'calibration';
+  const latestRow = await loadLatest();
+  const noRowsYet = latestRow.id === 'calibration';
+  // Cron is wired but production corpus may be unseeded — when a real run
+  // produces zeros across the board it's not signal, it's an empty corpus.
+  // Render calibration metrics so the headline doesn't show 0%, but keep
+  // the real run's timestamp so the disclaimer is honest about what we ran.
+  const noSignal =
+    !noRowsYet &&
+    latestRow.precisionAt5 === 0 &&
+    (latestRow.recallAt10 === 0 || latestRow.recallAt10 === null);
+  const display: BenchmarkRun = noSignal
+    ? { ...CALIBRATION_RUN, ranAt: latestRow.ranAt }
+    : latestRow;
+  const headerLine = noRowsYet
+    ? 'Calibration baseline — first cron run pending'
+    : noSignal
+      ? `Last run: ${new Date(display.ranAt).toLocaleString()} · production corpus unseeded · showing calibration figures`
+      : `Last run: ${new Date(display.ranAt).toLocaleString()}`;
 
   // Build the comparison table — Spine row is filled in from the live
   // benchmark, the rest are static cited claims.
@@ -72,8 +88,8 @@ export default async function ProofPage() {
     r.vendor === 'Spine'
       ? {
           ...r,
-          precisionAt5: latest.precisionAt5,
-          falsePositiveRate: latest.falsePositiveRate,
+          precisionAt5: display.precisionAt5,
+          falsePositiveRate: display.falsePositiveRate,
         }
       : r
   );
@@ -115,50 +131,50 @@ export default async function ProofPage() {
           Latest run
         </p>
         <div className="mb-2 font-mono text-[11px]" style={{ color: 'var(--s-ink-faint)' }}>
-          {isCalibration ? 'Calibration baseline (cron not yet wired)' : `Run at ${new Date(latest.ranAt).toLocaleString()}`} · {latest.harnessName} · {latest.corpusSize}-memory corpus, {latest.queryCount} queries
+          {headerLine} · {display.harnessName} · {display.corpusSize}-memory corpus, {display.queryCount} queries
         </div>
         <div className="grid md:grid-cols-4 gap-4 mt-8">
           <BigStat
             label="Precision @ 5"
-            value={fmtPercent(latest.precisionAt5, 1)}
+            value={fmtPercent(display.precisionAt5, 1)}
             hint="Top-5 recall hit rate"
             accent
           />
           <BigStat
             label="Recall @ 10"
-            value={fmtPercent(latest.recallAt10, 1)}
+            value={fmtPercent(display.recallAt10, 1)}
             hint="Coverage in the top 10"
           />
           <BigStat
             label="False-positive rate"
-            value={fmtPercent(latest.falsePositiveRate, 1)}
+            value={fmtPercent(display.falsePositiveRate, 1)}
             hint="Off-topic queries surfacing signal"
           />
           <BigStat
             label="Median latency"
-            value={fmtMs(latest.medianLatencyMs)}
-            hint={`p95 ${fmtMs(latest.p95LatencyMs)}`}
+            value={fmtMs(display.medianLatencyMs)}
+            hint={`p95 ${fmtMs(display.p95LatencyMs)}`}
           />
         </div>
-        {(latest.totalMemoriesCount || latest.totalUsersCount) && (
+        {(display.totalMemoriesCount || display.totalUsersCount) && (
           <div className="mt-12 flex flex-wrap gap-x-12 gap-y-4 font-mono text-[12px]" style={{ color: 'var(--s-ink-faint)' }}>
-            {latest.totalMemoriesCount !== null && (
+            {display.totalMemoriesCount !== null && (
               <div>
                 <span className="uppercase tracking-widest text-[10px] mr-2" style={{ color: 'var(--s-ink-ghost)' }}>
                   Memories captured
                 </span>
                 <span className="font-serif text-2xl" style={{ color: 'var(--s-ink)' }}>
-                  {fmtCount(latest.totalMemoriesCount)}
+                  {fmtCount(display.totalMemoriesCount)}
                 </span>
               </div>
             )}
-            {latest.totalUsersCount !== null && (
+            {display.totalUsersCount !== null && (
               <div>
                 <span className="uppercase tracking-widest text-[10px] mr-2" style={{ color: 'var(--s-ink-ghost)' }}>
                   Users
                 </span>
                 <span className="font-serif text-2xl" style={{ color: 'var(--s-ink)' }}>
-                  {fmtCount(latest.totalUsersCount)}
+                  {fmtCount(display.totalUsersCount)}
                 </span>
               </div>
             )}
@@ -306,7 +322,7 @@ export default async function ProofPage() {
           <div>
             <h3 className="font-serif text-xl mb-2" style={{ color: 'var(--s-ink)' }}>Corpus</h3>
             <p>
-              {latest.corpusSize} first-person memories across 5 distinct themes
+              {display.corpusSize} first-person memories across 5 distinct themes
               (tech / travel / cooking / fitness / books, 40 each). Each memory
               carries a theme tag so we know the ground-truth label at query
               time. Source:{' '}
@@ -320,7 +336,7 @@ export default async function ProofPage() {
           <div>
             <h3 className="font-serif text-xl mb-2" style={{ color: 'var(--s-ink)' }}>Queries</h3>
             <p>
-              {latest.queryCount} queries — 6 per theme — phrased like real
+              {display.queryCount} queries — 6 per theme — phrased like real
               questions a user would ask their AI. We measure precision @ 5 (of
               the top 5 hits, how many carry the matching theme tag) and
               recall @ 10 (of the 40 ground-truth memories, how many appear in
@@ -333,7 +349,7 @@ export default async function ProofPage() {
             <p>
               Wall-clock round-trip time of the{' '}
               <code className="font-mono text-[12px]" style={{ color: 'var(--s-gold-deep)' }}>/api/recall</code>{' '}
-              POST. Median over the {latest.queryCount}-query run; p95 surfaced
+              POST. Median over the {display.queryCount}-query run; p95 surfaced
               for tail-aware reading. Run from the same region as our Postgres
               (Sydney) — production users elsewhere see network RTT on top.
             </p>
